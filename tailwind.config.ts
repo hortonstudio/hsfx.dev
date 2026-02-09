@@ -23,8 +23,9 @@ const config: Config = {
           dim: "#555555",
         },
         accent: {
-          DEFAULT: "#4A9EFF",
-          hover: "#6BB3FF",
+          DEFAULT: "#0EA5E9",
+          hover: "#38BDF8",
+          light: "#7DD3FC",
         },
       },
       fontFamily: {
@@ -40,9 +41,9 @@ const config: Config = {
         "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
       boxShadow: {
-        "glow-sm": "0 0 10px rgba(74, 158, 255, 0.2)",
-        "glow": "0 0 20px rgba(74, 158, 255, 0.25), 0 0 40px rgba(74, 158, 255, 0.1)",
-        "glow-lg": "0 0 30px rgba(74, 158, 255, 0.3), 0 0 60px rgba(74, 158, 255, 0.15)",
+        "glow-sm": "0 0 10px rgba(14, 165, 233, 0.3)",
+        "glow": "0 0 20px rgba(14, 165, 233, 0.35), 0 0 40px rgba(14, 165, 233, 0.15)",
+        "glow-lg": "0 0 30px rgba(14, 165, 233, 0.4), 0 0 60px rgba(14, 165, 233, 0.2)",
       },
     },
   },
