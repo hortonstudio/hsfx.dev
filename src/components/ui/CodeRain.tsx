@@ -22,9 +22,9 @@ function generateColumns(count: number): CodeColumn[] {
       { length: Math.floor(Math.random() * 12) + 6 },
       () => codeChars[Math.floor(Math.random() * codeChars.length)]
     ),
-    speed: Math.random() * 12 + 18,
-    delay: Math.random() * 15,
-    opacity: Math.random() * 0.025 + 0.008,
+    speed: Math.random() * 10 + 15,
+    delay: Math.random() * 8,
+    opacity: Math.random() * 0.06 + 0.03,
   }));
 }
 
