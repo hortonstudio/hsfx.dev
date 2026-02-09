@@ -12,19 +12,19 @@ interface CodeColumn {
   opacity: number;
 }
 
-const codeChars = ['<>', '{}', '=>', '::', '[]', '//'];
+const codeChars = ['0', '1', '<', '>', '{', '}', '/', '=', ':', ';', '[', ']', '(', ')'];
 
 function generateColumns(count: number): CodeColumn[] {
   return Array.from({ length: count }, (_, i) => ({
     id: i,
-    x: (i / count) * 100 + Math.random() * 5,
+    x: (i / count) * 100 + (Math.random() - 0.5) * 3,
     chars: Array.from(
-      { length: Math.floor(Math.random() * 4) + 2 },
+      { length: Math.floor(Math.random() * 12) + 6 },
       () => codeChars[Math.floor(Math.random() * codeChars.length)]
     ),
-    speed: Math.random() * 15 + 20,
-    delay: Math.random() * 10,
-    opacity: Math.random() * 0.02 + 0.01,
+    speed: Math.random() * 12 + 18,
+    delay: Math.random() * 15,
+    opacity: Math.random() * 0.025 + 0.008,
   }));
 }
 
@@ -33,7 +33,7 @@ export function CodeRain() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setColumns(generateColumns(10));
+    setColumns(generateColumns(25));
     setMounted(true);
   }, []);
 
@@ -47,13 +47,13 @@ export function CodeRain() {
       {columns.map((column) => (
         <motion.div
           key={column.id}
-          className="absolute flex flex-col items-center gap-4 font-mono text-[9px] tracking-wider text-accent"
+          className="absolute flex flex-col items-center gap-2 font-mono text-[10px] text-accent"
           style={{
             left: `${column.x}%`,
             opacity: column.opacity,
           }}
-          initial={{ y: '-50px' }}
-          animate={{ y: '110vh' }}
+          initial={{ y: '-15%' }}
+          animate={{ y: '115vh' }}
           transition={{
             duration: column.speed,
             repeat: Infinity,
@@ -62,7 +62,7 @@ export function CodeRain() {
           }}
         >
           {column.chars.map((char, i) => (
-            <span key={i} className="block whitespace-nowrap">
+            <span key={i} className="block">
               {char}
             </span>
           ))}
