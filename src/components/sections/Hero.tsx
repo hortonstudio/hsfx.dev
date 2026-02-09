@@ -1,7 +1,9 @@
 'use client';
 
 import { useRef } from 'react';
+import Link from 'next/link';
 import { useFadeUp } from '@/lib/animations';
+import { Button } from '@/components/ui/Button';
 
 export function Hero() {
   const badgeRef = useRef<HTMLDivElement>(null);
@@ -47,10 +49,32 @@ export function Hero() {
           CMS automation, and a complete developer toolkit.
         </p>
 
+        {/* Style Guide Link */}
+        <div ref={statusRef} className="mt-12">
+          <Link href="/styleguide">
+            <Button variant="ghost">
+              View Style Guide
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="ml-2"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </Button>
+          </Link>
+        </div>
+
         {/* Development Status */}
         <div
-          ref={statusRef}
-          className="mt-16 inline-flex flex-col sm:flex-row items-center gap-6 sm:gap-8 text-sm text-text-dim"
+          className="mt-12 inline-flex flex-col sm:flex-row items-center gap-6 sm:gap-8 text-sm text-text-dim"
         >
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
