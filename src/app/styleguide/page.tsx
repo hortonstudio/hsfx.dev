@@ -278,19 +278,33 @@ function StyleguideContent() {
         <ComponentSection
           id="buttons"
           title="Buttons"
-          description="Interactive button components with multiple variants."
+          description="Interactive button components with glow effects and multiple variants."
         >
-          <ComponentShowcase title="Button Variants">
+          <ComponentShowcase title="Button Variants" description="Hover to see glow effects">
             <div className="flex flex-wrap gap-4">
               <Button variant="primary">Primary</Button>
+              <Button variant="outline">Outline</Button>
               <Button variant="ghost">Ghost</Button>
-              <Button variant="primary" disabled>
-                Disabled
-              </Button>
             </div>
           </ComponentShowcase>
 
-          <ComponentShowcase title="Button with Icons">
+          <ComponentShowcase title="Button Sizes">
+            <div className="flex flex-wrap items-center gap-4">
+              <Button variant="primary" size="sm">Small</Button>
+              <Button variant="primary" size="md">Medium</Button>
+              <Button variant="primary" size="lg">Large</Button>
+            </div>
+          </ComponentShowcase>
+
+          <ComponentShowcase title="Outline Sizes">
+            <div className="flex flex-wrap items-center gap-4">
+              <Button variant="outline" size="sm">Small</Button>
+              <Button variant="outline" size="md">Medium</Button>
+              <Button variant="outline" size="lg">Large</Button>
+            </div>
+          </ComponentShowcase>
+
+          <ComponentShowcase title="With Icons">
             <div className="flex flex-wrap gap-4">
               <Button variant="primary">
                 <svg
@@ -300,15 +314,13 @@ function StyleguideContent() {
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
-                  className="mr-2"
                 >
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
                 Add Item
               </Button>
-              <Button variant="ghost">
-                Settings
+              <Button variant="outline">
                 <svg
                   width="16"
                   height="16"
@@ -316,11 +328,34 @@ function StyleguideContent() {
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
-                  className="ml-2"
                 >
-                  <polyline points="9 18 15 12 9 6" />
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                Edit
+              </Button>
+              <Button variant="ghost">
+                Learn more
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
                 </svg>
               </Button>
+            </div>
+          </ComponentShowcase>
+
+          <ComponentShowcase title="Disabled States">
+            <div className="flex flex-wrap gap-4">
+              <Button variant="primary" disabled>Primary</Button>
+              <Button variant="outline" disabled>Outline</Button>
+              <Button variant="ghost" disabled>Ghost</Button>
             </div>
           </ComponentShowcase>
         </ComponentSection>

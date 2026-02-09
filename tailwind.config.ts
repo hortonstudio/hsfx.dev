@@ -39,6 +39,11 @@ const config: Config = {
       animation: {
         "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
+      boxShadow: {
+        "glow-sm": "0 0 10px rgba(74, 158, 255, 0.2)",
+        "glow": "0 0 20px rgba(74, 158, 255, 0.25), 0 0 40px rgba(74, 158, 255, 0.1)",
+        "glow-lg": "0 0 30px rgba(74, 158, 255, 0.3), 0 0 60px rgba(74, 158, 255, 0.15)",
+      },
     },
   },
   plugins: [],
