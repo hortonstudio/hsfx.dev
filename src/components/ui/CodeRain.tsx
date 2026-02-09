@@ -14,10 +14,10 @@ interface CodeColumn {
 
 const codeChars = ['0', '1', '<', '>', '{', '}', '/', '=', ':', ';', '[', ']', '(', ')'];
 
-function generateColumns(count: number): CodeColumn[] {
-  return Array.from({ length: count }, (_, i) => ({
-    id: i,
-    x: (i / count) * 100 + (Math.random() - 0.5) * 3,
+function generateColumn(id: number): CodeColumn {
+  return {
+    id,
+    x: Math.random() * 100,
     chars: Array.from(
       { length: Math.floor(Math.random() * 12) + 6 },
       () => codeChars[Math.floor(Math.random() * codeChars.length)]
@@ -25,7 +25,11 @@ function generateColumns(count: number): CodeColumn[] {
     speed: Math.random() * 10 + 15,
     delay: Math.random() * 8,
     opacity: Math.random() * 0.06 + 0.03,
-  }));
+  };
+}
+
+function generateColumns(count: number): CodeColumn[] {
+  return Array.from({ length: count }, (_, i) => generateColumn(i));
 }
 
 export function CodeRain() {
@@ -33,8 +37,21 @@ export function CodeRain() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setColumns(generateColumns(25));
+    setColumns(generateColumns(30));
     setMounted(true);
+
+    // Continuously respawn columns at random positions
+    const interval = setInterval(() => {
+      setColumns((prev) => {
+        const newColumns = [...prev];
+        // Randomly pick a column to respawn at a new random X position
+        const idx = Math.floor(Math.random() * newColumns.length);
+        newColumns[idx] = generateColumn(newColumns[idx].id + 100);
+        return newColumns;
+      });
+    }, 2000);
+
+    return () => clearInterval(interval);
   }, []);
 
   if (!mounted) return null;
