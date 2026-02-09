@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Instrument_Serif } from "next/font/google";
 import { LenisProvider } from "@/lib/lenis-provider";
+import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -63,13 +64,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased bg-background text-text-primary`}
       >
-        <LenisProvider>
-          <div className="dot-grid min-h-screen">{children}</div>
-        </LenisProvider>
+        <ThemeProvider>
+          <LenisProvider>
+            <div className="dot-grid min-h-screen">{children}</div>
+          </LenisProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
