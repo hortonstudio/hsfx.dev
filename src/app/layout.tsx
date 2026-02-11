@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Instrument_Serif } from "next/font/google";
+import { Suspense } from "react";
 import { LenisProvider } from "@/lib/lenis-provider";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
+import { AuthProvider } from "@/contexts/AuthContext";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -69,9 +71,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased bg-background text-text-primary`}
       >
         <ThemeProvider>
-          <LenisProvider>
-            <div className="dot-grid min-h-screen">{children}</div>
-          </LenisProvider>
+          <Suspense fallback={null}>
+            <AuthProvider>
+              <LenisProvider>
+                <div className="dot-grid min-h-screen">{children}</div>
+              </LenisProvider>
+            </AuthProvider>
+          </Suspense>
         </ThemeProvider>
       </body>
     </html>

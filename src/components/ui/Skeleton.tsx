@@ -28,7 +28,7 @@ export function Skeleton({
   return (
     <div
       className={`
-        bg-surface animate-pulse
+        skeleton-shimmer
         ${variantStyles[variant]}
         ${className}
       `}

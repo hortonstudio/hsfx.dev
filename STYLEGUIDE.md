@@ -371,6 +371,153 @@ md:hidden        /* Hide on desktop */
 
 ---
 
+## 9. Code Editor
+
+Monaco-based VS Code-style editor for editing CSS, SVG, and other code.
+
+### Usage
+```tsx
+import { CodeEditor } from "@/components/ui";
+
+<CodeEditor
+  value={cssCode}
+  onChange={(value) => setCssCode(value)}
+  language="css"
+  height={300}
+  filename="styles.css"
+  onSave={(value) => saveToSupabase(value)}
+/>
+```
+
+### Props
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `value` | `string` | required | Code content |
+| `onChange` | `(value: string) => void` | - | Change handler |
+| `language` | `"css" \| "svg" \| "html" \| "javascript" \| "typescript" \| "json"` | `"css"` | Syntax highlighting |
+| `readOnly` | `boolean` | `false` | Disable editing |
+| `height` | `string \| number` | `300` | Editor height |
+| `minimap` | `boolean` | `false` | Show minimap |
+| `lineNumbers` | `boolean` | `true` | Show line numbers |
+| `filename` | `string` | - | Display filename in header |
+| `onSave` | `(value: string) => void` | - | Ctrl+S callback |
+
+### Features
+- Auto-syncs with site dark/light theme
+- Copy button, fullscreen toggle, save button
+- Ctrl+S keyboard shortcut for saving
+- Custom syntax themes matching site colors
+
+---
+
+## 10. Webflow-style Navigator
+
+Tree navigator for component hierarchies with element/component/slot types.
+
+### Usage
+```tsx
+import { WebflowNavigator, type TreeNode } from "@/components/ui";
+
+const nodes: TreeNode[] = [
+  {
+    id: "body",
+    label: "Body",
+    type: "element",
+    children: [
+      { id: "header", label: "Header", type: "component" },
+      { id: "content", label: "Content Slot", type: "slot" },
+    ],
+  },
+];
+
+<WebflowNavigator
+  nodes={nodes}
+  onSelect={(id, node) => console.log("Selected:", id, node)}
+/>
+```
+
+### Node Types
+| Type | Icon | Color | Description |
+|------|------|-------|-------------|
+| `element` | □ | white | Basic HTML elements |
+| `component` | ⬡ | green-400 | Reusable components |
+| `slot` | ⬚ (dashed) | green-400 | Component slots |
+
+### Props
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `nodes` | `TreeNode[]` | required | Tree structure |
+| `selectedId` | `string` | - | Initially selected node |
+| `onSelect` | `(id: string, node: TreeNode) => void` | - | Selection handler |
+| `title` | `string` | `"Navigator"` | Panel title |
+| `onClose` | `() => void` | - | Show close button |
+| `onPin` | `() => void` | - | Show pin button |
+
+### Features
+- Click to select nodes (selection state managed internally)
+- Expand/collapse children with chevron icons
+- Tree lines showing hierarchy
+- Green accent for components and slots
+
+---
+
+## 11. Webflow-style Properties Panel
+
+Property editor with multiple field types for visual editing interfaces.
+
+### Usage
+```tsx
+import { WebflowProperties, type PropertySection } from "@/components/ui";
+
+const sections: PropertySection[] = [
+  {
+    id: "settings",
+    label: "Settings",
+    defaultExpanded: true,
+    fields: [
+      { id: "text", label: "Button Text", type: "text", value: "Click me" },
+      {
+        id: "link",
+        label: "Button Link",
+        type: "link",
+        value: { type: "url", url: "#", openIn: "this", preload: "default" },
+      },
+      {
+        id: "animated",
+        label: "Enable Animation",
+        type: "toggle",
+        value: true,
+        helpText: "Shows tooltip on hover",
+      },
+    ],
+  },
+];
+
+<WebflowProperties
+  sections={sections}
+  onChange={(fieldId, value) => console.log("Changed:", fieldId, value)}
+/>
+```
+
+### Field Types
+| Type | Description | Value Type |
+|------|-------------|------------|
+| `text` | Text input | `string` |
+| `link` | Link config (type, URL, openIn, preload) | `LinkValue` |
+| `select` | Dropdown select | `string` |
+| `toggle` | Boolean true/false buttons | `boolean` |
+| `segmented` | Two-option toggle (Visible/Hidden) | `string` |
+| `slot` | Slot reference (shows Empty or content) | `string \| null` |
+| `style` | Style selector dropdown | `string` |
+
+### Features
+- Collapsible sections (click header to toggle)
+- Interactive state managed internally
+- Tooltips on fields with `helpText`
+- Link type selector with 6 icon options (url, page, section, email, phone, custom)
+
+---
+
 ## Design Principles
 
 1. **Less is more** - When in doubt, remove it
@@ -382,22 +529,454 @@ md:hidden        /* Hide on desktop */
 
 ---
 
+## 12. AI Agent Implementation Guide
+
+> This section provides structured guidance for AI assistants to implement this design system on any platform.
+
+### Quick Start Prompt
+
+When redesigning a platform with this system, use this context:
+
+```
+You are implementing the HSFX design system - a minimal, dark-first aesthetic inspired by Linear.app and Stripe.com. The design is quiet, confident, and professional.
+
+Core visual identity:
+- Dark backgrounds (#0A0A0A primary, #111111 elevated surfaces)
+- Subtle borders (#1A1A1A, 1px)
+- Sky blue accent (#0EA5E9) for interactive elements only
+- Serif headlines (Instrument Serif), sans-serif body (Geist)
+- Generous whitespace and smooth, subtle animations
+```
+
+### CSS Variables (Copy-Paste Ready)
+
+```css
+:root {
+  /* Backgrounds */
+  --background: #0A0A0A;
+  --surface: #111111;
+  --surface-hover: #161616;
+
+  /* Borders */
+  --border: #1A1A1A;
+  --border-hover: #2A2A2A;
+
+  /* Text */
+  --text-primary: #FAFAFA;
+  --text-secondary: #BFBFBF;
+  --text-muted: #888888;
+  --text-dim: #555555;
+
+  /* Accent */
+  --accent: #0EA5E9;
+  --accent-hover: #38BDF8;
+  --accent-glow: rgba(14, 165, 233, 0.15);
+
+  /* Status */
+  --success: #22C55E;
+  --warning: #EAB308;
+  --error: #EF4444;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px var(--accent-glow);
+}
+
+/* Light theme override (optional) */
+[data-theme="light"] {
+  --background: #FAFAFA;
+  --surface: #FFFFFF;
+  --surface-hover: #F5F5F5;
+  --border: #E5E5E5;
+  --border-hover: #D4D4D4;
+  --text-primary: #0A0A0A;
+  --text-secondary: #404040;
+  --text-muted: #737373;
+  --text-dim: #A3A3A3;
+}
+```
+
+### Component Recipes
+
+#### Button (Primary)
+```css
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--accent), #38BDF8);
+  color: white;
+  font-weight: 500;
+  font-size: 14px;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+.btn-primary:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+```
+
+#### Button (Ghost/Secondary)
+```css
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-ghost:hover {
+  background: var(--surface);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+```
+
+#### Card
+```css
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.card-description {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+```
+
+#### Input Field
+```css
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.input::placeholder {
+  color: var(--text-dim);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.input-error {
+  border-color: var(--error);
+}
+
+.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+```
+
+#### Modal/Dialog
+```css
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  z-index: 100;
+}
+
+.modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg);
+  max-width: 480px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.modal-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: 24px;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+```
+
+#### Navigation Bar
+```css
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: rgba(10, 10, 10, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-lg);
+  z-index: 50;
+}
+
+.nav-link {
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--text-primary);
+}
+
+.nav-link.active {
+  color: var(--accent);
+}
+```
+
+### Typography Classes
+
+```css
+/* Headlines - use serif font */
+.heading-hero {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: clamp(3rem, 8vw, 5rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.heading-section {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: clamp(1.875rem, 4vw, 2.5rem);
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+.heading-card {
+  font-weight: 500;
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+/* Body text - use sans-serif */
+.body-large {
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.body {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.body-small {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* Labels and captions */
+.label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+```
+
+### Animation Patterns
+
+```css
+/* Fade up entrance */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.6s ease-out forwards;
+}
+
+/* Stagger children */
+.stagger-children > * {
+  opacity: 0;
+  animation: fadeUp 0.5s ease-out forwards;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.2s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.3s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.4s; }
+
+/* Subtle pulse for status indicators */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Spin for loaders */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+```
+
+### Implementation Checklist
+
+When applying this design system, verify:
+
+- [ ] **Colors**: Background is #0A0A0A, not pure black
+- [ ] **Borders**: Using 1px borders with #1A1A1A, not box-shadows for separation
+- [ ] **Typography**: Headlines use serif font, body uses sans-serif
+- [ ] **Spacing**: Generous padding (24px+ for cards, 12px+ for buttons)
+- [ ] **Accent Usage**: Blue (#0EA5E9) only on interactive elements (buttons, links, focus states)
+- [ ] **Hover States**: Subtle scale (1.02) or border/background color shift, never dramatic
+- [ ] **Animations**: 0.2s for hovers, 0.5-0.8s for entrances, ease-out timing
+- [ ] **No pure black/white**: Darkest is #0A0A0A, lightest is #FAFAFA
+- [ ] **Focus States**: Visible focus rings using accent glow
+- [ ] **Loading States**: Use skeleton placeholders or subtle spinners
+
+### Platform-Specific Notes
+
+#### React/Next.js
+- Use Tailwind CSS with custom theme in `tailwind.config.ts`
+- Framer Motion for animations with spring physics
+- CSS variables defined in `globals.css`
+
+#### Vue
+- Define CSS variables in root stylesheet
+- Use Vue Transition for enter/leave animations
+- Consider Headless UI for accessible components
+
+#### Vanilla HTML/CSS
+- Use CSS custom properties for theming
+- Add `data-theme` attribute to `<html>` for theme switching
+- Use CSS animations over JavaScript when possible
+
+#### Figma/Design Tools
+- Create color styles matching the palette
+- Use Auto Layout with 24px gaps
+- Set corner radius to 8-12px for most elements
+
+### Common Mistakes to Avoid
+
+1. **Too much accent color** - Blue should be rare and meaningful
+2. **Harsh shadows** - Use subtle, diffused shadows or none
+3. **Bouncy animations** - Keep animations smooth and professional
+4. **Thin fonts** - Use 400+ weight, never ultra-light
+5. **Cramped spacing** - When in doubt, add more whitespace
+6. **Pure colors** - Always use slightly off-black/white values
+7. **Inconsistent radii** - Stick to 8px for most, 12-16px for large containers
+8. **Overusing effects** - One subtle background effect is enough
+
+---
+
 ## File Reference
 
 ```
 src/
 ├── app/
 │   ├── globals.css         # CSS variables, dot grid
-│   └── layout.tsx          # Fonts, providers
+│   ├── layout.tsx          # Fonts, providers
+│   └── styleguide/         # Component showcase
 ├── components/
 │   ├── ui/
 │   │   ├── Button.tsx
 │   │   ├── Card.tsx
+│   │   ├── CodeBlock.tsx
+│   │   ├── CodeEditor.tsx      # Monaco editor
 │   │   ├── CodeRain.tsx
 │   │   ├── CursorGlow.tsx
 │   │   ├── FloatingNodes.tsx
 │   │   ├── GridBackground.tsx
-│   │   └── PageTransition.tsx
+│   │   ├── Icons.tsx           # Icon library
+│   │   ├── PageTransition.tsx
+│   │   ├── Tooltip.tsx
+│   │   ├── WebflowNavigator.tsx  # Tree navigator
+│   │   ├── WebflowProperties.tsx # Property panel
+│   │   └── index.ts            # Barrel exports
 │   └── sections/
 │       ├── Hero.tsx
 │       └── Footer.tsx

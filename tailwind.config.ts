@@ -10,22 +10,22 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#0A0A0A",
-        surface: "#111111",
+        background: "var(--background)",
+        surface: "var(--surface)",
         border: {
-          DEFAULT: "#1A1A1A",
-          hover: "#2A2A2A",
+          DEFAULT: "var(--border)",
+          hover: "var(--border-hover)",
         },
         text: {
-          primary: "#FAFAFA",
-          secondary: "#BFBFBF",
-          muted: "#888888",
-          dim: "#555555",
+          primary: "var(--text-primary)",
+          secondary: "var(--text-secondary)",
+          muted: "var(--text-muted)",
+          dim: "var(--text-dim)",
         },
         accent: {
-          DEFAULT: "#0EA5E9",
-          hover: "#38BDF8",
-          light: "#7DD3FC",
+          DEFAULT: "var(--accent)",
+          hover: "var(--accent-hover)",
+          light: "var(--accent-light)",
         },
       },
       fontFamily: {

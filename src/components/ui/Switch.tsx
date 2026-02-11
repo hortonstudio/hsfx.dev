@@ -14,9 +14,9 @@ export const Switch = forwardRef<
   SwitchProps
 >(({ label, size = "md", className = "", ...props }, ref) => {
   const sizeStyles = {
-    sm: { root: "h-4 w-7", thumb: "h-3 w-3 data-[state=checked]:translate-x-3" },
-    md: { root: "h-5 w-9", thumb: "h-4 w-4 data-[state=checked]:translate-x-4" },
-    lg: { root: "h-6 w-11", thumb: "h-5 w-5 data-[state=checked]:translate-x-5" },
+    sm: { root: "h-4 w-7", thumb: "h-3 w-3 data-[state=checked]:translate-x-[12px]" },
+    md: { root: "h-5 w-9", thumb: "h-4 w-4 data-[state=checked]:translate-x-[16px]" },
+    lg: { root: "h-6 w-11", thumb: "h-5 w-5 data-[state=checked]:translate-x-[20px]" },
   };
 
   return (
