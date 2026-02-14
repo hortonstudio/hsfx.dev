@@ -1,0 +1,114 @@
+/* ===== OVERLAY SYSTEM ===== */
+
+/* Overlay Opacity */
+[data-visual-overlay-opacity="transparent"]{--_overlay-opacity:0}
+[data-visual-overlay-opacity="light"]{--_overlay-opacity:0.3}
+[data-visual-overlay-opacity="medium"]{--_overlay-opacity:0.5}
+[data-visual-overlay-opacity="heavy"]{--_overlay-opacity:0.7}
+
+/* Overlay Type */
+[data-visual-overlay-type="color"] {
+    --_overlay-background: rgba(0, 0, 0, var(--_overlay-opacity, 0.6));
+}
+
+[data-visual-overlay-type="linear"] {
+    --_overlay-background: linear-gradient(var(--_overlay-angle, 180deg),
+            rgba(0, 0, 0, var(--_overlay-opacity, 0.6)),
+            transparent);
+}
+
+[data-visual-overlay-type="linear-extended"] {
+    --_overlay-background: linear-gradient(var(--_overlay-angle, 180deg),
+            rgba(0, 0, 0, var(--_overlay-opacity, 0.6)),
+            rgba(0, 0, 0, 0.2));
+}
+
+[data-visual-overlay-type="radial"] {
+    --_overlay-background: radial-gradient(circle,
+            rgba(0, 0, 0, var(--_overlay-opacity, 0.6)) 10%,
+            transparent);
+}
+
+/* Overlay Angle (for linear gradients) */
+[data-visual-overlay-angle="0"]{--_overlay-angle:0deg}
+[data-visual-overlay-angle="45"]{--_overlay-angle:45deg}
+[data-visual-overlay-angle="90"]{--_overlay-angle:90deg}
+[data-visual-overlay-angle="135"]{--_overlay-angle:135deg}
+[data-visual-overlay-angle="180"]{--_overlay-angle:180deg}
+[data-visual-overlay-angle="225"]{--_overlay-angle:225deg}
+[data-visual-overlay-angle="270"]{--_overlay-angle:270deg}
+[data-visual-overlay-angle="315"]{--_overlay-angle:315deg}
+
+.visual_overlay {
+    background: var(--_overlay-background);
+}
+
+/* ===== OBJECT POSITION ===== */
+[data-object-position="top-left"]{--_object-position:top left}
+[data-object-position="top-center"]{--_object-position:top center}
+[data-object-position="top-right"]{--_object-position:top right}
+[data-object-position="center-left"]{--_object-position:center left}
+[data-object-position="center"]{--_object-position:center}
+[data-object-position="center-right"]{--_object-position:center right}
+[data-object-position="bottom-left"]{--_object-position:bottom left}
+[data-object-position="bottom-center"]{--_object-position:bottom center}
+[data-object-position="bottom-right"]{--_object-position:bottom right}
+
+.visual_wrap {
+    object-position: var(--_object-position, center);
+}
+
+
+
+/* ===== TAB LINK STATES ===== */
+.tab_link_component.is-active {
+	--_trigger---on: 0;
+  --_trigger---off: 1;
+}
+
+/* ===== COMPONENT STYLES ===== */
+
+/* Accordion Component */
+[data-hs-accordion="wrapper"].is-active .accordion_toggle_arrow{transform:rotate(90deg)}
+[data-hs-accordion="wrapper"].is-active .accordion_toggle_plus .icon_plus_vertical{transform:scaleY(0)}
+.wf-design-mode [data-accordion-open-designer="true"] .accordion_content_wrap{height:auto}
+.wf-design-mode [data-accordion-open-designer="false"] .accordion_content_wrap{height:0px}
+.wf-design-mode [data-hs-accordion-open="true"] .accordion_content_wrap{height:auto}
+.wf-design-mode [data-hs-accordion-open="false"] .accordion_content_wrap{height:0px}
+/* Form Component */
+@container (width < 18em) {
+    .form_fieldset_list {
+        display: flex;
+    }
+}
+
+.form_field::placeholder,
+.form_field.is-select {
+    color: color-mix(in srgb, var(--_theme---text) 60%, transparent)
+}
+
+/* Tabs Component */
+.tab_link_wrap.is-active {
+    --_trigger---on: 0;
+    --_trigger---off: 1;
+}
+
+/* Navbar Component */
+[data-hs-nav-dropdown="wrapper"]>.button_wrap {
+    & .button_icon {
+        transition: transform 300ms ease;
+    }
+}
+
+[data-hs-nav-dropdown="wrapper"].is-active>.button_wrap .button_contain{
+    --_trigger---on: 0 !important;
+    --_trigger---off: 1 !important;
+
+    & .button_icon {
+        transform: rotate(90deg);
+    }
+}
+
+.wf-design-mode [data-hs-nav-dropdown="wrapper"][data-testing="true"] .navbar_dropdown_primary_contain {
+    height: auto;
+}

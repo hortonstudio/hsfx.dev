@@ -62,9 +62,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
 
       if (event === "SIGNED_IN") {
-        const redirectTo = searchParams.get("redirect") || "/dashboard";
-        router.push(redirectTo);
-        router.refresh();
+        // Don't redirect if already on a protected route
+        const currentPath = window.location.pathname;
+        const protectedPrefixes = ["/dashboard", "/docs", "/styleguide", "/tools"];
+        const isOnProtectedRoute = protectedPrefixes.some(
+          (prefix) => currentPath === prefix || currentPath.startsWith(`${prefix}/`)
+        );
+
+        if (!isOnProtectedRoute) {
+          const redirectTo = searchParams.get("redirect") || "/dashboard";
+          router.push(redirectTo);
+          router.refresh();
+        }
       } else if (event === "SIGNED_OUT") {
         router.push("/");
         router.refresh();

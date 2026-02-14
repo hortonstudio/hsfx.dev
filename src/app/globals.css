@@ -12,6 +12,7 @@
   --text-secondary: #525252;
   --text-muted: #737373;
   --text-dim: #A3A3A3;
+  /* Brand accent — sync with: .dark below, tailwind.config.ts boxShadow glows, src/config/brand.ts accentColor */
   --accent: #0EA5E9;
   --accent-hover: #0284C7;
   --accent-light: #38BDF8;
@@ -27,6 +28,7 @@
   --text-secondary: #BFBFBF;
   --text-muted: #888888;
   --text-dim: #555555;
+  /* Brand accent (dark) — sync with: :root above, tailwind.config.ts boxShadow glows */
   --accent: #0EA5E9;
   --accent-hover: #38BDF8;
   --accent-light: #7DD3FC;

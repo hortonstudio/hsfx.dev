@@ -1,12 +1,15 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Navbar from "@/components/layout/Navbar";
-import { DocSidebar, type SidebarGroup } from "@/components/ui";
+import { DocSidebar, type SidebarGroup, Spinner } from "@/components/ui";
 import { DocSectionProvider, useDocSection } from "@/contexts/DocSectionContext";
+import { createClient } from "@/lib/supabase/client";
 
-const sidebarGroups: SidebarGroup[] = [
+// Static "Getting Started" section
+const staticGroups: SidebarGroup[] = [
   {
     label: "Getting Started",
     items: [
@@ -25,51 +28,23 @@ const sidebarGroups: SidebarGroup[] = [
       { label: "Building Your First Page", slug: "first-page" },
     ],
   },
-  {
-    label: "Button",
-    items: [
-      {
-        label: "Button Main",
-        slug: "components/button-main",
-        badge: "5 variants",
-        sections: [
-          { id: "structure", label: "Structure & Properties" },
-          { id: "css", label: "CSS" },
-          { id: "tokens", label: "Design Tokens" },
-          { id: "attributes", label: "Property-Attribute Map" },
-          { id: "dependencies", label: "Dependencies" },
-          { id: "usage", label: "Usage Notes" },
-        ],
-      },
-      { label: "Button Arrow", slug: "components/button-arrow" },
-      { label: "Button Icon", slug: "components/button-icon" },
-    ],
-  },
-  {
-    label: "Layout",
-    items: [
-      { label: "Section", slug: "components/section" },
-      { label: "Container", slug: "components/container" },
-      { label: "Grid", slug: "components/grid" },
-    ],
-  },
-  {
-    label: "Typography",
-    items: [
-      { label: "Heading", slug: "components/heading" },
-      { label: "Paragraph", slug: "components/paragraph" },
-      { label: "Rich Text", slug: "components/rich-text" },
-    ],
-  },
-  {
-    label: "Forms",
-    items: [
-      { label: "Input", slug: "components/input" },
-      { label: "Select", slug: "components/select" },
-      { label: "Checkbox", slug: "components/checkbox" },
-    ],
-  },
 ];
+
+// Standard sections for component pages
+const componentSections = [
+  { id: "structure", label: "Structure & Properties" },
+  { id: "css", label: "CSS" },
+  { id: "tokens", label: "Design Tokens" },
+  { id: "attributes", label: "Property-Attribute Map" },
+  { id: "dependencies", label: "Dependencies" },
+  { id: "usage", label: "Usage Notes" },
+];
+
+interface ComponentSummary {
+  name: string;
+  slug: string;
+  group: string | null;
+}
 
 function getSlugFromPathname(pathname: string): string | undefined {
   const match = pathname.match(/\/docs\/(.+)/);
@@ -81,16 +56,71 @@ function DocsLayoutContent({ children }: { children: React.ReactNode }) {
   const currentSlug = getSlugFromPathname(pathname);
   const { currentSection } = useDocSection();
 
+  const [sidebarGroups, setSidebarGroups] = useState<SidebarGroup[]>(staticGroups);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchComponents() {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("component_docs")
+        .select("name, slug, group")
+        .order("group")
+        .order("name");
+
+      if (error) {
+        console.error("Error fetching components for sidebar:", error);
+        setLoading(false);
+        return;
+      }
+
+      // Group components by their group field
+      const componentsByGroup = (data as ComponentSummary[]).reduce(
+        (acc, comp) => {
+          const group = comp.group || "Ungrouped";
+          if (!acc[group]) acc[group] = [];
+          acc[group].push(comp);
+          return acc;
+        },
+        {} as Record<string, ComponentSummary[]>
+      );
+
+      // Build sidebar groups from components
+      const dynamicGroups: SidebarGroup[] = Object.keys(componentsByGroup)
+        .sort()
+        .map((groupName) => ({
+          label: groupName,
+          items: componentsByGroup[groupName].map((comp) => ({
+            label: comp.name,
+            slug: `components/${comp.slug}`,
+            sections: componentSections,
+          })),
+        }));
+
+      // Combine static groups with dynamic component groups
+      setSidebarGroups([...staticGroups, ...dynamicGroups]);
+      setLoading(false);
+    }
+
+    fetchComponents();
+  }, []);
+
   return (
     <div className="min-h-screen pt-16 md:pt-20">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex gap-8 pt-8">
-          <DocSidebar
-            groups={sidebarGroups}
-            currentSlug={currentSlug}
-            currentSection={currentSection}
-            basePath="/docs"
-          />
+          {loading ? (
+            <aside className="hidden lg:flex w-64 flex-shrink-0 items-start justify-center pt-8">
+              <Spinner size="sm" />
+            </aside>
+          ) : (
+            <DocSidebar
+              groups={sidebarGroups}
+              currentSlug={currentSlug}
+              currentSection={currentSection}
+              basePath="/docs"
+            />
+          )}
           <main className="flex-1 min-w-0 pb-16 lg:pl-4">{children}</main>
         </div>
       </div>

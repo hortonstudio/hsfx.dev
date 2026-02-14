@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, notFound } from "next/navigation";
+import { marked } from "marked";
 import { createClient } from "@/lib/supabase/client";
 import {
   Breadcrumb,
@@ -24,6 +25,16 @@ import {
 } from "@/components/ui";
 import { useActiveSection } from "@/hooks/useActiveSection";
 import { useDocSection } from "@/contexts/DocSectionContext";
+import { generateComponentMarkdown } from "@/lib/docs/generateMarkdown";
+
+interface UsageData {
+  description?: string;
+  whenToUse?: string;
+  patterns?: string;
+  variantGuide?: string;
+  gotchas?: string;
+  notes?: string;
+}
 
 interface ComponentDoc {
   id: string;
@@ -46,7 +57,17 @@ interface ComponentDoc {
     usageNotes?: string;
     propertyMappings?: PropertyMapping[];
   } | null;
+  usage: UsageData | null;
 }
+
+const USAGE_SECTIONS = [
+  { key: "description" as const, label: "Description", id: "usage-description" },
+  { key: "whenToUse" as const, label: "When to Use", id: "usage-when" },
+  { key: "patterns" as const, label: "Common Patterns", id: "usage-patterns" },
+  { key: "variantGuide" as const, label: "Variant Guide", id: "usage-variants" },
+  { key: "gotchas" as const, label: "Gotchas", id: "usage-gotchas" },
+  { key: "notes" as const, label: "Additional Notes", id: "usage-notes" },
+];
 
 const tableOfContents: TableOfContentsItem[] = [
   { id: "structure", label: "Structure & Properties", level: 1 },
@@ -55,6 +76,7 @@ const tableOfContents: TableOfContentsItem[] = [
   { id: "attributes", label: "Property-Attribute Map", level: 1 },
   { id: "dependencies", label: "Dependencies", level: 1 },
   { id: "usage", label: "Usage Notes", level: 1 },
+  { id: "usage-guide", label: "Usage Guide", level: 1 },
 ];
 
 const sectionIds = tableOfContents.map((item) => item.id);
@@ -154,29 +176,10 @@ export default function ComponentDocPage() {
     setSelectedVariants((prev) => ({ ...prev, [label]: value }));
   };
 
-  const generateMarkdown = () => {
-    return `# ${component.name}
-
-${component.description || ""}
-
-## Variants
-${variants.map((v) => `- ${v.label}: ${v.options.map((o) => o.label).join(", ")}`).join("\n")}
-
-## CSS
-\`\`\`css
-${component.css || ""}
-\`\`\`
-
-## Design Tokens
-${component.tokens?.map((t) => `- \`${t.name}\`: ${t.defaultValue}`).join("\n") || ""}
-
-## Property-Attribute Mappings
-${component.embeds?.propertyMappings?.map((m) => `- **${m.propertyName}** → \`${m.mapsTo}\`: ${m.effect}`).join("\n") || ""}
-`;
-  };
+  const getMarkdown = () => generateComponentMarkdown(component);
 
   const handleDownloadMd = () => {
-    const content = generateMarkdown();
+    const content = getMarkdown();
     const blob = new Blob([content], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -184,6 +187,11 @@ ${component.embeds?.propertyMappings?.map((m) => `- **${m.propertyName}** → \`
     a.download = `${component.slug}.md`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleCopyMd = () => {
+    const content = getMarkdown();
+    navigator.clipboard.writeText(content);
   };
 
   return (
@@ -314,6 +322,31 @@ ${component.embeds?.propertyMappings?.map((m) => `- **${m.propertyName}** → \`
             </div>
           </section>
         )}
+
+        {/* Usage Guide (manually authored) */}
+        {component.usage && Object.values(component.usage).some(v => v?.trim()) && (
+          <section id="usage-guide">
+            <h2 className="font-serif text-2xl font-bold text-text-primary mb-6 scroll-mt-20">
+              Usage Guide
+            </h2>
+            <div className="space-y-8">
+              {USAGE_SECTIONS.map(({ key, label, id }) => {
+                const content = component.usage?.[key];
+                if (!content?.trim()) return null;
+                return (
+                  <div key={id} id={id} className="scroll-mt-20">
+                    <h3 className="text-lg font-semibold text-text-primary mb-4">
+                      {label}
+                    </h3>
+                    <div className="border border-border rounded-lg p-6">
+                      <RichTextBlock html={marked.parse(content) as string} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </div>
 
       {/* Right sidebar */}
@@ -321,6 +354,7 @@ ${component.embeds?.propertyMappings?.map((m) => `- **${m.propertyName}** → \`
         tableOfContents={tableOfContents}
         currentSection={currentSection}
         onDownloadMd={handleDownloadMd}
+        onCopyMd={handleCopyMd}
         prevPage={{ label: "Getting Started", href: "/docs/getting-started" }}
       />
     </div>

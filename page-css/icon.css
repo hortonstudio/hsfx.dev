@@ -1,0 +1,29 @@
+/* ===== ICON SIZING & BACKGROUND STATES ===== */
+
+/* Default state - has background */
+[data-icon-background] {
+    --_state---true: 1;
+    --_state---false: 0;
+}
+
+/* Transparent background state */
+[data-icon-background="transparent"] {
+    --_state---true: 0;
+    --_state---false: 1;
+}
+/* Sizing */
+.icon_group[data-icon-size~="sm"]{font-size:1.5rem}
+.icon_group[data-icon-size~="md"]{font-size:2rem}
+.icon_group[data-icon-size~="lg"]{font-size:3rem}
+.icon_group[data-icon-size~="xl"]{font-size:4rem}
+
+.icon_slot>*{width:.5em;height:.5em}
+.icon_group[data-icon-size~="lg"] .icon_slot>*{width:.6em;height:.6em}
+.icon_group[data-icon-size~="xl"] .icon_slot>*{width:.5em;height:.5em}
+
+/* Remove padding when "nopadding" is present */
+
+.icon_group[data-icon-size~="lg"] .icon_slot>*{width:.6em;height:.6em}
+.icon_group[data-icon-size~="nopadding"] .icon_slot>*{width:1em;height:1em}
+.icon_group[data-icon-size~="nopadding"] .icon_text{font-size:1em;}
+.icon_group:has(.icon_slot > *:nth-child(2)){aspect-ratio:auto;width:auto}

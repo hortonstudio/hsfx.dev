@@ -99,9 +99,9 @@ export function CodeEditor({
     // Set the theme
     monaco.editor.setTheme(isDark ? "hsfx-dark" : "hsfx-light");
 
-    // Add Ctrl+S save shortcut
+    // Add Ctrl+S save shortcut (uses ref to avoid stale closure)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      handleSave();
+      handleSaveRef.current();
     });
   };
 
@@ -118,6 +118,12 @@ export function CodeEditor({
       setTimeout(() => setIsSaving(false), 1000);
     }
   }, [onSave, value, readOnly]);
+
+  // Keep a ref so the Monaco keybinding always calls the latest save
+  const handleSaveRef = useRef(handleSave);
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  }, [handleSave]);
 
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
@@ -143,11 +149,12 @@ export function CodeEditor({
 
   // Map svg to xml for Monaco
   const monacoLanguage = language === "svg" ? "xml" : language;
+  const isFullHeight = height === "100%";
 
   return (
     <div
       ref={containerRef}
-      className={`relative rounded-lg overflow-hidden border border-border bg-surface ${className}`}
+      className={`relative rounded-lg overflow-hidden border border-border bg-surface ${isFullHeight ? "h-full flex flex-col" : ""} ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-surface border-b border-border">
@@ -195,47 +202,49 @@ export function CodeEditor({
       </div>
 
       {/* Editor */}
-      <Editor
-        height={isFullscreen ? "calc(100vh - 48px)" : height}
-        language={monacoLanguage}
-        value={value}
-        onChange={(val) => onChange?.(val || "")}
-        onMount={handleEditorMount}
-        theme={isDark ? "hsfx-dark" : "hsfx-light"}
-        options={{
-          readOnly,
-          minimap: { enabled: minimap },
-          lineNumbers: lineNumbers ? "on" : "off",
-          fontSize: 13,
-          fontFamily: "var(--font-geist-mono), monospace",
-          tabSize: 2,
-          scrollBeyondLastLine: false,
-          automaticLayout: true,
-          padding: { top: 12, bottom: 12 },
-          renderLineHighlight: "line",
-          cursorBlinking: "smooth",
-          cursorSmoothCaretAnimation: "on",
-          smoothScrolling: true,
-          wordWrap: "on",
-          folding: true,
-          glyphMargin: false,
-          lineDecorationsWidth: 0,
-          lineNumbersMinChars: 3,
-          overviewRulerBorder: false,
-          hideCursorInOverviewRuler: true,
-          scrollbar: {
-            vertical: "auto",
-            horizontal: "auto",
-            verticalScrollbarSize: 8,
-            horizontalScrollbarSize: 8,
-          },
-        }}
-        loading={
-          <div className="flex items-center justify-center h-full bg-surface">
-            <div className="text-text-muted text-sm">Loading editor...</div>
-          </div>
-        }
-      />
+      <div className={isFullHeight ? "flex-1 min-h-0" : undefined}>
+        <Editor
+          height={isFullscreen ? "calc(100vh - 48px)" : isFullHeight ? "100%" : height}
+          language={monacoLanguage}
+          value={value}
+          onChange={(val) => onChange?.(val || "")}
+          onMount={handleEditorMount}
+          theme={isDark ? "hsfx-dark" : "hsfx-light"}
+          options={{
+            readOnly,
+            minimap: { enabled: minimap },
+            lineNumbers: lineNumbers ? "on" : "off",
+            fontSize: 13,
+            fontFamily: "var(--font-geist-mono), monospace",
+            tabSize: 2,
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            padding: { top: 12, bottom: 12 },
+            renderLineHighlight: "line",
+            cursorBlinking: "smooth",
+            cursorSmoothCaretAnimation: "on",
+            smoothScrolling: true,
+            wordWrap: "on",
+            folding: true,
+            glyphMargin: false,
+            lineDecorationsWidth: 0,
+            lineNumbersMinChars: 3,
+            overviewRulerBorder: false,
+            hideCursorInOverviewRuler: true,
+            scrollbar: {
+              vertical: "auto",
+              horizontal: "auto",
+              verticalScrollbarSize: 8,
+              horizontalScrollbarSize: 8,
+            },
+          }}
+          loading={
+            <div className="flex items-center justify-center h-full bg-surface">
+              <div className="text-text-muted text-sm">Loading editor...</div>
+            </div>
+          }
+        />
+      </div>
     </div>
   );
 }

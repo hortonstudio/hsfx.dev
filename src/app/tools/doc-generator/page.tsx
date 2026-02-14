@@ -5,6 +5,7 @@ import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
 import Navbar from "@/components/layout/Navbar";
+import { createClient } from "@/lib/supabase/client";
 import {
   GridBackground,
   PageTransition,
@@ -17,7 +18,7 @@ import {
 } from "@/components/ui";
 import { ChevronDown, ChevronRight } from "@/components/ui/Icons";
 
-import { generateDocs, validateExtractorOutput } from "@/lib/doc-generator/generator";
+import { generateDocs, validateExtractorOutput, type GenerationError } from "@/lib/doc-generator/generator";
 import { generateMarkdown, generateIndexMarkdown } from "@/lib/doc-generator/markdown";
 import { EXTRACTOR_SCRIPT } from "@/lib/doc-generator/extractor-script";
 import type { ComponentDoc, ExtractorOutput } from "@/lib/doc-generator/types";
@@ -74,6 +75,7 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 }) {
 
 function Step1CopyScript({ onNext }: { onNext: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [showScript, setShowScript] = useState(false);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(EXTRACTOR_SCRIPT);
@@ -92,25 +94,63 @@ function Step1CopyScript({ onNext }: { onNext: () => void }) {
         </p>
       </div>
 
-      <div className="bg-surface border border-border rounded-xl overflow-hidden">
-        <div className="border-b border-border px-4 py-2 flex items-center justify-between">
-          <span className="text-sm text-text-muted">component-extractor.js</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCopy}
+      {/* Copy Button - Primary Action */}
+      <div className="flex flex-col items-center gap-4">
+        <Button
+          size="lg"
+          onClick={handleCopy}
+          className="px-8"
+        >
+          {copied ? (
+            <>
+              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Script Copied!
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Copy Extractor Script
+            </>
+          )}
+        </Button>
+        <button
+          onClick={() => setShowScript(!showScript)}
+          className="text-sm text-text-muted hover:text-text-primary transition-colors flex items-center gap-1"
+        >
+          {showScript ? "Hide" : "Show"} script preview
+          <svg
+            className={`w-4 h-4 transition-transform ${showScript ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
           >
-            {copied ? "Copied!" : "Copy Script"}
-          </Button>
-        </div>
-        <CodeEditor
-          value={EXTRACTOR_SCRIPT}
-          language="javascript"
-          readOnly
-          height="400px"
-          lineNumbers
-        />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
       </div>
+
+      {/* Script Preview - Collapsible */}
+      {showScript && (
+        <div className="bg-surface border border-border rounded-xl overflow-hidden">
+          <div className="border-b border-border px-4 py-2 flex items-center justify-between">
+            <span className="text-sm text-text-muted">component-extractor.js</span>
+            <span className="text-xs text-text-dim">
+              {EXTRACTOR_SCRIPT.length.toLocaleString()} chars
+            </span>
+          </div>
+          <CodeEditor
+            value={EXTRACTOR_SCRIPT}
+            language="javascript"
+            readOnly
+            height="300px"
+            lineNumbers
+          />
+        </div>
+      )}
 
       <div className="bg-accent/10 border border-accent/20 rounded-lg p-4">
         <h4 className="text-sm font-medium text-accent mb-2">Instructions</h4>
@@ -144,17 +184,18 @@ function Step2PasteOutput({
   onProcess,
 }: {
   onBack: () => void;
-  onProcess: (docs: ComponentDoc[]) => void;
+  onProcess: (docs: ComponentDoc[], errors: GenerationError[]) => void;
 }) {
-  const [jsonInput, setJsonInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [dataSize, setDataSize] = useState<number | null>(null);
 
-  const handleProcess = useCallback(async () => {
+  const processJson = useCallback(async (jsonInput: string) => {
     setError(null);
     setIsProcessing(true);
     setProgress(0);
+    setDataSize(jsonInput.length);
 
     try {
       // Parse JSON
@@ -179,46 +220,67 @@ function Step2PasteOutput({
 
       // Generate docs
       setProgress(50);
-      const docs = generateDocs(data as ExtractorOutput);
+      const result = generateDocs(data as ExtractorOutput);
 
       setProgress(100);
       await new Promise((r) => setTimeout(r, 200));
 
-      onProcess(docs);
+      onProcess(result.docs, result.errors);
     } catch (e) {
       setError(e instanceof Error ? e.message : "An unknown error occurred");
       setIsProcessing(false);
+      setDataSize(null);
     }
-  }, [jsonInput, onProcess]);
+  }, [onProcess]);
+
+  const handlePasteFromClipboard = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        setError("Clipboard is empty");
+        return;
+      }
+      await processJson(text);
+    } catch {
+      // Clipboard permission denied or other error
+      setError("Could not read from clipboard. Please grant clipboard permission or use the manual paste option.");
+    }
+  }, [processJson]);
 
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
         <h2 className="font-serif text-2xl text-text-primary mb-2">
-          Paste Extractor Output
+          Import Extractor Output
         </h2>
         <p className="text-text-muted">
           Paste the JSON output from the extractor script
         </p>
       </div>
 
-      <div className="relative">
-        <textarea
-          value={jsonInput}
-          onChange={(e) => setJsonInput(e.target.value)}
-          placeholder="Paste the JSON output here..."
-          className="w-full h-96 p-4 bg-background border border-border rounded-xl
-            font-mono text-sm text-text-primary placeholder:text-text-dim
-            focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent
-            resize-none"
-          disabled={isProcessing}
-        />
-        {jsonInput && (
-          <div className="absolute bottom-4 right-4 text-xs text-text-dim">
-            {jsonInput.length.toLocaleString()} characters
+      {/* Main Paste Button */}
+      {!isProcessing && (
+        <div className="flex flex-col items-center gap-6 py-8">
+          <div className="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center">
+            <svg className="w-10 h-10 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
           </div>
-        )}
-      </div>
+          <Button
+            size="lg"
+            onClick={handlePasteFromClipboard}
+            className="px-8"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Paste from Clipboard
+          </Button>
+          <p className="text-sm text-text-dim">
+            Make sure you have the extractor JSON in your clipboard
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
@@ -228,8 +290,8 @@ function Step2PasteOutput({
       )}
 
       {isProcessing && (
-        <div className="bg-surface border border-border rounded-lg p-4">
-          <div className="flex items-center gap-3">
+        <div className="bg-surface border border-border rounded-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
             <div className="w-full bg-border rounded-full h-2 overflow-hidden">
               <div
                 className="bg-accent h-full transition-all duration-300"
@@ -240,7 +302,14 @@ function Step2PasteOutput({
               {progress}%
             </span>
           </div>
-          <p className="text-sm text-text-muted mt-2">Processing components...</p>
+          <p className="text-sm text-text-muted">
+            Processing components...
+            {dataSize && (
+              <span className="text-text-dim ml-2">
+                ({(dataSize / 1024 / 1024).toFixed(1)} MB)
+              </span>
+            )}
+          </p>
         </div>
       )}
 
@@ -250,12 +319,6 @@ function Step2PasteOutput({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Back
-        </Button>
-        <Button
-          onClick={handleProcess}
-          disabled={!jsonInput.trim() || isProcessing}
-        >
-          {isProcessing ? "Processing..." : "Process"}
         </Button>
       </div>
     </div>
@@ -366,9 +429,11 @@ function ComponentRow({ doc }: { doc: ComponentDoc }) {
 
 function Step3Results({
   docs,
+  errors,
   onStartOver,
 }: {
   docs: ComponentDoc[];
+  errors: GenerationError[];
   onStartOver: () => void;
 }) {
   // Group by group name
@@ -412,6 +477,120 @@ function Step3Results({
     saveAs(blob, "component-docs-md.zip");
   };
 
+  const [copiedSummary, setCopiedSummary] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<{ success: number; failed: number } | null>(null);
+
+  const handleUploadToSupabase = async () => {
+    setIsUploading(true);
+    setUploadResult(null);
+
+    const supabase = createClient();
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (const doc of docs) {
+      // Transform ComponentDoc to match database schema
+      const dbRecord = {
+        id: doc.slug, // Use slug as ID for easy lookup
+        name: doc.name,
+        slug: doc.slug,
+        group: doc.group,
+        description: doc.description,
+        tree: doc.tree,
+        properties: doc.properties,
+        css: doc.css,
+        tokens: doc.tokens,
+        contains: doc.contains,
+        used_by: doc.usedBy,
+        variants: doc.variants.reduce((acc, v) => {
+          acc[v.propertyLabel.toLowerCase()] = v.options;
+          return acc;
+        }, {} as Record<string, { label: string; value: string }[]>),
+        render_raw: doc.renderRaw,
+        css_raw: doc.cssRaw,
+        breakpoints: doc.breakpoints,
+        embeds: doc.embeds,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from("component_docs")
+        .upsert(dbRecord, { onConflict: "slug" });
+
+      if (error) {
+        console.error(`Failed to upload ${doc.name}:`, error);
+        failedCount++;
+      } else {
+        successCount++;
+      }
+    }
+
+    setUploadResult({ success: successCount, failed: failedCount });
+    setIsUploading(false);
+  };
+
+  const generateAISummary = (): string => {
+    const lines: string[] = [];
+    lines.push("# Component Library Summary");
+    lines.push(`> ${docs.length} components | ${totalProps} props | ${totalTokens} tokens | ${totalStyles} CSS classes`);
+    lines.push("");
+
+    // Group summary
+    for (const groupName of sortedGroups) {
+      const groupDocs = groups.get(groupName)!;
+      lines.push(`## ${groupName} (${groupDocs.length})`);
+
+      for (const doc of groupDocs.sort((a, b) => a.name.localeCompare(b.name))) {
+        // Component name and basic info
+        const variantCount = doc.variants.length;
+        const propCount = doc.stats.propertyCount;
+        const tokenCount = doc.stats.tokenCount;
+
+        let info = `- **${doc.name}**`;
+        const details: string[] = [];
+        if (variantCount > 0) details.push(`${variantCount}v`);
+        if (propCount > 0) details.push(`${propCount}p`);
+        if (tokenCount > 0) details.push(`${tokenCount}t`);
+        if (details.length > 0) info += ` [${details.join("/")}]`;
+
+        // Add variants inline if any
+        if (doc.variants.length > 0) {
+          const variantStrs = doc.variants.map(v =>
+            `${v.propertyLabel}: ${v.options.map(o => o.label).join("|")}`
+          );
+          info += ` — ${variantStrs.join("; ")}`;
+        }
+
+        // Add contains if any
+        if (doc.contains.length > 0) {
+          info += ` → contains: ${doc.contains.join(", ")}`;
+        }
+
+        lines.push(info);
+      }
+      lines.push("");
+    }
+
+    // Add errors if any
+    if (errors.length > 0) {
+      lines.push("## Failed Components");
+      for (const err of errors) {
+        lines.push(`- **${err.componentName}**: ${err.error}`);
+      }
+      lines.push("");
+    }
+
+    return lines.join("\n");
+  };
+
+  const handleCopySummary = async () => {
+    const summary = generateAISummary();
+    await navigator.clipboard.writeText(summary);
+    setCopiedSummary(true);
+    setTimeout(() => setCopiedSummary(false), 2000);
+  };
+
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
@@ -420,8 +599,50 @@ function Step3Results({
         </h2>
         <p className="text-text-muted">
           {docs.length} components processed successfully
+          {errors.length > 0 && (
+            <span className="text-red-400 ml-2">
+              ({errors.length} failed)
+            </span>
+          )}
         </p>
       </div>
+
+      {/* Errors Panel */}
+      {errors.length > 0 && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-8">
+          <h3 className="font-medium text-red-400 mb-3 flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            {errors.length} Component{errors.length === 1 ? "" : "s"} Failed to Process
+          </h3>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {errors.map((err, idx) => (
+              <div key={idx} className="bg-background/50 rounded-lg p-3 text-sm">
+                <div className="font-medium text-text-primary mb-1">
+                  {err.componentName}
+                  <span className="text-text-dim ml-2 font-mono text-xs">
+                    {err.componentId}
+                  </span>
+                </div>
+                <div className="text-red-300 font-mono text-xs mb-2">
+                  {err.error}
+                </div>
+                {err.stack && (
+                  <details className="text-text-dim">
+                    <summary className="cursor-pointer hover:text-text-muted text-xs">
+                      Stack trace
+                    </summary>
+                    <pre className="mt-2 text-xs overflow-x-auto whitespace-pre-wrap">
+                      {err.stack}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Summary Card */}
       <div className="grid grid-cols-4 gap-4 mb-8">
@@ -443,9 +664,42 @@ function Step3Results({
         ))}
       </div>
 
-      {/* Download Buttons */}
-      <div className="flex justify-center gap-4 mb-8">
-        <Button onClick={handleDownloadAllJson}>
+      {/* Upload Result */}
+      {uploadResult && (
+        <div className={`rounded-lg p-4 mb-4 ${
+          uploadResult.failed === 0
+            ? "bg-green-500/10 border border-green-500/30"
+            : "bg-yellow-500/10 border border-yellow-500/30"
+        }`}>
+          <p className={`text-sm ${uploadResult.failed === 0 ? "text-green-400" : "text-yellow-400"}`}>
+            {uploadResult.failed === 0
+              ? `✓ Successfully uploaded ${uploadResult.success} components to Supabase`
+              : `Uploaded ${uploadResult.success} components, ${uploadResult.failed} failed`}
+          </p>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex flex-wrap justify-center gap-4 mb-8">
+        <Button onClick={handleUploadToSupabase} disabled={isUploading}>
+          {isUploading ? (
+            <>
+              <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Uploading...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Upload to Supabase
+            </>
+          )}
+        </Button>
+        <Button variant="outline" onClick={handleDownloadAllJson}>
           <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
@@ -456,6 +710,23 @@ function Step3Results({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>
           Download Markdown
+        </Button>
+        <Button variant="ghost" onClick={handleCopySummary}>
+          {copiedSummary ? (
+            <>
+              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Copied!
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              Copy AI Summary
+            </>
+          )}
         </Button>
       </div>
 
@@ -495,14 +766,17 @@ function Step3Results({
 export default function DocGeneratorPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [docs, setDocs] = useState<ComponentDoc[]>([]);
+  const [errors, setErrors] = useState<GenerationError[]>([]);
 
-  const handleProcess = (generatedDocs: ComponentDoc[]) => {
+  const handleProcess = (generatedDocs: ComponentDoc[], generationErrors: GenerationError[]) => {
     setDocs(generatedDocs);
+    setErrors(generationErrors);
     setStep(3);
   };
 
   const handleStartOver = () => {
     setDocs([]);
+    setErrors([]);
     setStep(1);
   };
 
@@ -536,7 +810,7 @@ export default function DocGeneratorPage() {
               />
             )}
             {step === 3 && (
-              <Step3Results docs={docs} onStartOver={handleStartOver} />
+              <Step3Results docs={docs} errors={errors} onStartOver={handleStartOver} />
             )}
           </div>
         </div>

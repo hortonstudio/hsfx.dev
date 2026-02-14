@@ -8,6 +8,7 @@ import {
   NumberedSteps,
   NumberedStep,
 } from "@/components/ui";
+import { brand } from "@/config";
 
 const breadcrumbItems = [
   { label: "Docs", href: "/docs" },
@@ -31,7 +32,7 @@ const heroExampleCode = `<section class="section_wrap is-hero">
       </h1>
 
       <p class="paragraph_wrap is-large">
-        Build beautiful, responsive websites with HSFX components.
+        Build beautiful, responsive websites with ${brand.name} components.
         Designed for Webflow and React.
       </p>
 
@@ -51,7 +52,7 @@ const heroExampleCode = `<section class="section_wrap is-hero">
   </div>
 </section>`;
 
-const responsiveCode = `/* HSFX components are responsive by default */
+const responsiveCode = `/* ${brand.name} components are responsive by default */
 .section_wrap {
   padding: var(--section-padding-y) var(--section-padding-x);
 }
@@ -95,7 +96,7 @@ export default function FirstPageGuide() {
           Building Your First Page
         </h1>
         <p className="text-lg text-text-secondary max-w-3xl">
-          Learn how to structure a complete page using HSFX components. We&apos;ll build a hero section with heading, paragraph, and buttons.
+          Learn how to structure a complete page using {brand.name} components. We&apos;ll build a hero section with heading, paragraph, and buttons.
         </p>
       </div>
 
@@ -104,7 +105,7 @@ export default function FirstPageGuide() {
         <h2 className="font-serif text-2xl font-bold text-text-primary mb-4">Understanding Page Structure</h2>
 
         <RichTextBlock html={`
-          <p>HSFX pages follow a consistent structure:</p>
+          <p>${brand.name} pages follow a consistent structure:</p>
           <ul>
             <li><strong>Sections</strong> (<code>.section_wrap</code>) - Top-level page divisions with vertical spacing</li>
             <li><strong>Containers</strong> (<code>.container_wrap</code>) - Content width constraints and horizontal padding</li>
@@ -122,7 +123,7 @@ export default function FirstPageGuide() {
         </div>
 
         <Callout variant="tip" title="Naming Convention">
-          <p>HSFX uses a consistent naming pattern: <code>component_element</code> for class names and <code>is-variant</code> for modifiers. This makes it easy to understand and extend.</p>
+          <p>{brand.name} uses a consistent naming pattern: <code>component_element</code> for class names and <code>is-variant</code> for modifiers. This makes it easy to understand and extend.</p>
         </Callout>
       </section>
 
@@ -186,7 +187,7 @@ export default function FirstPageGuide() {
         <h2 className="font-serif text-2xl font-bold text-text-primary mb-4">Using Variants</h2>
 
         <RichTextBlock html={`
-          <p>Most HSFX components support multiple visual variants. Add variant classes alongside the base class to change appearance:</p>
+          <p>Most ${brand.name} components support multiple visual variants. Add variant classes alongside the base class to change appearance:</p>
         `} />
 
         <div className="my-6">
@@ -208,7 +209,7 @@ export default function FirstPageGuide() {
         <h2 className="font-serif text-2xl font-bold text-text-primary mb-4">Responsive Design</h2>
 
         <RichTextBlock html={`
-          <p>HSFX components are responsive by default. Design tokens automatically adjust based on screen size, so you don't need to write media queries for basic responsiveness.</p>
+          <p>${brand.name} components are responsive by default. Design tokens automatically adjust based on screen size, so you don't need to write media queries for basic responsiveness.</p>
         `} />
 
         <div className="my-6">

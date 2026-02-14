@@ -5,6 +5,7 @@ import { Check } from 'lucide-react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useFadeUp } from '@/lib/animations';
+import { messages } from '@/config';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -119,8 +120,7 @@ export function Performance() {
             </h2>
 
             <p className="text-text-muted text-lg mt-4 leading-relaxed">
-              Every byte counts. HSFX is engineered for performance from the
-              ground up, ensuring your sites load fast and run smooth.
+              {messages.performance.description}
             </p>
 
             <ul className="mt-8 space-y-5">

@@ -3,7 +3,16 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Breadcrumb, Spinner, Badge } from "@/components/ui";
+import { Breadcrumb, Spinner, Badge, Button } from "@/components/ui";
+import {
+  generateComponentMarkdown,
+  generateIndexMarkdown,
+  generateAISummary,
+  type ComponentDocData,
+} from "@/lib/docs/generateMarkdown";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
+import { brand } from "@/config";
 
 interface ComponentSummary {
   id: string;
@@ -21,6 +30,10 @@ const breadcrumbItems = [
 export default function ComponentsIndexPage() {
   const [components, setComponents] = useState<ComponentSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloadingAI, setIsDownloadingAI] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
     async function fetchComponents() {
@@ -44,6 +57,83 @@ export default function ComponentsIndexPage() {
     fetchComponents();
   }, []);
 
+  const fetchAllComponentDocs = async (): Promise<ComponentDocData[]> => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("component_docs")
+      .select("name, slug, group, description, tree, properties, css, tokens, contains, used_by, variants")
+      .order("group")
+      .order("name");
+
+    if (error) {
+      console.error("Error fetching full component docs:", error);
+      return [];
+    }
+
+    return (data || []) as ComponentDocData[];
+  };
+
+  const handleDownloadAllMd = async () => {
+    setIsDownloading(true);
+    try {
+      const docs = await fetchAllComponentDocs();
+      if (docs.length === 0) return;
+
+      const zip = new JSZip();
+
+      // Add index file
+      zip.file("_index.md", generateIndexMarkdown(docs));
+
+      // Add each component
+      for (const doc of docs) {
+        zip.file(`${doc.slug}.md`, generateComponentMarkdown(doc));
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      saveAs(blob, "component-docs.zip");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleCopyAllMd = async () => {
+    setIsCopying(true);
+    try {
+      const docs = await fetchAllComponentDocs();
+      if (docs.length === 0) return;
+
+      // Generate combined markdown
+      const parts: string[] = [];
+      parts.push(generateIndexMarkdown(docs));
+      parts.push("\n---\n");
+
+      for (const doc of docs) {
+        parts.push(generateComponentMarkdown(doc));
+        parts.push("\n---\n");
+      }
+
+      await navigator.clipboard.writeText(parts.join("\n"));
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } finally {
+      setIsCopying(false);
+    }
+  };
+
+  const handleDownloadAISummary = async () => {
+    setIsDownloadingAI(true);
+    try {
+      const docs = await fetchAllComponentDocs();
+      if (docs.length === 0) return;
+
+      const summary = generateAISummary(docs);
+      const blob = new Blob([summary], { type: "text/markdown" });
+      saveAs(blob, `${brand.dataPrefix}-components-ai-summary.md`);
+    } finally {
+      setIsDownloadingAI(false);
+    }
+  };
+
   // Group components by their group field
   const groupedComponents = components.reduce(
     (acc, comp) => {
@@ -64,11 +154,41 @@ export default function ComponentsIndexPage() {
 
       {/* Title */}
       <div>
-        <h1 className="font-serif text-4xl font-bold text-text-primary mb-4">
-          Components
-        </h1>
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <h1 className="font-serif text-4xl font-bold text-text-primary">
+            Components
+          </h1>
+          {!loading && components.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadAISummary}
+                disabled={isDownloadingAI}
+              >
+                {isDownloadingAI ? "Generating..." : "AI Summary"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyAllMd}
+                disabled={isCopying}
+              >
+                {copySuccess ? "Copied!" : isCopying ? "Copying..." : "Copy All MD"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadAllMd}
+                disabled={isDownloading}
+              >
+                {isDownloading ? "Downloading..." : "Download All MD"}
+              </Button>
+            </div>
+          )}
+        </div>
         <p className="text-lg text-text-secondary max-w-3xl">
-          Browse all available HSFX components. Each component includes structure documentation, CSS, design tokens, and usage notes.
+          Browse all available {brand.name} components. Each component includes structure documentation, CSS, design tokens, and usage notes.
         </p>
       </div>
 

@@ -8,6 +8,7 @@ import {
   Steps,
   Step,
 } from "@/components/ui";
+import { brand } from "@/config";
 
 const breadcrumbItems = [
   { label: "Docs", href: "/docs" },
@@ -16,45 +17,45 @@ const breadcrumbItems = [
 ];
 
 const npmInstallCode = `# Using npm
-npm install @hsfx/components
+npm install @${brand.npmScope}/components
 
 # Using yarn
-yarn add @hsfx/components
+yarn add @${brand.npmScope}/components
 
 # Using pnpm
-pnpm add @hsfx/components`;
+pnpm add @${brand.npmScope}/components`;
 
 const webflowSetupCode = `<!-- Add to your Webflow project's custom code (Site Settings > Custom Code > Head) -->
-<link rel="stylesheet" href="https://cdn.hsfx.dev/v1/hsfx.min.css">
+<link rel="stylesheet" href="${brand.cdnUrl}/v1/${brand.npmScope}.min.css">
 
 <!-- Or for development with source maps -->
-<link rel="stylesheet" href="https://cdn.hsfx.dev/v1/hsfx.css">`;
+<link rel="stylesheet" href="${brand.cdnUrl}/v1/${brand.npmScope}.css">`;
 
 const tailwindConfigCode = `// tailwind.config.js
 module.exports = {
   content: [
     './src/**/*.{js,ts,jsx,tsx}',
-    './node_modules/@hsfx/components/**/*.{js,ts,jsx,tsx}',
+    './node_modules/@${brand.npmScope}/components/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
       colors: {
-        // HSFX design tokens are automatically included
+        // ${brand.name} design tokens are automatically included
       },
     },
   },
   plugins: [
-    require('@hsfx/tailwind-plugin'),
+    require('@${brand.npmScope}/tailwind-plugin'),
   ],
 }`;
 
 const cssImportCode = `/* Import in your main CSS file */
-@import '@hsfx/components/styles/base.css';
-@import '@hsfx/components/styles/components.css';
-@import '@hsfx/components/styles/utilities.css';
+@import '@${brand.npmScope}/components/styles/base.css';
+@import '@${brand.npmScope}/components/styles/components.css';
+@import '@${brand.npmScope}/components/styles/utilities.css';
 
 /* Or import everything at once */
-@import '@hsfx/components/styles/index.css';`;
+@import '@${brand.npmScope}/components/styles/index.css';`;
 
 export default function InstallationPage() {
   return (
@@ -68,7 +69,7 @@ export default function InstallationPage() {
           Installation
         </h1>
         <p className="text-lg text-text-secondary max-w-3xl">
-          Get started with HSFX components in your project. Choose the installation method that best fits your workflow.
+          Get started with {brand.name} components in your project. Choose the installation method that best fits your workflow.
         </p>
       </div>
 
@@ -76,7 +77,7 @@ export default function InstallationPage() {
       <section id="prerequisites">
         <h2 className="font-serif text-2xl font-bold text-text-primary mb-4">Prerequisites</h2>
         <RichTextBlock html={`
-          <p>Before installing HSFX, ensure you have:</p>
+          <p>Before installing ${brand.name}, ensure you have:</p>
           <ul>
             <li><strong>Node.js 18+</strong> for npm/React projects</li>
             <li><strong>A Webflow account</strong> for Webflow integration</li>
@@ -90,7 +91,7 @@ export default function InstallationPage() {
         <h2 className="font-serif text-2xl font-bold text-text-primary mb-4">Webflow Installation</h2>
 
         <RichTextBlock html={`
-          <p>For Webflow projects, add the HSFX stylesheet to your project's custom code section.</p>
+          <p>For Webflow projects, add the ${brand.name} stylesheet to your project's custom code section.</p>
         `} />
 
         <Steps className="my-6">
@@ -157,7 +158,7 @@ export default function InstallationPage() {
         <h2 className="font-serif text-2xl font-bold text-text-primary mb-4">Tailwind CSS Integration</h2>
 
         <RichTextBlock html={`
-          <p>If you're using Tailwind CSS, HSFX provides a plugin that adds all design tokens as Tailwind utilities.</p>
+          <p>If you're using Tailwind CSS, ${brand.name} provides a plugin that adds all design tokens as Tailwind utilities.</p>
         `} />
 
         <div className="my-6">
@@ -170,7 +171,7 @@ export default function InstallationPage() {
         </div>
 
         <Callout variant="note" title="Design Token Sync">
-          <p>The Tailwind plugin automatically syncs HSFX design tokens with your Tailwind theme, giving you access to colors, spacing, and typography scales via utility classes.</p>
+          <p>The Tailwind plugin automatically syncs {brand.name} design tokens with your Tailwind theme, giving you access to colors, spacing, and typography scales via utility classes.</p>
         </Callout>
       </section>
 
@@ -179,16 +180,16 @@ export default function InstallationPage() {
         <h2 className="font-serif text-2xl font-bold text-text-primary mb-4">Verify Installation</h2>
 
         <RichTextBlock html={`
-          <p>To verify HSFX is installed correctly, check that:</p>
+          <p>To verify ${brand.name} is installed correctly, check that:</p>
           <ol>
-            <li>CSS custom properties are available (inspect any element and look for <code>--hsfx-*</code> variables)</li>
+            <li>CSS custom properties are available (inspect any element and look for <code>--${brand.cssPrefix}-*</code> variables)</li>
             <li>Component classes are recognized (e.g., <code>.button_wrap</code> should have styles)</li>
             <li>No console errors related to missing stylesheets</li>
           </ol>
         `} />
 
         <Callout variant="success" title="Ready to Build">
-          <p>Once installed, head to the <a href="/docs/getting-started" className="text-accent hover:text-accent-hover">Getting Started</a> guide to build your first page with HSFX components.</p>
+          <p>Once installed, head to the <a href="/docs/getting-started" className="text-accent hover:text-accent-hover">Getting Started</a> guide to build your first page with {brand.name} components.</p>
         </Callout>
       </section>
 

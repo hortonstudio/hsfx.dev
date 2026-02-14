@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import { Cube, Code, FileText, Wrench } from '@phosphor-icons/react';
 import { Card } from '@/components/ui';
 import { useStagger } from '@/lib/animations';
+import { messages } from '@/config';
 
 interface Feature {
   icon: typeof Cube;
@@ -34,7 +35,7 @@ const features: Feature[] = [
     icon: Wrench,
     title: 'Developer Toolkit',
     description:
-      'HSFX Kit runs inside the Webflow Designer. CSS framework tools, button animators, snippet managers, and visual builders.',
+      messages.features.devToolkit,
   },
 ];
 

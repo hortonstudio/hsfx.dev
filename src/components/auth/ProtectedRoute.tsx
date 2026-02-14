@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { Spinner } from "@/components/ui/Spinner";
 import { GridBackground } from "@/components/ui";
+import { brand } from "@/config";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -78,7 +79,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
             <p className="mt-8 text-sm text-text-dim">
               Don&apos;t have access?{" "}
-              <a href="mailto:contact@hsfx.dev" className="text-accent hover:text-accent-hover transition-colors">
+              <a href={`mailto:${brand.email}`} className="text-accent hover:text-accent-hover transition-colors">
                 Request access
               </a>
             </p>

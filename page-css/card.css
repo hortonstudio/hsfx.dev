@@ -1,0 +1,17 @@
+/* ===== CARD COMPONENT ===== */
+
+/* Card Responsive - Horizontal variant becomes vertical on small screens */
+@container (width < 36em) {
+    [data-wf--card--variant="horizontal"] .card_visual {
+        width: 100%;
+    }
+
+    [data-wf--card--variant="horizontal"] .card_contain {
+        flex-direction: column;
+    }
+
+    [data-wf--card--variant="horizontal"] .card_content {
+        flex-grow: 0;
+        flex-shrink: 1;
+    }
+}

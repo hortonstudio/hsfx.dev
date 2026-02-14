@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { CodeBlock } from '@/components/ui';
+import { messages } from '@/config';
 
 type TabId = 'slider' | 'grid' | 'schema' | 'animation';
 type Breakpoint = 'desktop' | 'tablet' | 'mobile';
@@ -29,7 +30,7 @@ function generateSliderCode(toggles: SliderToggles): React.ReactNode {
     <>
       <span className="syntax-tag">&lt;div</span>
       {'\n  '}
-      <span className="syntax-attr">data-hsfx-slider</span>
+      <span className="syntax-attr">{messages.interactiveDemo.slider}</span>
       {'\n  '}
       <span className="syntax-attr">data-slides-lg</span>
       <span className="syntax-tag">=</span>
@@ -73,7 +74,7 @@ function generateGridCode(breakpoint: Breakpoint): React.ReactNode {
     <>
       <span className="syntax-tag">&lt;div</span>
       {'\n  '}
-      <span className="syntax-attr">data-hsfx-grid</span>
+      <span className="syntax-attr">{messages.interactiveDemo.grid}</span>
       {'\n  '}
       <span className="syntax-attr">data-large-screen</span>
       <span className="syntax-tag">=</span>
@@ -105,7 +106,7 @@ function generateSchemaCode(schemaType: SchemaType): React.ReactNode {
     <>
       <span className="syntax-tag">&lt;div</span>
       {'\n  '}
-      <span className="syntax-attr">data-hsfx-schema</span>
+      <span className="syntax-attr">{messages.interactiveDemo.schema}</span>
       <span className="syntax-tag">=</span>
       <span className="syntax-string">&quot;{schemaType}&quot;</span>
       {'\n  '}
@@ -132,7 +133,7 @@ function generateAnimationCode(animationType: AnimationType): React.ReactNode {
     <>
       <span className="syntax-tag">&lt;div</span>
       {'\n  '}
-      <span className="syntax-attr">data-hsfx-entrance</span>
+      <span className="syntax-attr">{messages.interactiveDemo.entrance}</span>
       <span className="syntax-tag">=</span>
       <span className="syntax-string">&quot;{animationType}&quot;</span>
       {'\n  '}

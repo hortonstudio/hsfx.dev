@@ -30,7 +30,19 @@ import type { DesignToken } from "@/components/ui/DesignTokensTable";
 // MAIN ENTRY POINT
 // ════════════════════════════════════════════════════════════
 
-export function generateDocs(input: ExtractorOutput): ComponentDoc[] {
+export interface GenerationError {
+  componentName: string;
+  componentId: string;
+  error: string;
+  stack?: string;
+}
+
+export interface GenerationResult {
+  docs: ComponentDoc[];
+  errors: GenerationError[];
+}
+
+export function generateDocs(input: ExtractorOutput): GenerationResult {
   // Validate input
   if (!input.components || !Array.isArray(input.components)) {
     throw new Error("Invalid input: missing components array");
@@ -44,12 +56,22 @@ export function generateDocs(input: ExtractorOutput): ComponentDoc[] {
 
   // Pass 2: Generate per component
   const docs: ComponentDoc[] = [];
+  const errors: GenerationError[] = [];
+
   for (const component of input.components) {
     try {
       const doc = generateComponentDoc(component, lookups, input.breakpoints);
       docs.push(doc);
     } catch (e) {
-      console.warn(`Failed to process component ${component.name}:`, e);
+      const error = e instanceof Error ? e : new Error(String(e));
+      console.error(`FAILED: ${component.name} (${component.id}) — ${error.message}`);
+      console.error(error.stack);
+      errors.push({
+        componentName: component.name,
+        componentId: component.id,
+        error: error.message,
+        stack: error.stack,
+      });
     }
   }
 
@@ -58,7 +80,7 @@ export function generateDocs(input: ExtractorOutput): ComponentDoc[] {
     doc.usedBy = lookups.reverseDeps.get(doc.name) || [];
   }
 
-  return docs;
+  return { docs, errors };
 }
 
 // ════════════════════════════════════════════════════════════
@@ -251,13 +273,14 @@ function generateTree(render: RenderNode): TreeNode[] {
         prop?: string;
         slotDisplayName?: string;
       };
+      // Issue 3 fix: Restore slot display names - show "SLOT: Left Icon" etc.
       const label = bindingNode.slotDisplayName
         ? `SLOT: ${bindingNode.slotDisplayName}`
         : `BINDS: ${bindingNode.propName || bindingNode.prop || "?"}`;
       return {
         id: `node-${nodeCounter++}`,
         label,
-        type: "element" as NodeType,
+        type: "slot" as NodeType,
       };
     }
 
@@ -293,8 +316,26 @@ function generateTree(render: RenderNode): TreeNode[] {
     }
 
     // Add display name if present and not a slot
+    // Issue 3 fix: Check if displayName matches a slot child's slotDisplayName to avoid duplication
     if (node.displayName && !node.slot) {
-      label = `"${node.displayName}" ${label}`;
+      // Check if any child slot has this same display name
+      let isDuplicateOfSlotChild = false;
+      if (node.children) {
+        for (const child of node.children) {
+          if (
+            child &&
+            typeof child === "object" &&
+            "_binding" in child &&
+            (child as { slotDisplayName?: string }).slotDisplayName === node.displayName
+          ) {
+            isDuplicateOfSlotChild = true;
+            break;
+          }
+        }
+      }
+      if (!isDuplicateOfSlotChild) {
+        label = `"${node.displayName}" ${label}`;
+      }
     }
 
     // Add attributes
@@ -485,8 +526,12 @@ function convertPropertyToField(
     return uniqueId;
   }
 
-  // Use slot display name for slot labels
-  const label = prop.displayName || prop.name;
+  // Bug 6 fix: Use full label including group prefix to avoid duplicates
+  // For "Clickable/Visibility", keep as "Clickable/Visibility" not just "Visibility"
+  // Issue 3 fix: For slots, prefer displayName (e.g., "Left Icon") over generic label
+  const label = prop.type === "Slots/SlotContent"
+    ? (prop.displayName || prop.label || prop.name)
+    : (prop.label || prop.displayName || prop.name);
   const id = getUniqueId(label);
 
   // Determine type and value
@@ -652,6 +697,10 @@ function generateCss(
       if (variantData.css) {
         const cleanedCss = cleanCssValue(variantData.css, cssVariables);
         const formattedCss = formatCssProperties(cleanedCss);
+        // Bug 4 fix: Skip empty variant blocks (after mode switch CSS is stripped)
+        if (formattedCss.trim().length === 0) {
+          continue;
+        }
         const comment = variantData.variantName
           ? `/* Variant: ${variantData.variantName} */\n`
           : `/* ${variantKey} */\n`;
@@ -765,8 +814,9 @@ function generateTokens(
   if (!cssVariables) return [];
 
   const tokens: DesignToken[] = [];
+  const seenTokenNames = new Map<string, number>(); // Track count for prefixing duplicates
 
-  // Build variant name lookup
+  // Build variant name lookup from component variants
   const variantDisplayNames = new Set<string>();
   for (const opts of Object.values(variants || {})) {
     for (const opt of opts) {
@@ -774,36 +824,114 @@ function generateTokens(
     }
   }
 
+  // FIRST PASS: Build global mode name map from ALL tokens
+  // This resolves mode UUIDs to human-readable names by finding tokens that have both
+  const modeNameMap = new Map<string, string>();
   for (const [, varDef] of Object.entries(cssVariables)) {
+    if (!varDef.modesResolved) continue;
+
+    // Collect all mode keys for this variable
+    const modeKeys = Object.keys(varDef.modesResolved);
+    const uuidKeys = modeKeys.filter(k => k.startsWith("mode-"));
+    const readableKeys = modeKeys.filter(k => !k.startsWith("mode-"));
+
+    // Try to match UUIDs to readable names by comparing values
+    for (const uuidKey of uuidKeys) {
+      if (modeNameMap.has(uuidKey)) continue; // Already resolved
+
+      const uuidValue = String(varDef.modesResolved[uuidKey]);
+
+      for (const readableKey of readableKeys) {
+        const readableValue = String(varDef.modesResolved[readableKey]);
+        if (uuidValue === readableValue) {
+          // Found a match - extract the readable name
+          const slashIdx = readableKey.lastIndexOf("/");
+          let modeName: string;
+          if (slashIdx !== -1) {
+            modeName = readableKey.substring(slashIdx + 1).replace(/ Mode$/, "");
+          } else {
+            modeName = readableKey.replace(/ Mode$/, "");
+          }
+          modeNameMap.set(uuidKey, modeName);
+          break;
+        }
+      }
+    }
+  }
+
+  // SECOND PASS: Generate tokens using the global mode name map
+  for (const [, varDef] of Object.entries(cssVariables)) {
+    // Issue 2 fix: When duplicate token names found, prefix with scope instead of dropping
+    let tokenName = varDef.name;
+    if (seenTokenNames.has(varDef.name)) {
+      // This is a duplicate - prefix with "system/" or use variable ID scope
+      const count = seenTokenNames.get(varDef.name)!;
+      tokenName = count === 1 ? `system/${varDef.name}` : `system-${count}/${varDef.name}`;
+      seenTokenNames.set(varDef.name, count + 1);
+    } else {
+      seenTokenNames.set(varDef.name, 1);
+    }
+
     // Determine token type
     let tokenType: DesignToken["type"] = "raw";
     if (varDef.type === "color") tokenType = "color";
     else if (varDef.type === "length") tokenType = "length";
     else if (varDef.type === "number") tokenType = "number";
 
-    // Get default value - use final resolved value
-    const defaultValue = extractFinalValue(varDef.resolved || varDef.value || "");
+    // Bug 3 fix: Use strict null check instead of falsy check for defaultValue
+    // This preserves 0, false, and other falsy but valid values
+    const rawDefault = varDef.resolved !== null && varDef.resolved !== undefined
+      ? varDef.resolved
+      : varDef.value;
+    const defaultValue = extractFinalValue(rawDefault);
 
     // Build variants from modes
     const tokenVariants: Record<string, string> = {};
     if (varDef.modesResolved) {
+      // Collect readable keys for this variable to detect duplicates
+      const localReadableValues = new Map<string, string>(); // value → readable name
       for (const [modeKey, modeValue] of Object.entries(varDef.modesResolved)) {
-        // Try to match to component variant
+        if (!modeKey.startsWith("mode-")) {
+          localReadableValues.set(String(modeValue), modeKey);
+        }
+      }
+
+      for (const [modeKey, modeValue] of Object.entries(varDef.modesResolved)) {
         let variantName = modeKey;
 
-        // Strip collection prefix: "Button Style/Secondary Mode" → "Secondary Mode"
-        const slashIdx = modeKey.lastIndexOf("/");
-        if (slashIdx !== -1) {
-          const afterSlash = modeKey.substring(slashIdx + 1);
-          // Strip " Mode" suffix
-          const withoutMode = afterSlash.replace(/ Mode$/, "");
-          if (variantDisplayNames.has(withoutMode)) {
-            variantName = withoutMode;
-          } else if (variantDisplayNames.has(afterSlash)) {
-            variantName = afterSlash;
+        if (modeKey.startsWith("mode-")) {
+          // Check if this UUID has a matching readable key with same value (duplicate)
+          const valueStr = String(modeValue);
+          if (localReadableValues.has(valueStr)) {
+            // This is a duplicate of a readable key, skip it
+            continue;
+          }
+
+          // Use global mode name map to resolve UUID
+          if (modeNameMap.has(modeKey)) {
+            variantName = modeNameMap.get(modeKey)!;
           } else {
-            // Keep full name for system tokens
-            variantName = modeKey;
+            // Fallback: use truncated UUID
+            variantName = `mode:${modeKey.substring(5, 13)}`;
+          }
+        } else {
+          // Strip collection prefix: "Button Style/Secondary Mode" → "Secondary"
+          const slashIdx = modeKey.lastIndexOf("/");
+          if (slashIdx !== -1) {
+            const afterSlash = modeKey.substring(slashIdx + 1);
+            // Strip " Mode" suffix
+            const withoutMode = afterSlash.replace(/ Mode$/, "");
+            if (variantDisplayNames.has(withoutMode)) {
+              variantName = withoutMode;
+            } else if (variantDisplayNames.has(afterSlash)) {
+              variantName = afterSlash;
+            } else {
+              // Keep the after-slash portion for readability
+              variantName = withoutMode || afterSlash;
+            }
+          } else {
+            // No slash, just strip Mode suffix if present
+            variantName = modeKey.replace(/ Mode$/, "");
           }
         }
 
@@ -812,7 +940,7 @@ function generateTokens(
     }
 
     tokens.push({
-      name: varDef.name,
+      name: tokenName,
       type: tokenType,
       defaultValue,
       variants: Object.keys(tokenVariants).length > 0 ? tokenVariants : undefined,
@@ -822,8 +950,9 @@ function generateTokens(
   return tokens;
 }
 
-function extractFinalValue(resolved: string): string {
-  if (!resolved) return "";
+function extractFinalValue(resolved: string | number | null | undefined): string {
+  if (resolved === null || resolved === undefined) return "";
+  if (typeof resolved !== "string") return String(resolved);
 
   // If it contains a ref chain like "var(token) → var(other) → #2563eb"
   // Extract the final value

@@ -2,22 +2,23 @@
 
 import Link from "next/link";
 import { Breadcrumb } from "@/components/ui";
+import { messages } from "@/config";
 
 const breadcrumbItems = [{ label: "Docs" }];
 
 const sections = [
   {
     title: "Getting Started",
-    description: "Learn the basics of HSFX and set up your first project",
+    description: messages.docs.index.gettingStartedDesc,
     links: [
       { label: "Introduction", href: "/docs/getting-started", description: "Overview and core concepts" },
-      { label: "Installation", href: "/docs/installation", description: "Set up HSFX in your project" },
+      { label: "Installation", href: "/docs/installation", description: messages.docs.index.installationDesc },
       { label: "First Page", href: "/docs/first-page", description: "Build your first page" },
     ],
   },
   {
     title: "Components",
-    description: "Detailed documentation for all HSFX components",
+    description: messages.docs.index.componentsDesc,
     links: [
       { label: "Browse All", href: "/docs/components", description: "View all available components" },
       { label: "Button", href: "/docs/components/button-main", description: "Button variants and states" },
@@ -45,7 +46,7 @@ export default function DocsIndexPage() {
           Documentation
         </h1>
         <p className="text-lg text-text-secondary max-w-3xl">
-          Everything you need to build with HSFX components. From getting started guides to detailed component API references.
+          {messages.docs.index.description}
         </p>
       </div>
 

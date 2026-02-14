@@ -12,6 +12,7 @@ export interface DocRightSidebarProps {
   tableOfContents?: TableOfContentsItem[];
   currentSection?: string;
   onDownloadMd?: () => void;
+  onCopyMd?: () => void;
   onCopyLink?: () => void;
   prevPage?: { label: string; href: string };
   nextPage?: { label: string; href: string };
@@ -58,12 +59,14 @@ export function DocRightSidebar({
   tableOfContents,
   currentSection,
   onDownloadMd,
+  onCopyMd,
   onCopyLink,
   prevPage,
   nextPage,
   className = "",
 }: DocRightSidebarProps) {
-  const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedMd, setCopiedMd] = useState(false);
 
   const handleCopyLink = () => {
     if (onCopyLink) {
@@ -71,13 +74,21 @@ export function DocRightSidebar({
     } else {
       navigator.clipboard.writeText(window.location.href);
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const handleDownload = () => {
     if (onDownloadMd) {
       onDownloadMd();
+    }
+  };
+
+  const handleCopyMd = () => {
+    if (onCopyMd) {
+      onCopyMd();
+      setCopiedMd(true);
+      setTimeout(() => setCopiedMd(false), 2000);
     }
   };
 
@@ -133,13 +144,24 @@ export function DocRightSidebar({
             </button>
           )}
 
+          {onCopyMd && (
+            <button
+              onClick={handleCopyMd}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary
+                hover:text-text-primary hover:bg-surface rounded-lg transition-colors"
+            >
+              {copiedMd ? <CheckIcon /> : <CopyIcon />}
+              <span>{copiedMd ? "Copied!" : "Copy MD"}</span>
+            </button>
+          )}
+
           <button
             onClick={handleCopyLink}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary
               hover:text-text-primary hover:bg-surface rounded-lg transition-colors"
           >
-            {copied ? <CheckIcon /> : <CopyIcon />}
-            <span>{copied ? "Copied!" : "Copy link"}</span>
+            {copiedLink ? <CheckIcon /> : <CopyIcon />}
+            <span>{copiedLink ? "Copied!" : "Copy link"}</span>
           </button>
         </div>
 

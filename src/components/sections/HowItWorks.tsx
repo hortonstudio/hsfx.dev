@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useFadeUp } from '@/lib/animations';
+import { messages } from '@/config';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -26,7 +27,7 @@ const steps: Step[] = [
     number: '01',
     title: 'Drop in components',
     description:
-      'Drag pre-built HSFX components directly into your Webflow project. Each comes with configurable properties and responsive behavior.',
+      messages.howItWorks.step1,
   },
   {
     number: '02',
@@ -121,7 +122,7 @@ function ScriptMockup() {
         <span className="text-text-dim">&lt;</span>
         <span className="text-accent">script</span>
         <span className="text-text-dim">&gt;</span>
-        <span className="text-text-muted">hsfx.init()</span>
+        <span className="text-text-muted">{messages.howItWorks.scriptInit}</span>
         <span className="text-text-dim">&lt;/</span>
         <span className="text-accent">script</span>
         <span className="text-text-dim">&gt;</span>

@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { UserMenu } from "@/components/auth/UserMenu";
+import { brand } from "@/config";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -39,8 +40,8 @@ export default function Navbar() {
         <nav className="max-w-6xl mx-auto h-full px-6 flex items-center justify-between">
           <Link href="/" className="flex items-center">
             <Image
-              src="/logo-w.svg"
-              alt="HSFX"
+              src={brand.logo.light}
+              alt={brand.name}
               width={100}
               height={40}
               priority

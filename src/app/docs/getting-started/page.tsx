@@ -6,6 +6,7 @@ import {
   CodeEditor,
   RichTextBlock,
 } from "@/components/ui";
+import { brand } from "@/config";
 
 const breadcrumbItems = [
   { label: "Docs", href: "/docs" },
@@ -21,8 +22,8 @@ const tableOfContents = [
 ];
 
 const introContent = `
-<p>Welcome to the HSFX component framework documentation. This guide will walk you through setting up your first Webflow project using our component-driven approach.</p>
-<p>HSFX provides a comprehensive set of pre-built components that follow best practices for accessibility, responsive design, and maintainable code structure.</p>
+<p>Welcome to the ${brand.name} component framework documentation. This guide will walk you through setting up your first Webflow project using our component-driven approach.</p>
+<p>${brand.name} provides a comprehensive set of pre-built components that follow best practices for accessibility, responsive design, and maintainable code structure.</p>
 `;
 
 const attributeSetupCode = `<!-- Add data attributes to control component behavior -->
@@ -44,14 +45,14 @@ const attributeSetupCode = `<!-- Add data attributes to control component behavi
     .setAttribute('data-loading', 'true');
 </script>`;
 
-const importCode = `/* Import HSFX base styles */
-@import 'hsfx/base.css';
-@import 'hsfx/components/button.css';
-@import 'hsfx/components/section.css';
-@import 'hsfx/utilities.css';
+const importCode = `/* Import ${brand.name} base styles */
+@import '${brand.npmScope}/base.css';
+@import '${brand.npmScope}/components/button.css';
+@import '${brand.npmScope}/components/section.css';
+@import '${brand.npmScope}/utilities.css';
 
 /* Or import everything */
-@import 'hsfx/all.css';`;
+@import '${brand.npmScope}/all.css';`;
 
 export default function GettingStartedPage() {
   return (
@@ -65,7 +66,7 @@ export default function GettingStartedPage() {
           Building Your First Page
         </h1>
         <p className="text-lg text-text-secondary max-w-3xl">
-          Learn how to set up a Webflow project with HSFX components and build your first page using our component-driven workflow.
+          Learn how to set up a Webflow project with {brand.name} components and build your first page using our component-driven workflow.
         </p>
       </div>
 
@@ -99,9 +100,9 @@ export default function GettingStartedPage() {
         <h2 className="font-serif text-2xl font-bold text-text-primary mb-4">Setting up your project</h2>
 
         <RichTextBlock html={`
-          <p>Before you begin, make sure you have access to a Webflow project. HSFX works with any Webflow plan, including the free tier for prototyping.</p>
+          <p>Before you begin, make sure you have access to a Webflow project. ${brand.name} works with any Webflow plan, including the free tier for prototyping.</p>
           <h3>Step 1: Import the component library</h3>
-          <p>Add the HSFX stylesheet to your project's custom code section. This gives you access to all component styles and design tokens.</p>
+          <p>Add the ${brand.name} stylesheet to your project's custom code section. This gives you access to all component styles and design tokens.</p>
         `} />
 
         <div className="my-6">
@@ -123,13 +124,13 @@ export default function GettingStartedPage() {
         <h2 className="font-serif text-2xl font-bold text-text-primary mb-4">Building your first page</h2>
 
         <RichTextBlock html={`
-          <p>Let's create a simple landing page section using HSFX components. We'll use the Section, Container, and Button components.</p>
+          <p>Let's create a simple landing page section using ${brand.name} components. We'll use the Section, Container, and Button components.</p>
           <h3>Creating the structure</h3>
           <p>In Webflow, create a new div and apply the <code>section_wrap</code> class. Inside, add a <code>container_wrap</code> for content alignment, then add your heading, paragraph, and button components.</p>
         `} />
 
         <Callout variant="warning" title="Browser Support">
-          <p>HSFX uses modern CSS features like <code>color-mix()</code> and CSS custom properties. Ensure your target browsers support these features, or include the provided polyfills for older browser support.</p>
+          <p>{brand.name} uses modern CSS features like <code>color-mix()</code> and CSS custom properties. Ensure your target browsers support these features, or include the provided polyfills for older browser support.</p>
         </Callout>
       </section>
 
@@ -138,7 +139,7 @@ export default function GettingStartedPage() {
         <h2 className="font-serif text-2xl font-bold text-text-primary mb-4">Working with components</h2>
 
         <RichTextBlock html={`
-          <p>HSFX components are controlled through a combination of CSS classes and data attributes. Classes define the base styling and variants, while data attributes control interactive behavior.</p>
+          <p>${brand.name} components are controlled through a combination of CSS classes and data attributes. Classes define the base styling and variants, while data attributes control interactive behavior.</p>
         `} />
 
         <div className="my-6">
@@ -185,7 +186,7 @@ export default function GettingStartedPage() {
         `} />
 
         <Callout variant="success" title="Ready to build?">
-          <p>You now have everything you need to start building with HSFX. Browse the component library to see all available components and their documentation.</p>
+          <p>You now have everything you need to start building with {brand.name}. Browse the component library to see all available components and their documentation.</p>
         </Callout>
       </section>
 

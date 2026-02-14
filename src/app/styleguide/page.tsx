@@ -37,6 +37,7 @@ import {
   LoginForm,
   SignupForm,
 } from "@/components/ui/AuthForms";
+import { messages } from "@/config";
 import { ClickableImage, ImageGallery } from "@/components/ui/ImageModal";
 import {
   Callout,
@@ -353,8 +354,7 @@ function StyleguideContent() {
               Style Guide
             </h1>
             <p className="text-lg text-text-muted max-w-2xl">
-              A comprehensive reference for the HSFX design system. All components
-              support light and dark themes.
+              {messages.styleguide.description}
             </p>
           </div>
 
@@ -999,12 +999,12 @@ function StyleguideContent() {
               <NumberedSteps>
                 <NumberedStep title="Install the package">
                   <p>Run the following command in your terminal:</p>
-                  <CodeBlockWithCopy code="npm install @hsfx/ui" language="bash" />
+                  <CodeBlockWithCopy code={messages.styleguide.installCmd} language="bash" />
                 </NumberedStep>
                 <NumberedStep title="Import components">
                   <p>Import the components you need in your project:</p>
                   <CodeBlockWithCopy
-                    code={`import { Button, Card } from '@hsfx/ui';`}
+                    code={messages.styleguide.importExample}
                     language="typescript"
                   />
                 </NumberedStep>
@@ -1298,7 +1298,7 @@ export function useUser(userId: string) {
           {/* Footer */}
           <footer className="mt-24 pt-8 border-t border-border">
             <p className="text-sm text-text-muted text-center">
-              HSFX Design System &copy; {new Date().getFullYear()}
+              {messages.styleguide.footer} &copy; {new Date().getFullYear()}
             </p>
           </footer>
         </main>

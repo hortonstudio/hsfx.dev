@@ -7,6 +7,7 @@ import { Tooltip } from "./Tooltip";
 // Property field types
 export type PropertyType =
   | "text"
+  | "color"
   | "link"
   | "select"
   | "toggle"

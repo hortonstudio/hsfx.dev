@@ -41,6 +41,7 @@ const config: Config = {
         "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
       boxShadow: {
+        // Brand accent glow — sync with: globals.css :root/dark --accent (#0EA5E9 = rgb(14,165,233))
         "glow-sm": "0 0 10px rgba(14, 165, 233, 0.3)",
         "glow": "0 0 20px rgba(14, 165, 233, 0.35), 0 0 40px rgba(14, 165, 233, 0.15)",
         "glow-lg": "0 0 30px rgba(14, 165, 233, 0.4), 0 0 60px rgba(14, 165, 233, 0.2)",

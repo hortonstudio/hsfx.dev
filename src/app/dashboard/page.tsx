@@ -181,7 +181,7 @@ export default function DashboardPage() {
                 description="Extract and generate component documentation from Webflow"
               />
               <DashboardCard
-                href="/tools/cms"
+                href="/tools/yap"
                 icon={
                   <svg
                     className="w-5 h-5"
@@ -193,16 +193,15 @@ export default function DashboardPage() {
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125"
+                      d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"
                     />
                   </svg>
                 }
-                title="CMS Generator"
-                description="Generate Webflow CMS schemas and content"
-                disabled
+                title="Yap Capture"
+                description="Guided questionnaire to capture component documentation"
               />
               <DashboardCard
-                href="/tools/assets"
+                href="/tools/usage-editor"
                 icon={
                   <svg
                     className="w-5 h-5"
@@ -214,16 +213,15 @@ export default function DashboardPage() {
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                      d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
                     />
                   </svg>
                 }
-                title="Asset Manager"
-                description="Upload and manage project assets"
-                disabled
+                title="Usage Editor"
+                description="Edit component usage docs with markdown preview"
               />
               <DashboardCard
-                href="/tools/export"
+                href="/tools/css-manager"
                 icon={
                   <svg
                     className="w-5 h-5"
@@ -235,13 +233,32 @@ export default function DashboardPage() {
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                      d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"
                     />
                   </svg>
                 }
-                title="Export Tools"
-                description="Export configurations and templates"
-                disabled
+                title="CSS Manager"
+                description="Store, edit, and deploy page CSS with backups"
+              />
+              <DashboardCard
+                href="/tools/icon-manager"
+                icon={
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z"
+                    />
+                  </svg>
+                }
+                title="Icon Manager"
+                description="Manage and deploy SVG icons for Webflow"
               />
             </div>
           </section>

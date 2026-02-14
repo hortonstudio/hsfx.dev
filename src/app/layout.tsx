@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { LenisProvider } from "@/lib/lenis-provider";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { brand, messages } from "@/config";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -27,9 +28,8 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "HSFX - Build faster. Ship cleaner.",
-  description:
-    "A component-driven Webflow framework with 40+ attribute modules, CMS automation, and a complete developer toolkit.",
+  title: messages.metadata.title,
+  description: brand.description,
   keywords: [
     "Webflow",
     "framework",
@@ -38,24 +38,22 @@ export const metadata: Metadata = {
     "CMS",
     "web development",
   ],
-  authors: [{ name: "HSFX" }],
+  authors: [{ name: brand.name }],
   openGraph: {
-    title: "HSFX - Build faster. Ship cleaner.",
-    description:
-      "A component-driven Webflow framework with 40+ attribute modules, CMS automation, and a complete developer toolkit.",
+    title: messages.metadata.title,
+    description: brand.description,
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "HSFX - Build faster. Ship cleaner.",
-    description:
-      "A component-driven Webflow framework with 40+ attribute modules, CMS automation, and a complete developer toolkit.",
+    title: messages.metadata.title,
+    description: brand.description,
   },
   icons: {
     icon: [
-      { url: "/favicon32x.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon256x.png", sizes: "256x256", type: "image/png" },
+      { url: brand.favicon.small, sizes: "32x32", type: "image/png" },
+      { url: brand.favicon.large, sizes: "256x256", type: "image/png" },
     ],
   },
 };
