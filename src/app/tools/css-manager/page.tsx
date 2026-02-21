@@ -563,6 +563,32 @@ function CSSManagerContent() {
     [entries, recomputeGroupCSS]
   );
 
+  // ── Re-minify single entry + group ──────────────────────
+  const handleReminifyEntry = useCallback(async () => {
+    if (!selectedId || !selectedEntry) return;
+
+    setSyncStatus("saving");
+    const supabase = createClient();
+
+    const entryMinified = minifyCSS(selectedEntry.css_content);
+    const { error } = await supabase
+      .from("page_css")
+      .update({ css_minified: entryMinified, updated_at: new Date().toISOString() })
+      .eq("id", selectedId);
+
+    if (error) {
+      console.error("Re-minify error:", error);
+      setSyncStatus("error");
+      return;
+    }
+
+    // Also rebuild group combined
+    await recomputeGroupCSS(selectedEntry.group_name);
+
+    setSyncStatus("saved");
+    setTimeout(() => setSyncStatus("idle"), 2000);
+  }, [selectedId, selectedEntry, recomputeGroupCSS]);
+
   // ── Restore backup ────────────────────────────────────
   const handleRestore = (css: string) => {
     setEditorContent(css);
@@ -680,6 +706,18 @@ function CSSManagerContent() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                       Save
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleReminifyEntry}
+                      disabled={syncStatus === "saving"}
+                      title="Re-minify this entry and rebuild group cache in Supabase"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Re-minify
                     </Button>
                     <Button
                       variant="ghost"

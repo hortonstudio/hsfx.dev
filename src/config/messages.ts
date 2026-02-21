@@ -89,6 +89,13 @@ export const messages = {
       aiSummaryFilename: `${brand.dataPrefix}-components-ai-summary.md`,
       aiSummaryHeader: `# ${brand.name} Component Library - AI Reference`,
     },
+
+    api: {
+      indexDescription: `Comprehensive guides for integrating with ${brand.name} APIs. Each API includes authentication details, parameter references, code examples, and interactive playgrounds.`,
+      authDescription: `All ${brand.name} APIs require authentication via an \`x-api-key\` header. Contact us to obtain your API key.`,
+      cssApiDescription: `The CSS API serves CSS entries from the ${brand.name} design system. Fetch individual entries, combine group CSS, and control minification.`,
+      iconsApiDescription: `The Icons API provides access to the ${brand.name} SVG icon library. Query icons by group and receive structured JSON responses.`,
+    },
   },
 
   styleguide: {

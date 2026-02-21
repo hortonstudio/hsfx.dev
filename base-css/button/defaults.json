@@ -1,0 +1,18 @@
+{
+  "sourceAttribute": "data-animation-type",
+  "targetAttribute": "data-wf--button-main--style",
+  "buttonTypes": [
+    "primary",
+    "secondary",
+    "text",
+    "navbar",
+    "dropdown"
+  ],
+  "defaultAnimations": {
+    "primary": "bgbasic",
+    "secondary": "bgbasic",
+    "text": "double-line",
+    "navbar": "",
+    "dropdown": "bgbasic"
+  }
+}

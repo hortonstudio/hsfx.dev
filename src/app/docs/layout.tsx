@@ -8,7 +8,17 @@ import { DocSidebar, type SidebarGroup, Spinner } from "@/components/ui";
 import { DocSectionProvider, useDocSection } from "@/contexts/DocSectionContext";
 import { createClient } from "@/lib/supabase/client";
 
-// Static "Getting Started" section
+// Shared sections for individual API doc pages
+const apiDocSections = [
+  { id: "overview", label: "Overview" },
+  { id: "authentication", label: "Authentication" },
+  { id: "parameters", label: "Parameters" },
+  { id: "responses", label: "Responses" },
+  { id: "examples", label: "Examples" },
+  { id: "playground", label: "Try It Out" },
+];
+
+// Static "Getting Started" + "API Reference" sections
 const staticGroups: SidebarGroup[] = [
   {
     label: "Getting Started",
@@ -26,6 +36,24 @@ const staticGroups: SidebarGroup[] = [
       },
       { label: "Installation", slug: "installation" },
       { label: "Building Your First Page", slug: "first-page" },
+    ],
+  },
+  {
+    label: "API Reference",
+    items: [
+      {
+        label: "Overview",
+        slug: "api",
+        sections: [
+          { id: "available-apis", label: "Available APIs" },
+          { id: "authentication", label: "Authentication" },
+          { id: "rate-limits", label: "Rate Limits" },
+          { id: "download-guides", label: "Download Guides" },
+        ],
+      },
+      { label: "CSS API", slug: "api/css", sections: apiDocSections },
+      { label: "Icons API", slug: "api/icons", sections: apiDocSections },
+      { label: "Button Styles API", slug: "api/button-styles", sections: apiDocSections },
     ],
   },
 ];

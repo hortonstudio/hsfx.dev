@@ -1,10 +1,17 @@
+import { minify } from "csso";
+
 export function minifyCSS(css: string): string {
-  return css
-    .replace(/\/\*[\s\S]*?\*\//g, "") // Remove comments
-    .replace(/\s+/g, " ") // Collapse whitespace
-    .replace(/\s*([{}:;,>~+])\s*/g, "$1") // Remove space around special chars
-    .replace(/;}/g, "}") // Remove last semicolon before }
-    .trim();
+  if (!css.trim()) return "";
+  try {
+    return minify(css).css;
+  } catch {
+    // Fallback: basic whitespace collapse if csso fails on malformed CSS
+    return css
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\s+/g, " ")
+      .replace(/;}/g, "}")
+      .trim();
+  }
 }
 
 export function wrapInStyleTags(css: string): string {

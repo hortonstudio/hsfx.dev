@@ -26,6 +26,15 @@ const sections = [
     ],
   },
   {
+    title: "API Reference",
+    description: "Guides, playgrounds, and downloadable docs for HSFX APIs",
+    links: [
+      { label: "API Overview", href: "/docs/api", description: "Authentication, rate limits, and getting started" },
+      { label: "CSS API", href: "/docs/api/css", description: "Fetch CSS entries with minification options" },
+      { label: "Icons API", href: "/docs/api/icons", description: "Retrieve SVG icons organized by group" },
+    ],
+  },
+  {
     title: "Tools",
     description: "Developer tools and utilities",
     links: [
@@ -100,6 +109,12 @@ export default function DocsIndexPage() {
             className="px-4 py-2 bg-surface border border-border rounded-lg hover:border-accent/50 transition-colors text-sm font-medium text-text-primary"
           >
             Browse Components
+          </Link>
+          <Link
+            href="/docs/api"
+            className="px-4 py-2 bg-surface border border-border rounded-lg hover:border-accent/50 transition-colors text-sm font-medium text-text-primary"
+          >
+            API Docs
           </Link>
           <Link
             href="/tools/doc-generator"

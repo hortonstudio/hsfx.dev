@@ -83,6 +83,9 @@ export {
 // Code Editor
 export { CodeEditor } from "./CodeEditor";
 
+// API Documentation
+export { ApiPlayground } from "./ApiPlayground";
+
 // Webflow-style Editor Components
 export { WebflowNavigator } from "./WebflowNavigator";
 export type { TreeNode, NodeType } from "./WebflowNavigator";
