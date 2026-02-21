@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState, useEffect } from "react";
 import type { Tween, AnimatedProperty, StaggerConfig } from "@/lib/gsap-creator/types";
 import { PROPERTY_META, TWEEN_COLORS } from "@/lib/gsap-creator/types";
 import { getGroupedEases } from "@/lib/gsap-creator/eases";
@@ -16,6 +16,63 @@ const UNITS = ["px", "%", "vw", "vh", "em", "rem", "deg"];
 const TWEEN_TYPES = ["from", "to", "fromTo", "set"] as const;
 const STAGGER_FROM_OPTIONS = ["start", "end", "center", "edges", "random"] as const;
 const SPLIT_TYPES = ["chars", "words", "lines"] as const;
+
+const SELECTOR_TYPES = ["attribute", "class", "id", "tag", "custom"] as const;
+type SelectorType = (typeof SELECTOR_TYPES)[number];
+
+interface SelectorParts {
+  type: SelectorType;
+  attrName: string;
+  attrValue: string;
+  className: string;
+  idName: string;
+  tagName: string;
+  customSelector: string;
+}
+
+function parseSelectorType(selector: string): SelectorParts {
+  const defaults: SelectorParts = {
+    type: "attribute",
+    attrName: "data-hs-anim",
+    attrValue: "element",
+    className: "element",
+    idName: "element",
+    tagName: "div",
+    customSelector: selector,
+  };
+
+  if (selector.startsWith("[")) {
+    const match = selector.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/);
+    if (match) {
+      return { ...defaults, type: "attribute", attrName: match[1], attrValue: match[2] || "" };
+    }
+  }
+  if (selector.startsWith("#")) {
+    return { ...defaults, type: "id", idName: selector.slice(1) };
+  }
+  if (selector.startsWith(".")) {
+    return { ...defaults, type: "class", className: selector.slice(1) };
+  }
+  if (/^[a-z][a-z0-9]*$/i.test(selector)) {
+    return { ...defaults, type: "tag", tagName: selector };
+  }
+  return { ...defaults, type: "custom" };
+}
+
+function buildSelector(parts: SelectorParts): string {
+  switch (parts.type) {
+    case "attribute":
+      return parts.attrValue ? `[${parts.attrName}="${parts.attrValue}"]` : `[${parts.attrName}]`;
+    case "class":
+      return `.${parts.className}`;
+    case "id":
+      return `#${parts.idName}`;
+    case "tag":
+      return parts.tagName;
+    case "custom":
+      return parts.customSelector;
+  }
+}
 
 export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
   const groupedEases = getGroupedEases();
@@ -65,6 +122,26 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
     [tween, onUpdate]
   );
 
+  const [selectorParts, setSelectorParts] = useState<SelectorParts>(() =>
+    parseSelectorType(tween?.target || '[data-hs-anim="element"]')
+  );
+
+  const tweenId = tween?.id;
+  useEffect(() => {
+    if (tween) {
+      setSelectorParts(parseSelectorType(tween.target));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tweenId]); // Only re-parse on tween switch, not on every target change
+
+  const updateSelector = useCallback(
+    (updatedParts: SelectorParts) => {
+      setSelectorParts(updatedParts);
+      update({ target: buildSelector(updatedParts) });
+    },
+    [update]
+  );
+
   if (!tween) {
     return (
       <div className="w-80 flex flex-col bg-surface border-l border-border overflow-hidden">
@@ -78,19 +155,130 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
   const availableProps = Object.keys(PROPERTY_META).filter((p) => !tween.properties[p]);
 
   return (
-    <div className="w-80 flex flex-col bg-surface border-l border-border overflow-y-auto">
+    <div className="w-80 flex flex-col bg-surface border-l border-border min-h-0 overflow-y-auto">
       {/* Target */}
       <PropertySection title="Target">
-        <div>
-          <label className="text-[10px] text-text-dim block mb-1">Selector</label>
-          <input
-            type="text"
-            value={tween.target}
-            onChange={(e) => update({ target: e.target.value })}
-            className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
-              border border-border rounded-md focus:outline-none focus:border-accent/50"
-            placeholder=".element"
-          />
+        {/* Selector type tabs */}
+        <div className="flex gap-0.5">
+          {SELECTOR_TYPES.map((t) => (
+            <button
+              key={t}
+              onClick={() => {
+                const newParts = { ...selectorParts, type: t };
+                updateSelector(newParts);
+              }}
+              className={`flex-1 px-1.5 py-1 text-[9px] font-mono rounded transition-colors
+                ${
+                  selectorParts.type === t
+                    ? "bg-accent/20 text-accent border border-accent/30"
+                    : "bg-black/20 text-text-dim border border-transparent hover:text-text-muted"
+                }`}
+            >
+              {t === "attribute" ? "attr" : t}
+            </button>
+          ))}
+        </div>
+
+        {/* Type-specific inputs */}
+        {selectorParts.type === "attribute" && (
+          <div className="grid grid-cols-2 gap-1.5">
+            <div>
+              <label className="text-[9px] text-text-dim block mb-0.5">Attribute</label>
+              <input
+                type="text"
+                value={selectorParts.attrName}
+                onChange={(e) => updateSelector({ ...selectorParts, attrName: e.target.value })}
+                className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+                  border border-border rounded-md focus:outline-none focus:border-accent/50"
+                placeholder="data-hs-anim"
+              />
+            </div>
+            <div>
+              <label className="text-[9px] text-text-dim block mb-0.5">Value</label>
+              <input
+                type="text"
+                value={selectorParts.attrValue}
+                onChange={(e) => updateSelector({ ...selectorParts, attrValue: e.target.value })}
+                className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+                  border border-border rounded-md focus:outline-none focus:border-accent/50"
+                placeholder="element"
+              />
+            </div>
+          </div>
+        )}
+
+        {selectorParts.type === "class" && (
+          <div>
+            <label className="text-[9px] text-text-dim block mb-0.5">Class name</label>
+            <div className="flex items-center">
+              <span className="text-xs font-mono text-text-dim mr-1">.</span>
+              <input
+                type="text"
+                value={selectorParts.className}
+                onChange={(e) => updateSelector({ ...selectorParts, className: e.target.value })}
+                className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+                  border border-border rounded-md focus:outline-none focus:border-accent/50"
+                placeholder="element"
+              />
+            </div>
+          </div>
+        )}
+
+        {selectorParts.type === "id" && (
+          <div>
+            <label className="text-[9px] text-text-dim block mb-0.5">ID</label>
+            <div className="flex items-center">
+              <span className="text-xs font-mono text-text-dim mr-1">#</span>
+              <input
+                type="text"
+                value={selectorParts.idName}
+                onChange={(e) => updateSelector({ ...selectorParts, idName: e.target.value })}
+                className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+                  border border-border rounded-md focus:outline-none focus:border-accent/50"
+                placeholder="hero-title"
+              />
+            </div>
+          </div>
+        )}
+
+        {selectorParts.type === "tag" && (
+          <div>
+            <label className="text-[9px] text-text-dim block mb-0.5">Tag</label>
+            <select
+              value={selectorParts.tagName}
+              onChange={(e) => updateSelector({ ...selectorParts, tagName: e.target.value })}
+              className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+                border border-border rounded-md focus:outline-none focus:border-accent/50"
+            >
+              {["div", "span", "p", "h1", "h2", "h3", "h4", "h5", "h6", "section", "article", "button", "a", "img", "ul", "li"].map(
+                (tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                )
+              )}
+            </select>
+          </div>
+        )}
+
+        {selectorParts.type === "custom" && (
+          <div>
+            <label className="text-[9px] text-text-dim block mb-0.5">CSS Selector</label>
+            <input
+              type="text"
+              value={selectorParts.customSelector}
+              onChange={(e) => updateSelector({ ...selectorParts, customSelector: e.target.value })}
+              className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+                border border-border rounded-md focus:outline-none focus:border-accent/50"
+              placeholder='.parent > .child[data-active="true"]'
+            />
+          </div>
+        )}
+
+        {/* Computed selector preview */}
+        <div className="flex items-center gap-1.5 px-2 py-1 bg-black/10 rounded border border-border/50">
+          <span className="text-[9px] text-text-dim shrink-0">Selector:</span>
+          <code className="text-[10px] font-mono text-accent truncate">{tween.target}</code>
         </div>
       </PropertySection>
 
@@ -252,7 +440,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
       </PropertySection>
 
       {/* Stagger */}
-      <PropertySection title="Stagger" defaultOpen={false}>
+      <PropertySection title="Stagger">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
@@ -298,7 +486,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
       </PropertySection>
 
       {/* Split Text */}
-      <PropertySection title="Split Text" defaultOpen={false}>
+      <PropertySection title="Split Text">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
@@ -356,7 +544,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
       </PropertySection>
 
       {/* Color & Label */}
-      <PropertySection title="Appearance" defaultOpen={false}>
+      <PropertySection title="Appearance">
         <div className="flex items-center gap-2">
           <label className="text-[10px] text-text-dim">Bar Color</label>
           <div className="flex gap-1">

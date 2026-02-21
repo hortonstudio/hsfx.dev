@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import type { TimelineViewState } from "@/lib/gsap-creator/types";
 
 export interface PlayheadHandle {
@@ -9,11 +9,18 @@ export interface PlayheadHandle {
 
 interface PlayheadProps {
   viewState: TimelineViewState;
+  onSeek?: (time: number) => void;
 }
 
 export const Playhead = forwardRef<PlayheadHandle, PlayheadProps>(
-  function Playhead({ viewState }, ref) {
+  function Playhead({ viewState, onSeek }, ref) {
     const lineRef = useRef<HTMLDivElement>(null);
+    const dragRef = useRef<{ startX: number; startTime: number } | null>(null);
+
+    const getTime = useCallback(() => {
+      if (!lineRef.current) return 0;
+      return parseFloat(lineRef.current.style.left) / viewState.zoom;
+    }, [viewState.zoom]);
 
     useImperativeHandle(ref, () => ({
       setTime(time: number) {
@@ -23,11 +30,31 @@ export const Playhead = forwardRef<PlayheadHandle, PlayheadProps>(
       },
     }));
 
-    // Initialize at 0
-    useEffect(() => {
-      if (lineRef.current) {
-        lineRef.current.style.left = "0px";
-      }
+    const handlePointerDown = useCallback(
+      (e: React.PointerEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const target = e.currentTarget as HTMLElement;
+        target.setPointerCapture(e.pointerId);
+        dragRef.current = { startX: e.clientX, startTime: getTime() };
+      },
+      [getTime]
+    );
+
+    const handlePointerMove = useCallback(
+      (e: React.PointerEvent) => {
+        if (!dragRef.current || !lineRef.current) return;
+        const deltaX = e.clientX - dragRef.current.startX;
+        const deltaTime = deltaX / viewState.zoom;
+        const newTime = Math.max(0, dragRef.current.startTime + deltaTime);
+        lineRef.current.style.left = `${newTime * viewState.zoom}px`;
+        onSeek?.(newTime);
+      },
+      [viewState.zoom, onSeek]
+    );
+
+    const handlePointerUp = useCallback(() => {
+      dragRef.current = null;
     }, []);
 
     return (
@@ -36,8 +63,14 @@ export const Playhead = forwardRef<PlayheadHandle, PlayheadProps>(
         className="absolute top-0 bottom-0 w-px bg-red-500 z-30 pointer-events-none"
         style={{ left: 0 }}
       >
-        {/* Playhead handle */}
-        <div className="absolute -top-0.5 -left-1.5 w-3 h-3 bg-red-500 rounded-full shadow-sm" />
+        {/* Draggable playhead handle */}
+        <div
+          className="absolute -top-1 -left-2 w-4 h-4 bg-red-500 rounded-full shadow-sm
+            pointer-events-auto cursor-grab active:cursor-grabbing hover:scale-110 transition-transform"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+        />
       </div>
     );
   }

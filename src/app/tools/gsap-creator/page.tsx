@@ -28,6 +28,8 @@ import { TimelineEditor } from "@/components/gsap-creator/TimelineEditor";
 import { PropertyPanel } from "@/components/gsap-creator/PropertyPanel";
 import { ExportBar } from "@/components/gsap-creator/ExportBar";
 import type { PlayheadHandle } from "@/components/gsap-creator/Playhead";
+import { ContextMenu, type ContextMenuItem } from "@/components/gsap-creator/ContextMenu";
+import type { PreviewAreaHandle } from "@/components/gsap-creator/PreviewArea";
 
 // ════════════════════════════════════════════════════════════
 // SYNC INDICATOR
@@ -58,6 +60,16 @@ function SyncIndicator({ status }: { status: SyncStatus }) {
       )}
     </div>
   );
+}
+
+// ════════════════════════════════════════════════════════════
+// CONTEXT MENU STATE
+// ════════════════════════════════════════════════════════════
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  tweenId?: string;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -113,6 +125,18 @@ function GsapCreatorContent() {
 
   // ── Refs ───────────────────────────────────────────────
   const playheadRef = useRef<PlayheadHandle>(null);
+  const previewRef = useRef<PreviewAreaHandle>(null);
+
+  // ── Undo/redo ──────────────────────────────────────────
+  const undoStackRef = useRef<GsapPresetConfig[]>([]);
+  const redoStackRef = useRef<GsapPresetConfig[]>([]);
+  const isUndoRedoRef = useRef(false);
+
+  // ── Context menu ───────────────────────────────────────
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  // ── Clipboard ──────────────────────────────────────────
+  const clipboardRef = useRef<Tween | null>(null);
 
   // ── Derived ────────────────────────────────────────────
   const selectedPreset = presets.find((p) => p.id === selectedPresetId);
@@ -152,6 +176,8 @@ function GsapCreatorContent() {
       setSelectedTweenId(preset.config.tweens[0]?.id || null);
       setIsDirty(false);
       setSyncStatus("idle");
+      undoStackRef.current = [];
+      redoStackRef.current = [];
       setPlayback((prev) => ({ ...prev, isPlaying: false, currentTime: 0 }));
     },
     []
@@ -160,11 +186,40 @@ function GsapCreatorContent() {
   // ── Mark dirty on config changes ───────────────────────
   const updateConfig = useCallback((updater: (prev: GsapPresetConfig) => GsapPresetConfig) => {
     setConfig((prev) => {
+      if (!isUndoRedoRef.current) {
+        undoStackRef.current = [...undoStackRef.current.slice(-49), structuredClone(prev)];
+        redoStackRef.current = [];
+      }
       const next = updater(prev);
       setIsDirty(true);
       return next;
     });
   }, []);
+
+  // ── Undo/redo handlers ─────────────────────────────────
+  const handleUndo = useCallback(() => {
+    const stack = undoStackRef.current;
+    if (stack.length === 0) return;
+    const prev = stack[stack.length - 1];
+    undoStackRef.current = stack.slice(0, -1);
+    redoStackRef.current = [...redoStackRef.current, structuredClone(config)];
+    isUndoRedoRef.current = true;
+    setConfig(prev);
+    setIsDirty(true);
+    isUndoRedoRef.current = false;
+  }, [config]);
+
+  const handleRedo = useCallback(() => {
+    const stack = redoStackRef.current;
+    if (stack.length === 0) return;
+    const next = stack[stack.length - 1];
+    redoStackRef.current = stack.slice(0, -1);
+    undoStackRef.current = [...undoStackRef.current, structuredClone(config)];
+    isUndoRedoRef.current = true;
+    setConfig(next);
+    setIsDirty(true);
+    isUndoRedoRef.current = false;
+  }, [config]);
 
   // ── Save preset ────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -380,6 +435,21 @@ function GsapCreatorContent() {
     [selectedTweenId, updateConfig]
   );
 
+  const handleDuplicateTween = useCallback(
+    (id: string) => {
+      const tween = config.tweens.find((t) => t.id === id);
+      if (!tween) return;
+      const newId = crypto.randomUUID();
+      const cloned: Tween = { ...structuredClone(tween), id: newId };
+      updateConfig((prev) => ({
+        ...prev,
+        tweens: [...prev.tweens, cloned],
+      }));
+      setSelectedTweenId(newId);
+    },
+    [config.tweens, updateConfig]
+  );
+
   const handleUpdateTween = useCallback(
     (tweenId: string, updates: Partial<Tween>) => {
       updateConfig((prev) => ({
@@ -392,10 +462,57 @@ function GsapCreatorContent() {
     [updateConfig]
   );
 
+  // ── Copy/paste tween ───────────────────────────────────
+  const handleCopyTween = useCallback(
+    (id: string) => {
+      const tween = config.tweens.find((t) => t.id === id);
+      if (tween) clipboardRef.current = structuredClone(tween);
+    },
+    [config.tweens]
+  );
+
+  const handlePasteTween = useCallback(() => {
+    if (!clipboardRef.current) return;
+    const newId = crypto.randomUUID();
+    const pasted: Tween = { ...structuredClone(clipboardRef.current), id: newId };
+    updateConfig((prev) => ({
+      ...prev,
+      tweens: [...prev.tweens, pasted],
+    }));
+    setSelectedTweenId(newId);
+  }, [updateConfig]);
+
+  // ── Context menu handler ───────────────────────────────
+  const handleTimelineContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const tweenBar = (e.target as HTMLElement).closest("[data-tween-bar]");
+    if (tweenBar) {
+      const tweenId = tweenBar.getAttribute("data-tween-id") || undefined;
+      setContextMenu({ x: e.clientX, y: e.clientY, tweenId });
+    } else {
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    }
+  }, []);
+
+  // ── Build context menu items ───────────────────────────
+  const contextMenuItems: ContextMenuItem[] = contextMenu?.tweenId
+    ? [
+        { label: "Duplicate", onClick: () => handleDuplicateTween(contextMenu.tweenId!) },
+        { label: "Copy", onClick: () => handleCopyTween(contextMenu.tweenId!) },
+        { label: "Paste", onClick: handlePasteTween, disabled: !clipboardRef.current },
+        { label: "", onClick: () => {}, separator: true },
+        { label: "Delete", onClick: () => handleDeleteTween(contextMenu.tweenId!), danger: true },
+      ]
+    : [
+        { label: "Add Tween", onClick: handleAddTween },
+        { label: "Paste", onClick: handlePasteTween, disabled: !clipboardRef.current },
+      ];
+
   // ── Playback ───────────────────────────────────────────
   const handleSeek = useCallback((time: number) => {
     setPlayback((prev) => ({ ...prev, currentTime: time, isPlaying: false }));
     playheadRef.current?.setTime(time);
+    previewRef.current?.seek(time);
   }, []);
 
   const handlePlaybackChange = useCallback((updates: Partial<PlaybackState>) => {
@@ -422,6 +539,14 @@ function GsapCreatorContent() {
         e.preventDefault();
         if (isDirty && selectedPresetId) handleSave();
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
+        e.preventDefault();
+        handleRedo();
+      }
       if (e.key === " " && !["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement).tagName)) {
         e.preventDefault();
         setPlayback((prev) => ({ ...prev, isPlaying: !prev.isPlaying }));
@@ -429,7 +554,7 @@ function GsapCreatorContent() {
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isDirty, selectedPresetId, handleSave]);
+  }, [isDirty, selectedPresetId, handleSave, handleUndo, handleRedo]);
 
   // ── Loading ────────────────────────────────────────────
   if (loading) {
@@ -462,6 +587,34 @@ function GsapCreatorContent() {
               </Link>
               <span className="text-border">|</span>
               <h1 className="font-serif text-lg font-medium text-text-primary">GSAP Creator</h1>
+
+              {/* Undo/redo buttons */}
+              {selectedPresetId && (
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={handleUndo}
+                    disabled={undoStackRef.current.length === 0}
+                    className="p-1.5 rounded text-text-dim hover:text-text-primary hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    title="Undo (Cmd+Z)"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 10h10a5 5 0 0 1 0 10H9" />
+                      <polyline points="7 14 3 10 7 6" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={handleRedo}
+                    disabled={redoStackRef.current.length === 0}
+                    className="p-1.5 rounded text-text-dim hover:text-text-primary hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    title="Redo (Cmd+Shift+Z)"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 10H11a5 5 0 0 0 0 10h4" />
+                      <polyline points="17 14 21 10 17 6" />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -553,6 +706,7 @@ function GsapCreatorContent() {
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
               {/* Preview */}
               <PreviewArea
+                ref={previewRef}
                 config={config}
                 playback={playback}
                 onPlaybackChange={handlePlaybackChange}
@@ -560,7 +714,7 @@ function GsapCreatorContent() {
               />
 
               {/* Timeline Editor */}
-              <div className="border-t border-border">
+              <div className="border-t border-border" onContextMenu={handleTimelineContextMenu}>
                 <TimelineEditor
                   tweens={config.tweens}
                   selectedTweenId={selectedTweenId}
@@ -700,6 +854,16 @@ function GsapCreatorContent() {
           </button>
         </div>
       </Modal>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenuItems}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </PageTransition>
   );
 }

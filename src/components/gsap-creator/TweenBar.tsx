@@ -11,6 +11,7 @@ interface TweenBarProps {
   onSelect: () => void;
   onMove: (newPosition: number) => void;
   onResize: (newDuration: number, newPosition?: number) => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 type DragMode = "move" | "resize-left" | "resize-right" | null;
@@ -23,6 +24,7 @@ export function TweenBar({
   onSelect,
   onMove,
   onResize,
+  onContextMenu,
 }: TweenBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -101,6 +103,9 @@ export function TweenBar({
   return (
     <div
       ref={barRef}
+      data-tween-bar
+      data-tween-id={tween.id}
+      onContextMenu={onContextMenu}
       className={`absolute top-1 bottom-1 rounded-md flex items-center overflow-hidden
         transition-shadow duration-150 cursor-grab select-none group
         ${isSelected ? "ring-2 ring-accent shadow-lg shadow-accent/20 z-20" : "z-10 hover:brightness-110"}

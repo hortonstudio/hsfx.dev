@@ -224,7 +224,7 @@ export function TimelineEditor({
 
           {/* Playhead overlay - positioned in the bar area */}
           <div className="absolute top-0 bottom-0 left-32 right-0 pointer-events-none">
-            <Playhead ref={playheadRef} viewState={viewState} />
+            <Playhead ref={playheadRef} viewState={viewState} onSeek={onSeek} />
           </div>
         </div>
       </div>

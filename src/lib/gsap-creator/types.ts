@@ -130,7 +130,7 @@ export interface GeneratedCode {
 
 // === Defaults ===
 export const DEFAULT_TWEEN: Omit<Tween, "id"> = {
-  target: ".element",
+  target: '[data-hs-anim="element"]',
   type: "from",
   properties: {
     opacity: { to: 1, from: 0 },
