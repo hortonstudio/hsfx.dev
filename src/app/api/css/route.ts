@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { wrapInStyleTags } from "@/lib/css-manager/minify";
+import { wrapInStyleTags } from "@/lib/css-manager/utils";
 import { corsPreflightResponse, withCors } from "@/lib/api/cors";
 import { NextRequest, NextResponse } from "next/server";
 

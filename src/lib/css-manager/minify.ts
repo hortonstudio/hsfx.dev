@@ -14,6 +14,4 @@ export function minifyCSS(css: string): string {
   }
 }
 
-export function wrapInStyleTags(css: string): string {
-  return `<style>${css}</style>`;
-}
+export { wrapInStyleTags } from "./utils";

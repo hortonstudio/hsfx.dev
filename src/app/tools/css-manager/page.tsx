@@ -778,6 +778,7 @@ function CSSManagerContent() {
                 <div className="flex-1 min-h-0">
                   {editorTab === "raw" ? (
                     <CodeEditor
+                      key="entry-raw"
                       value={editorContent}
                       onChange={handleEditorChange}
                       language="css"
@@ -787,6 +788,7 @@ function CSSManagerContent() {
                     />
                   ) : (
                     <CodeEditor
+                      key="entry-minified"
                       value={minifiedEntryCSS}
                       language="css"
                       height="100%"
@@ -901,6 +903,7 @@ function CSSManagerContent() {
                 <div className="flex-1 min-h-0">
                   {editorTab === "raw" ? (
                     <CodeEditor
+                      key="group-raw"
                       value={combinedGroupCSS}
                       language="css"
                       height="100%"
@@ -909,6 +912,7 @@ function CSSManagerContent() {
                     />
                   ) : (
                     <CodeEditor
+                      key="group-minified"
                       value={minifiedGroupCSS}
                       language="css"
                       height="100%"
