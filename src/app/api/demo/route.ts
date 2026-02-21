@@ -8,6 +8,7 @@ const API_KEY_MAP: Record<string, string> = {
   css: "CSS_API_KEY",
   icons: "ICONS_API_KEY",
   "button-styles": "BUTTON_STYLES_API_KEY",
+  "gsap-presets": "GSAP_PRESETS_API_KEY",
 };
 
 export async function POST(request: NextRequest) {
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
 
   if (!api || !API_KEY_MAP[api]) {
     return NextResponse.json(
-      { error: "Invalid API. Use 'css', 'icons', or 'button-styles'." },
+      { error: "Invalid API. Use 'css', 'icons', 'button-styles', or 'gsap-presets'." },
       { status: 400 }
     );
   }

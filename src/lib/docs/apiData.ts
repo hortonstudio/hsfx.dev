@@ -284,4 +284,118 @@ export const buttonStylesApiData: ApiDocData = {
   ],
 };
 
-export const allApiData: ApiDocData[] = [cssApiData, iconsApiData, buttonStylesApiData];
+export const gsapPresetsApiData: ApiDocData = {
+  name: "GSAP Presets API",
+  slug: "gsap-presets",
+  method: "GET",
+  endpoint: `/api/gsap-presets`,
+  description: `Serves GSAP animation presets from the ${brand.name} design system stored in Supabase. Fetch individual presets by slug, filter by category, and get code output in raw or minified format.`,
+  parameters: [
+    {
+      name: "slug",
+      type: "string",
+      required: false,
+      description:
+        "Fetch a single preset by its unique slug.",
+    },
+    {
+      name: "category",
+      type: "string",
+      required: false,
+      description:
+        "Filter presets by category name (e.g. 'hero', 'scroll', 'interaction').",
+    },
+    {
+      name: "format",
+      type: "string",
+      required: false,
+      description:
+        "Set to 'code' to return only the generated JavaScript code instead of the full preset object.",
+    },
+    {
+      name: "minified",
+      type: "boolean",
+      required: false,
+      default: "false",
+      description:
+        "Return minified code. Only applies when format=code.",
+    },
+    {
+      name: "raw",
+      type: "boolean",
+      required: false,
+      default: "false",
+      description:
+        "Return all presets including drafts (unpublished). Used by the manager UI.",
+    },
+  ],
+  responseFormats: [
+    {
+      label: "Single Preset (JSON)",
+      contentType: "application/json",
+      example: `{
+  "id": "uuid",
+  "name": "Hero Fade In",
+  "slug": "hero-fade-in",
+  "category": "hero",
+  "description": "Fade in hero section elements",
+  "config": { "tweens": [...], "trigger": {...} },
+  "code_raw": "window.hsfx.ready(() => { ... });",
+  "code_minified": "window.hsfx.ready(()=>{...});",
+  "is_published": true
+}`,
+    },
+    {
+      label: "Code Only (JavaScript)",
+      contentType: "application/javascript",
+      example: `window.hsfx.ready(() => {
+  const tl = gsap.timeline();
+  tl.from(".heading", { opacity: 0, y: 30, duration: 0.6 });
+});`,
+    },
+    {
+      label: "Preset List (JSON)",
+      contentType: "application/json",
+      example: `[
+  {
+    "id": "uuid",
+    "name": "Hero Fade In",
+    "slug": "hero-fade-in",
+    "category": "hero",
+    ...
+  }
+]`,
+    },
+    {
+      label: "Error Response (JSON)",
+      contentType: "application/json",
+      example: `{
+  "error": "Unauthorized"
+}`,
+    },
+  ],
+  curlExamples: [
+    {
+      label: "Fetch all published presets",
+      command: `curl -H "x-api-key: YOUR_API_KEY" \\
+  "https://${brand.domain}/api/gsap-presets"`,
+    },
+    {
+      label: "Fetch a single preset by slug",
+      command: `curl -H "x-api-key: YOUR_API_KEY" \\
+  "https://${brand.domain}/api/gsap-presets?slug=hero-fade-in"`,
+    },
+    {
+      label: "Fetch preset code only (minified)",
+      command: `curl -H "x-api-key: YOUR_API_KEY" \\
+  "https://${brand.domain}/api/gsap-presets?slug=hero-fade-in&format=code&minified=true"`,
+    },
+    {
+      label: "Fetch all presets including drafts",
+      command: `curl -H "x-api-key: YOUR_API_KEY" \\
+  "https://${brand.domain}/api/gsap-presets?raw=true"`,
+    },
+  ],
+};
+
+export const allApiData: ApiDocData[] = [cssApiData, iconsApiData, buttonStylesApiData, gsapPresetsApiData];
