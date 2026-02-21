@@ -10,10 +10,11 @@ export interface PlayheadHandle {
 interface PlayheadProps {
   viewState: TimelineViewState;
   onSeek?: (time: number) => void;
+  onScrub?: (time: number) => void;
 }
 
 export const Playhead = forwardRef<PlayheadHandle, PlayheadProps>(
-  function Playhead({ viewState, onSeek }, ref) {
+  function Playhead({ viewState, onSeek, onScrub }, ref) {
     const lineRef = useRef<HTMLDivElement>(null);
     const dragRef = useRef<{ startX: number; startTime: number } | null>(null);
 
@@ -48,14 +49,18 @@ export const Playhead = forwardRef<PlayheadHandle, PlayheadProps>(
         const deltaTime = deltaX / viewState.zoom;
         const newTime = Math.max(0, dragRef.current.startTime + deltaTime);
         lineRef.current.style.left = `${newTime * viewState.zoom}px`;
-        onSeek?.(newTime);
+        onScrub?.(newTime);
       },
-      [viewState.zoom, onSeek]
+      [viewState.zoom, onScrub]
     );
 
     const handlePointerUp = useCallback(() => {
+      if (lineRef.current) {
+        const finalTime = parseFloat(lineRef.current.style.left) / viewState.zoom;
+        onSeek?.(Math.max(0, finalTime));
+      }
       dragRef.current = null;
-    }, []);
+    }, [viewState.zoom, onSeek]);
 
     return (
       <div

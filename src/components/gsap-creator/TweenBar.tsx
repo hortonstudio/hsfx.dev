@@ -8,7 +8,7 @@ interface TweenBarProps {
   isSelected: boolean;
   viewState: TimelineViewState;
   absoluteStart: number; // pre-resolved absolute position in seconds
-  onSelect: () => void;
+  onSelect: (e?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
   onMove: (newPosition: number) => void;
   onResize: (newDuration: number, newPosition?: number) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
@@ -38,6 +38,8 @@ export function TweenBar({
   const { zoom, snapToGrid, gridSize } = viewState;
   const width = tween.duration * zoom;
   const left = absoluteStart * zoom;
+  const staggerExtra = tween.stagger ? tween.stagger.each * (tween.stagger.count - 1) : 0;
+  const staggerWidth = staggerExtra * zoom;
 
   const snap = useCallback(
     (val: number) => {
@@ -51,7 +53,7 @@ export function TweenBar({
     (e: React.PointerEvent, mode: DragMode) => {
       e.preventDefault();
       e.stopPropagation();
-      onSelect();
+      onSelect({ shiftKey: e.shiftKey, metaKey: e.metaKey, ctrlKey: e.ctrlKey });
 
       const target = e.currentTarget as HTMLElement;
       target.setPointerCapture(e.pointerId);
@@ -100,58 +102,84 @@ export function TweenBar({
   const handleResizeStyle =
     "absolute top-0 bottom-0 w-2 cursor-ew-resize z-10 hover:bg-white/10";
 
+  const durationLabel = staggerExtra > 0
+    ? `${tween.duration.toFixed(2)}s (+${staggerExtra.toFixed(2)}s stagger)`
+    : `${tween.duration.toFixed(2)}s`;
+
   return (
-    <div
-      ref={barRef}
-      data-tween-bar
-      data-tween-id={tween.id}
-      onContextMenu={onContextMenu}
-      className={`absolute top-1 bottom-1 rounded-md flex items-center overflow-hidden
-        transition-shadow duration-150 cursor-grab select-none group
-        ${isSelected ? "ring-2 ring-accent shadow-lg shadow-accent/20 z-20" : "z-10 hover:brightness-110"}
-        ${isDragging ? "cursor-grabbing opacity-90" : ""}`}
-      style={{
-        left,
-        width: Math.max(width, 4),
-        backgroundColor: tween.color + "cc",
-      }}
-    >
-      {/* Left resize handle */}
+    <>
       <div
-        className={handleResizeStyle + " left-0 rounded-l-md"}
-        onPointerDown={(e) => handlePointerDown(e, "resize-left")}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-      />
-
-      {/* Main body (move) */}
-      <div
-        className="flex-1 h-full flex items-center justify-center px-3 min-w-0"
-        onPointerDown={(e) => handlePointerDown(e, "move")}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
+        ref={barRef}
+        data-tween-bar
+        data-tween-id={tween.id}
+        onContextMenu={onContextMenu}
+        className={`absolute top-1 bottom-1 rounded-md flex items-center overflow-hidden
+          transition-shadow duration-150 cursor-grab select-none group
+          ${isSelected ? "ring-2 ring-accent shadow-lg shadow-accent/20 z-20" : "z-10 hover:brightness-110"}
+          ${isDragging ? "cursor-grabbing opacity-90" : ""}`}
+        style={{
+          left,
+          width: Math.max(width, 4),
+          backgroundColor: tween.color + "cc",
+        }}
       >
-        <span className="text-[10px] font-medium text-white truncate drop-shadow-sm">
-          {tween.target}
-        </span>
+        {/* Left resize handle */}
+        <div
+          className={handleResizeStyle + " left-0 rounded-l-md"}
+          onPointerDown={(e) => handlePointerDown(e, "resize-left")}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+        />
+
+        {/* Main body (move) */}
+        <div
+          className="flex-1 h-full flex items-center justify-center px-3 min-w-0"
+          onPointerDown={(e) => handlePointerDown(e, "move")}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+        >
+          <span className="text-[10px] font-medium text-white truncate drop-shadow-sm">
+            {tween.target}
+          </span>
+        </div>
+
+        {/* Right resize handle */}
+        <div
+          className={handleResizeStyle + " right-0 rounded-r-md"}
+          onPointerDown={(e) => handlePointerDown(e, "resize-right")}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+        />
+
+        {/* Duration label (on hover) */}
+        <div
+          className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100
+          text-[9px] font-mono text-text-dim bg-surface border border-border rounded px-1 py-0.5
+          pointer-events-none transition-opacity whitespace-nowrap"
+        >
+          {durationLabel}
+        </div>
       </div>
 
-      {/* Right resize handle */}
-      <div
-        className={handleResizeStyle + " right-0 rounded-r-md"}
-        onPointerDown={(e) => handlePointerDown(e, "resize-right")}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-      />
-
-      {/* Duration label (on hover) */}
-      <div
-        className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100
-        text-[9px] font-mono text-text-dim bg-surface border border-border rounded px-1 py-0.5
-        pointer-events-none transition-opacity whitespace-nowrap"
-      >
-        {tween.duration.toFixed(2)}s
-      </div>
-    </div>
+      {/* Stagger extension (positioned after main bar) */}
+      {staggerWidth > 0 && (
+        <div
+          className="absolute top-1 bottom-1 rounded-r-md pointer-events-none"
+          style={{
+            left: left + Math.max(width, 4),
+            width: staggerWidth,
+            backgroundColor: tween.color + "40",
+          }}
+        >
+          <div
+            className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 hover:opacity-100
+              text-[9px] font-mono text-text-dim bg-surface border border-border rounded px-1 py-0.5
+              pointer-events-none whitespace-nowrap"
+          >
+            +{staggerExtra.toFixed(2)}s stagger
+          </div>
+        </div>
+      )}
+    </>
   );
 }

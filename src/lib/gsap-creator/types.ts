@@ -61,6 +61,7 @@ export interface StaggerConfig {
   from: "start" | "end" | "center" | "edges" | "random";
   ease: string;
   grid: [number, number] | null; // [cols, rows] or null for linear
+  count: number; // estimated element count for visual timeline display
 }
 
 // === Split Text ===

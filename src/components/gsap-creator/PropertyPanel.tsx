@@ -8,7 +8,7 @@ import { PropertySection } from "./PropertySection";
 import { NumberInput } from "./NumberInput";
 
 interface PropertyPanelProps {
-  tween: Tween | null;
+  tweens: Tween[];
   onUpdate: (tweenId: string, updates: Partial<Tween>) => void;
 }
 
@@ -74,14 +74,38 @@ function buildSelector(parts: SelectorParts): string {
   }
 }
 
-export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
+function getCommonValue<T>(items: Tween[], getter: (t: Tween) => T): T | "mixed" {
+  if (items.length === 0) return "mixed";
+  const first = getter(items[0]);
+  for (let i = 1; i < items.length; i++) {
+    if (JSON.stringify(getter(items[i])) !== JSON.stringify(first)) return "mixed";
+  }
+  return first;
+}
+
+export function PropertyPanel({ tweens, onUpdate }: PropertyPanelProps) {
+  const tween = tweens.length === 1 ? tweens[0] : null;
+  const isMulti = tweens.length > 1;
   const groupedEases = getGroupedEases();
+
+  const multiUpdate = useCallback(
+    (updates: Partial<Tween>) => {
+      for (const t of tweens) {
+        onUpdate(t.id, updates);
+      }
+    },
+    [tweens, onUpdate]
+  );
 
   const update = useCallback(
     (updates: Partial<Tween>) => {
-      if (tween) onUpdate(tween.id, updates);
+      if (isMulti) {
+        multiUpdate(updates);
+      } else if (tween) {
+        onUpdate(tween.id, updates);
+      }
     },
-    [tween, onUpdate]
+    [tween, isMulti, multiUpdate, onUpdate]
   );
 
   const updateProperty = useCallback(
@@ -142,7 +166,8 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
     [update]
   );
 
-  if (!tween) {
+  // ── Empty state ───────────────────────────────────────
+  if (tweens.length === 0) {
     return (
       <div className="w-80 flex flex-col bg-surface border-l border-border overflow-hidden">
         <div className="flex-1 flex items-center justify-center">
@@ -152,10 +177,102 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
     );
   }
 
-  const availableProps = Object.keys(PROPERTY_META).filter((p) => !tween.properties[p]);
+  // ── Multi-select panel ────────────────────────────────
+  if (isMulti) {
+    const commonType = getCommonValue(tweens, (t) => t.type);
+    const commonDuration = getCommonValue(tweens, (t) => t.duration);
+    const commonEase = getCommonValue(tweens, (t) => t.ease);
+
+    return (
+      <div className="w-80 flex flex-col bg-surface border-l border-border min-h-0 overflow-y-auto">
+        {/* Header */}
+        <div className="px-3 py-2 border-b border-border">
+          <span className="text-xs font-medium text-text-primary">{tweens.length} tweens selected</span>
+        </div>
+
+        {/* Bulk Type */}
+        <PropertySection title="Type">
+          <div className="flex gap-1">
+            {TWEEN_TYPES.map((t) => (
+              <button
+                key={t}
+                onClick={() => update({ type: t })}
+                className={`flex-1 px-2 py-1.5 text-[10px] font-mono rounded-md transition-colors
+                  ${
+                    commonType === t
+                      ? "bg-accent/20 text-accent border border-accent/30"
+                      : "bg-black/20 text-text-dim border border-border hover:text-text-muted"
+                  }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          {commonType === "mixed" && (
+            <span className="text-[9px] text-text-dim italic">Mixed types</span>
+          )}
+        </PropertySection>
+
+        {/* Bulk Timing */}
+        <PropertySection title="Timing">
+          <NumberInput
+            label={commonDuration === "mixed" ? "Duration (mixed)" : "Duration"}
+            value={commonDuration === "mixed" ? 0 : commonDuration}
+            onChange={(v) => update({ duration: v })}
+            min={0}
+            step={0.05}
+          />
+          <div>
+            <label className="text-[10px] text-text-dim block mb-1">Ease</label>
+            <select
+              value={commonEase === "mixed" ? "" : commonEase}
+              onChange={(e) => update({ ease: e.target.value })}
+              className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+                border border-border rounded-md focus:outline-none focus:border-accent/50"
+            >
+              {commonEase === "mixed" && (
+                <option value="" disabled>Mixed</option>
+              )}
+              {Object.entries(groupedEases).map(([cat, eases]) => (
+                <optgroup key={cat} label={cat}>
+                  {eases.map((e) => (
+                    <option key={e.value} value={e.value}>
+                      {e.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        </PropertySection>
+
+        {/* Bulk Appearance */}
+        <PropertySection title="Appearance">
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-text-dim">Bar Color</label>
+            <div className="flex gap-1">
+              {TWEEN_COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => update({ color: c })}
+                  className="w-5 h-5 rounded-full transition-all hover:scale-110"
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+        </PropertySection>
+      </div>
+    );
+  }
+
+  // ── Single-select panel (unchanged) ───────────────────
+  // At this point tweens.length === 1, so tween is guaranteed non-null
+  const activeTween = tween!;
+  const availableProps = Object.keys(PROPERTY_META).filter((p) => !activeTween.properties[p]);
 
   return (
-    <div className="w-80 flex flex-col bg-surface border-l border-border min-h-0 overflow-y-auto">
+    <div className="w-80 bg-surface border-l border-border overflow-y-auto overscroll-contain">
       {/* Target */}
       <PropertySection title="Target">
         {/* Selector type tabs */}
@@ -278,7 +395,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
         {/* Computed selector preview */}
         <div className="flex items-center gap-1.5 px-2 py-1 bg-black/10 rounded border border-border/50">
           <span className="text-[9px] text-text-dim shrink-0">Selector:</span>
-          <code className="text-[10px] font-mono text-accent truncate">{tween.target}</code>
+          <code className="text-[10px] font-mono text-accent truncate">{activeTween.target}</code>
         </div>
       </PropertySection>
 
@@ -291,7 +408,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
               onClick={() => update({ type: t })}
               className={`flex-1 px-2 py-1.5 text-[10px] font-mono rounded-md transition-colors
                 ${
-                  tween.type === t
+                  activeTween.type === t
                     ? "bg-accent/20 text-accent border border-accent/30"
                     : "bg-black/20 text-text-dim border border-border hover:text-text-muted"
                 }`}
@@ -307,7 +424,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
         <div className="grid grid-cols-2 gap-2">
           <NumberInput
             label="Duration"
-            value={tween.duration}
+            value={activeTween.duration}
             onChange={(v) => update({ duration: v })}
             min={0}
             step={0.05}
@@ -316,7 +433,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
             <label className="text-[10px] text-text-dim block mb-1">Position</label>
             <input
               type="text"
-              value={tween.position}
+              value={activeTween.position}
               onChange={(e) => update({ position: e.target.value })}
               className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
                 border border-border rounded-md focus:outline-none focus:border-accent/50"
@@ -327,7 +444,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
         <div>
           <label className="text-[10px] text-text-dim block mb-1">Ease</label>
           <select
-            value={tween.ease}
+            value={activeTween.ease}
             onChange={(e) => update({ ease: e.target.value })}
             className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
               border border-border rounded-md focus:outline-none focus:border-accent/50"
@@ -347,7 +464,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
 
       {/* Animated Properties */}
       <PropertySection title="Properties">
-        {Object.entries(tween.properties).map(([prop, val]) => {
+        {Object.entries(activeTween.properties).map(([prop, val]) => {
           const meta = PROPERTY_META[prop];
           const av = val as AnimatedProperty;
           const isColor = prop === "backgroundColor" || prop === "color";
@@ -360,7 +477,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
               </span>
 
               {/* From value (only for fromTo) */}
-              {tween.type === "fromTo" && (
+              {activeTween.type === "fromTo" && (
                 <>
                   {isColor || isString ? (
                     <input
@@ -444,11 +561,11 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
-            checked={!!tween.stagger}
+            checked={!!activeTween.stagger}
             onChange={(e) => {
               update({
                 stagger: e.target.checked
-                  ? { each: 0.1, from: "start", ease: "power1.out", grid: null }
+                  ? { each: 0.1, from: "start", ease: "power1.out", grid: null, count: 5 }
                   : null,
               });
             }}
@@ -456,21 +573,21 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
           />
           <span className="text-[11px] text-text-muted">Enable stagger</span>
         </label>
-        {tween.stagger && (
+        {activeTween.stagger && (
           <div className="space-y-2 mt-1">
             <NumberInput
               label="Each"
-              value={tween.stagger.each}
-              onChange={(v) => update({ stagger: { ...tween.stagger!, each: v } })}
+              value={activeTween.stagger.each}
+              onChange={(v) => update({ stagger: { ...activeTween.stagger!, each: v } })}
               min={0}
               step={0.01}
             />
             <div>
               <label className="text-[10px] text-text-dim block mb-1">From</label>
               <select
-                value={tween.stagger.from}
+                value={activeTween.stagger.from}
                 onChange={(e) =>
-                  update({ stagger: { ...tween.stagger!, from: e.target.value as StaggerConfig["from"] } })
+                  update({ stagger: { ...activeTween.stagger!, from: e.target.value as StaggerConfig["from"] } })
                 }
                 className="w-full h-7 px-2 text-xs bg-black/20 border border-border rounded-md"
               >
@@ -481,6 +598,13 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
                 ))}
               </select>
             </div>
+            <NumberInput
+              label="Elements"
+              value={activeTween.stagger.count}
+              onChange={(v) => update({ stagger: { ...activeTween.stagger!, count: Math.max(1, Math.round(v)) } })}
+              min={1}
+              step={1}
+            />
           </div>
         )}
       </PropertySection>
@@ -490,7 +614,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
-            checked={!!tween.splitText?.enabled}
+            checked={!!activeTween.splitText?.enabled}
             onChange={(e) => {
               update({
                 splitText: e.target.checked
@@ -502,7 +626,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
           />
           <span className="text-[11px] text-text-muted">Enable split text</span>
         </label>
-        {tween.splitText?.enabled && (
+        {activeTween.splitText?.enabled && (
           <div className="space-y-2 mt-1">
             <div>
               <label className="text-[10px] text-text-dim block mb-1">Split by</label>
@@ -510,10 +634,10 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
                 {SPLIT_TYPES.map((t) => (
                   <button
                     key={t}
-                    onClick={() => update({ splitText: { ...tween.splitText!, type: t } })}
+                    onClick={() => update({ splitText: { ...activeTween.splitText!, type: t } })}
                     className={`flex-1 px-2 py-1 text-[10px] rounded-md transition-colors
                       ${
-                        tween.splitText!.type === t
+                        activeTween.splitText!.type === t
                           ? "bg-accent/20 text-accent border border-accent/30"
                           : "bg-black/20 text-text-dim border border-border"
                       }`}
@@ -526,16 +650,16 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
-                checked={tween.splitText.mask}
-                onChange={(e) => update({ splitText: { ...tween.splitText!, mask: e.target.checked } })}
+                checked={activeTween.splitText!.mask}
+                onChange={(e) => update({ splitText: { ...activeTween.splitText!, mask: e.target.checked } })}
                 className="w-3 h-3 accent-accent"
               />
               <span className="text-[11px] text-text-muted">Mask (overflow hidden)</span>
             </label>
             <NumberInput
               label="Stagger"
-              value={tween.splitText.staggerEach}
-              onChange={(v) => update({ splitText: { ...tween.splitText!, staggerEach: v } })}
+              value={activeTween.splitText!.staggerEach}
+              onChange={(v) => update({ splitText: { ...activeTween.splitText!, staggerEach: v } })}
               min={0}
               step={0.005}
             />
@@ -553,7 +677,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
                 key={c}
                 onClick={() => update({ color: c })}
                 className={`w-5 h-5 rounded-full transition-all
-                  ${tween.color === c ? "ring-2 ring-white ring-offset-1 ring-offset-surface scale-110" : "hover:scale-110"}`}
+                  ${activeTween.color === c ? "ring-2 ring-white ring-offset-1 ring-offset-surface scale-110" : "hover:scale-110"}`}
                 style={{ backgroundColor: c }}
               />
             ))}
@@ -563,7 +687,7 @@ export function PropertyPanel({ tween, onUpdate }: PropertyPanelProps) {
           <label className="text-[10px] text-text-dim block mb-1">Label</label>
           <input
             type="text"
-            value={tween.label}
+            value={activeTween.label}
             onChange={(e) => update({ label: e.target.value })}
             className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
               border border-border rounded-md focus:outline-none focus:border-accent/50"

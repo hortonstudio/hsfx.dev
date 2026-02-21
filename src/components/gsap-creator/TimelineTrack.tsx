@@ -9,7 +9,7 @@ interface TimelineTrackProps {
   isSelected: boolean;
   viewState: TimelineViewState;
   absoluteStart: number;
-  onSelect: () => void;
+  onSelect: (e?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
   onMove: (tweenId: string, newPosition: number) => void;
   onResize: (
     tweenId: string,

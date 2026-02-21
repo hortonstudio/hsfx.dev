@@ -8,6 +8,7 @@ import type { PlayheadHandle } from "./Playhead";
 
 export interface PreviewAreaHandle {
   seek: (time: number) => void;
+  scrub: (time: number) => void;
 }
 
 interface PreviewAreaProps {
@@ -84,7 +85,7 @@ export const PreviewArea = forwardRef<PreviewAreaHandle, PreviewAreaProps>(
     const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
     const [gsapLoaded, setGsapLoaded] = useState(false);
 
-    // Expose seek handle
+    // Expose seek and scrub handles
     useImperativeHandle(ref, () => ({
       seek(time: number) {
         const tl = timelineRef.current;
@@ -92,6 +93,12 @@ export const PreviewArea = forwardRef<PreviewAreaHandle, PreviewAreaProps>(
         tl.pause();
         tl.time(time);
         onPlaybackChange({ isPlaying: false, currentTime: time });
+      },
+      scrub(time: number) {
+        const tl = timelineRef.current;
+        if (!tl) return;
+        tl.pause();
+        tl.time(time);
       },
     }));
 
@@ -257,7 +264,11 @@ export const PreviewArea = forwardRef<PreviewAreaHandle, PreviewAreaProps>(
       tl.timeScale(playback.speed);
 
       if (playback.isPlaying) {
-        tl.play();
+        if (tl.progress() >= 1) {
+          tl.restart();
+        } else {
+          tl.play();
+        }
       } else {
         tl.pause();
         onPlaybackChange({ currentTime: tl.time() });

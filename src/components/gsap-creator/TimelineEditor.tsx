@@ -12,10 +12,10 @@ import { Playhead, type PlayheadHandle } from "./Playhead";
 
 interface TimelineEditorProps {
   tweens: Tween[];
-  selectedTweenId: string | null;
+  selectedTweenIds: Set<string>;
   viewState: TimelineViewState;
   playback: PlaybackState;
-  onSelectTween: (id: string) => void;
+  onSelectTween: (id: string, e?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => void;
   onMoveTween: (id: string, newPosition: number) => void;
   onResizeTween: (
     id: string,
@@ -26,6 +26,7 @@ interface TimelineEditorProps {
   onAddTween: () => void;
   onViewStateChange: (updates: Partial<TimelineViewState>) => void;
   onSeek: (time: number) => void;
+  onScrub?: (time: number) => void;
   playheadRef: React.RefObject<PlayheadHandle>;
 }
 
@@ -78,7 +79,7 @@ function resolvePositions(tweens: Tween[]): number[] {
 
 export function TimelineEditor({
   tweens,
-  selectedTweenId,
+  selectedTweenIds,
   viewState,
   onSelectTween,
   onMoveTween,
@@ -87,6 +88,7 @@ export function TimelineEditor({
   onAddTween,
   onViewStateChange,
   onSeek,
+  onScrub,
   playheadRef,
 }: TimelineEditorProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -96,7 +98,9 @@ export function TimelineEditor({
     if (tweens.length === 0) return 2;
     let max = 0;
     for (let i = 0; i < tweens.length; i++) {
-      max = Math.max(max, absolutePositions[i] + tweens[i].duration);
+      const t = tweens[i];
+      const staggerExtra = t.stagger ? t.stagger.each * (t.stagger.count - 1) : 0;
+      max = Math.max(max, absolutePositions[i] + t.duration + staggerExtra);
     }
     return Math.max(max + 0.5, 2);
   }, [tweens, absolutePositions]);
@@ -206,10 +210,10 @@ export function TimelineEditor({
               key={tween.id}
               tween={tween}
               index={index}
-              isSelected={tween.id === selectedTweenId}
+              isSelected={selectedTweenIds.has(tween.id)}
               viewState={viewState}
               absoluteStart={absolutePositions[index] || 0}
-              onSelect={() => onSelectTween(tween.id)}
+              onSelect={(e) => onSelectTween(tween.id, e)}
               onMove={onMoveTween}
               onResize={onResizeTween}
               onDelete={onDeleteTween}
@@ -224,7 +228,7 @@ export function TimelineEditor({
 
           {/* Playhead overlay - positioned in the bar area */}
           <div className="absolute top-0 bottom-0 left-32 right-0 pointer-events-none">
-            <Playhead ref={playheadRef} viewState={viewState} onSeek={onSeek} />
+            <Playhead ref={playheadRef} viewState={viewState} onSeek={onSeek} onScrub={onScrub} />
           </div>
         </div>
       </div>

@@ -101,7 +101,7 @@ function GsapCreatorContent() {
   const [isDirty, setIsDirty] = useState(false);
 
   // ── UI state ───────────────────────────────────────────
-  const [selectedTweenId, setSelectedTweenId] = useState<string | null>(null);
+  const [selectedTweenIds, setSelectedTweenIds] = useState<Set<string>>(new Set());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [playback, setPlayback] = useState<PlaybackState>({
     isPlaying: false,
@@ -140,7 +140,7 @@ function GsapCreatorContent() {
 
   // ── Derived ────────────────────────────────────────────
   const selectedPreset = presets.find((p) => p.id === selectedPresetId);
-  const selectedTween = config.tweens.find((t) => t.id === selectedTweenId) || null;
+  const selectedTweens = config.tweens.filter((t) => selectedTweenIds.has(t.id));
 
   // ── Fetch presets ──────────────────────────────────────
   const fetchPresets = useCallback(async () => {
@@ -173,7 +173,7 @@ function GsapCreatorContent() {
       setPresetCategory(preset.category);
       setIsPublished(preset.is_published);
       setConfig(preset.config);
-      setSelectedTweenId(preset.config.tweens[0]?.id || null);
+      setSelectedTweenIds(new Set(preset.config.tweens[0] ? [preset.config.tweens[0].id] : []));
       setIsDirty(false);
       setSyncStatus("idle");
       undoStackRef.current = [];
@@ -365,7 +365,7 @@ function GsapCreatorContent() {
     setSelectedPresetId(null);
     setConfig(DEFAULT_CONFIG);
     setPresetName("");
-    setSelectedTweenId(null);
+    setSelectedTweenIds(new Set());
     setShowDeleteModal(false);
   };
 
@@ -385,23 +385,61 @@ function GsapCreatorContent() {
       tweens: [...prev.tweens, newTween],
     }));
 
-    setSelectedTweenId(newId);
+    setSelectedTweenIds(new Set([newId]));
   }, [config.tweens.length, updateConfig]);
 
-  const handleSelectTween = useCallback((id: string) => {
-    setSelectedTweenId(id);
-  }, []);
+  const handleSelectTween = useCallback((id: string, e?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => {
+    if (e?.metaKey || e?.ctrlKey) {
+      // Toggle individual selection
+      setSelectedTweenIds(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    } else if (e?.shiftKey && selectedTweenIds.size > 0) {
+      // Range select
+      const tweenIds = config.tweens.map(t => t.id);
+      const lastSelected = Array.from(selectedTweenIds).pop()!;
+      const lastIdx = tweenIds.indexOf(lastSelected);
+      const clickIdx = tweenIds.indexOf(id);
+      const [start, end] = lastIdx < clickIdx ? [lastIdx, clickIdx] : [clickIdx, lastIdx];
+      const range = new Set(tweenIds.slice(start, end + 1));
+      setSelectedTweenIds(range);
+    } else {
+      // Single select
+      setSelectedTweenIds(new Set([id]));
+    }
+  }, [selectedTweenIds, config.tweens]);
 
   const handleMoveTween = useCallback(
     (id: string, newPosition: number) => {
-      updateConfig((prev) => ({
-        ...prev,
-        tweens: prev.tweens.map((t) =>
-          t.id === id ? { ...t, position: String(newPosition) } : t
-        ),
-      }));
+      // If moving a selected tween and multiple are selected, move all together
+      if (selectedTweenIds.has(id) && selectedTweenIds.size > 1) {
+        updateConfig((prev) => {
+          const movingTween = prev.tweens.find(t => t.id === id);
+          if (!movingTween) return prev;
+          const oldPos = parseFloat(movingTween.position) || 0;
+          const delta = newPosition - oldPos;
+          return {
+            ...prev,
+            tweens: prev.tweens.map((t) =>
+              selectedTweenIds.has(t.id)
+                ? { ...t, position: String(Math.max(0, (parseFloat(t.position) || 0) + delta)) }
+                : t
+            ),
+          };
+        });
+      } else {
+        updateConfig((prev) => ({
+          ...prev,
+          tweens: prev.tweens.map((t) =>
+            t.id === id ? { ...t, position: String(newPosition) } : t
+          ),
+        }));
+      }
     },
-    [updateConfig]
+    [updateConfig, selectedTweenIds]
   );
 
   const handleResizeTween = useCallback(
@@ -428,11 +466,15 @@ function GsapCreatorContent() {
         ...prev,
         tweens: prev.tweens.filter((t) => t.id !== id),
       }));
-      if (selectedTweenId === id) {
-        setSelectedTweenId(null);
+      if (selectedTweenIds.has(id)) {
+        setSelectedTweenIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       }
     },
-    [selectedTweenId, updateConfig]
+    [selectedTweenIds, updateConfig]
   );
 
   const handleDuplicateTween = useCallback(
@@ -445,7 +487,7 @@ function GsapCreatorContent() {
         ...prev,
         tweens: [...prev.tweens, cloned],
       }));
-      setSelectedTweenId(newId);
+      setSelectedTweenIds(new Set([newId]));
     },
     [config.tweens, updateConfig]
   );
@@ -479,7 +521,7 @@ function GsapCreatorContent() {
       ...prev,
       tweens: [...prev.tweens, pasted],
     }));
-    setSelectedTweenId(newId);
+    setSelectedTweenIds(new Set([newId]));
   }, [updateConfig]);
 
   // ── Context menu handler ───────────────────────────────
@@ -501,7 +543,12 @@ function GsapCreatorContent() {
         { label: "Copy", onClick: () => handleCopyTween(contextMenu.tweenId!) },
         { label: "Paste", onClick: handlePasteTween, disabled: !clipboardRef.current },
         { label: "", onClick: () => {}, separator: true },
-        { label: "Delete", onClick: () => handleDeleteTween(contextMenu.tweenId!), danger: true },
+        ...(selectedTweenIds.size > 1
+          ? [{ label: `Delete ${selectedTweenIds.size} Selected`, onClick: () => {
+              selectedTweenIds.forEach(id => handleDeleteTween(id));
+            }, danger: true }]
+          : [{ label: "Delete", onClick: () => handleDeleteTween(contextMenu.tweenId!), danger: true }]
+        ),
       ]
     : [
         { label: "Add Tween", onClick: handleAddTween },
@@ -513,6 +560,10 @@ function GsapCreatorContent() {
     setPlayback((prev) => ({ ...prev, currentTime: time, isPlaying: false }));
     playheadRef.current?.setTime(time);
     previewRef.current?.seek(time);
+  }, []);
+
+  const handleScrub = useCallback((time: number) => {
+    previewRef.current?.scrub(time);
   }, []);
 
   const handlePlaybackChange = useCallback((updates: Partial<PlaybackState>) => {
@@ -717,7 +768,7 @@ function GsapCreatorContent() {
               <div className="border-t border-border" onContextMenu={handleTimelineContextMenu}>
                 <TimelineEditor
                   tweens={config.tweens}
-                  selectedTweenId={selectedTweenId}
+                  selectedTweenIds={selectedTweenIds}
                   viewState={viewState}
                   playback={playback}
                   onSelectTween={handleSelectTween}
@@ -727,6 +778,7 @@ function GsapCreatorContent() {
                   onAddTween={handleAddTween}
                   onViewStateChange={handleViewStateChange}
                   onSeek={handleSeek}
+                  onScrub={handleScrub}
                   playheadRef={playheadRef as React.RefObject<PlayheadHandle>}
                 />
               </div>
@@ -774,7 +826,7 @@ function GsapCreatorContent() {
           {/* Right: Property Panel */}
           {selectedPresetId && (
             <PropertyPanel
-              tween={selectedTween}
+              tweens={selectedTweens}
               onUpdate={handleUpdateTween}
             />
           )}
