@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState, useEffect } from "react";
-import type { Tween, AnimatedProperty, StaggerConfig } from "@/lib/gsap-creator/types";
+import type { Tween, AnimatedProperty, StaggerConfig, TriggerConfig, ScrollTriggerConfig } from "@/lib/gsap-creator/types";
 import { PROPERTY_META, TWEEN_COLORS } from "@/lib/gsap-creator/types";
 import { getGroupedEases } from "@/lib/gsap-creator/eases";
 import { PropertySection } from "./PropertySection";
@@ -10,6 +10,8 @@ import { NumberInput } from "./NumberInput";
 interface PropertyPanelProps {
   tweens: Tween[];
   onUpdate: (tweenId: string, updates: Partial<Tween>) => void;
+  triggerConfig?: TriggerConfig;
+  onTriggerUpdate?: (updates: Partial<TriggerConfig>) => void;
 }
 
 const UNITS = ["px", "%", "vw", "vh", "em", "rem", "deg"];
@@ -83,7 +85,7 @@ function getCommonValue<T>(items: Tween[], getter: (t: Tween) => T): T | "mixed"
   return first;
 }
 
-export function PropertyPanel({ tweens, onUpdate }: PropertyPanelProps) {
+export function PropertyPanel({ tweens, onUpdate, triggerConfig, onTriggerUpdate }: PropertyPanelProps) {
   const tween = tweens.length === 1 ? tweens[0] : null;
   const isMulti = tweens.length > 1;
   const groupedEases = getGroupedEases();
@@ -694,6 +696,131 @@ export function PropertyPanel({ tweens, onUpdate }: PropertyPanelProps) {
             placeholder="Optional label"
           />
         </div>
+      </PropertySection>
+
+      {/* Trigger */}
+      <PropertySection title="Trigger">
+        <div>
+          <label className="text-[10px] text-text-dim block mb-1">Type</label>
+          <select
+            value={triggerConfig?.type || "load"}
+            onChange={(e) => {
+              const type = e.target.value as TriggerConfig["type"];
+              onTriggerUpdate?.({
+                type,
+                scrollTrigger: type === "scrollTrigger" ? {
+                  trigger: activeTween.target,
+                  start: "top 80%",
+                  end: "bottom 20%",
+                  scrub: false,
+                  pin: false,
+                  toggleActions: "play none none reverse",
+                  markers: true,
+                } : undefined,
+              });
+            }}
+            className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+              border border-border rounded-md focus:outline-none focus:border-accent/50"
+          >
+            <option value="load">On Load</option>
+            <option value="scrollTrigger">ScrollTrigger</option>
+            <option value="click">On Click</option>
+            <option value="hover">On Hover</option>
+          </select>
+        </div>
+
+        {triggerConfig?.type === "scrollTrigger" && triggerConfig.scrollTrigger && (() => {
+          const st = triggerConfig.scrollTrigger as ScrollTriggerConfig;
+          const updateST = (updates: Partial<ScrollTriggerConfig>) => {
+            onTriggerUpdate?.({
+              ...triggerConfig,
+              scrollTrigger: { ...st, ...updates },
+            });
+          };
+          return (
+            <div className="space-y-2 mt-2">
+              <div>
+                <label className="text-[10px] text-text-dim block mb-1">Trigger selector</label>
+                <input
+                  type="text"
+                  value={st.trigger}
+                  onChange={(e) => updateST({ trigger: e.target.value })}
+                  className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+                    border border-border rounded-md focus:outline-none focus:border-accent/50"
+                  placeholder=".section"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-text-dim block mb-1">Start</label>
+                  <input
+                    type="text"
+                    value={st.start}
+                    onChange={(e) => updateST({ start: e.target.value })}
+                    className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+                      border border-border rounded-md focus:outline-none focus:border-accent/50"
+                    placeholder="top 80%"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-text-dim block mb-1">End</label>
+                  <input
+                    type="text"
+                    value={st.end}
+                    onChange={(e) => updateST({ end: e.target.value })}
+                    className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+                      border border-border rounded-md focus:outline-none focus:border-accent/50"
+                    placeholder="bottom 20%"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] text-text-dim block mb-1">Toggle Actions</label>
+                <select
+                  value={st.toggleActions}
+                  onChange={(e) => updateST({ toggleActions: e.target.value })}
+                  className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+                    border border-border rounded-md focus:outline-none focus:border-accent/50"
+                >
+                  <option value="play none none reverse">play none none reverse</option>
+                  <option value="play none none none">play none none none</option>
+                  <option value="play pause resume reverse">play pause resume reverse</option>
+                  <option value="restart none none reverse">restart none none reverse</option>
+                  <option value="play complete complete reset">play complete complete reset</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={st.scrub === true || typeof st.scrub === "number"}
+                    onChange={(e) => updateST({ scrub: e.target.checked ? true : false })}
+                    className="w-3 h-3 accent-accent"
+                  />
+                  <span className="text-[11px] text-text-muted">Scrub</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={st.pin}
+                    onChange={(e) => updateST({ pin: e.target.checked })}
+                    className="w-3 h-3 accent-accent"
+                  />
+                  <span className="text-[11px] text-text-muted">Pin</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={st.markers}
+                    onChange={(e) => updateST({ markers: e.target.checked })}
+                    className="w-3 h-3 accent-accent"
+                  />
+                  <span className="text-[11px] text-text-muted">Markers</span>
+                </label>
+              </div>
+            </div>
+          );
+        })()}
       </PropertySection>
     </div>
   );

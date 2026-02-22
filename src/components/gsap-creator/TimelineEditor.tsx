@@ -81,6 +81,7 @@ export function TimelineEditor({
   tweens,
   selectedTweenIds,
   viewState,
+  playback,
   onSelectTween,
   onMoveTween,
   onResizeTween,
@@ -95,15 +96,17 @@ export function TimelineEditor({
   const absolutePositions = useMemo(() => resolvePositions(tweens), [tweens]);
 
   const totalDuration = useMemo(() => {
-    if (tweens.length === 0) return 2;
+    // Use GSAP-computed duration as authority when available
+    const gsapDuration = playback.duration > 0 ? playback.duration : 0;
+    if (tweens.length === 0) return Math.max(gsapDuration, 2);
     let max = 0;
     for (let i = 0; i < tweens.length; i++) {
       const t = tweens[i];
       const staggerExtra = t.stagger ? t.stagger.each * (t.stagger.count - 1) : 0;
       max = Math.max(max, absolutePositions[i] + t.duration + staggerExtra);
     }
-    return Math.max(max + 0.5, 2);
-  }, [tweens, absolutePositions]);
+    return Math.max(max + 0.5, gsapDuration + 0.5, 2);
+  }, [tweens, absolutePositions, playback.duration]);
 
   return (
     <div className="flex flex-col bg-surface border-t border-border">

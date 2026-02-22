@@ -1,3 +1,5 @@
+import type { SceneConfig } from "./types";
+
 export interface PreviewTemplate {
   id: string;
   label: string;
@@ -107,3 +109,55 @@ export const PREVIEW_TEMPLATES: PreviewTemplate[] = [
 ];
 
 export const DEFAULT_TEMPLATE = "heading";
+
+/** Convert a legacy template ID to a SceneConfig for backwards compatibility */
+export function templateToScene(templateId: string): SceneConfig | null {
+  const scenes: Record<string, SceneConfig> = {
+    heading: {
+      layout: "center",
+      elements: [
+        { id: "t-1", type: "heading", label: "Animate This Heading", animId: "element" },
+      ],
+    },
+    "text-block": {
+      layout: "column",
+      elements: [
+        { id: "t-1", type: "heading", label: "Hero Heading", animId: "element" },
+        { id: "t-2", type: "paragraph", label: "This is a paragraph of text that can be animated with split text, stagger effects, and more.", animId: "element" },
+      ],
+    },
+    card: {
+      layout: "center",
+      elements: [
+        { id: "t-1", type: "card", label: "Card Title", animId: "element" },
+      ],
+    },
+    "cards-grid": {
+      layout: "grid",
+      elements: [
+        { id: "t-1", type: "card", label: "Card One", animId: "element" },
+        { id: "t-2", type: "card", label: "Card Two", animId: "element" },
+        { id: "t-3", type: "card", label: "Card Three", animId: "element" },
+      ],
+    },
+    hero: {
+      layout: "column",
+      elements: [
+        { id: "t-1", type: "badge", label: "New Feature", animId: "element" },
+        { id: "t-2", type: "heading", label: "Build Something Amazing", animId: "element" },
+        { id: "t-3", type: "paragraph", label: "Create stunning animations with an intuitive visual timeline editor.", animId: "element" },
+        { id: "t-4", type: "button", label: "Get Started", animId: "element" },
+      ],
+    },
+    list: {
+      layout: "column",
+      elements: [
+        { id: "t-1", type: "list-item", label: "List Item One", animId: "element" },
+        { id: "t-2", type: "list-item", label: "List Item Two", animId: "element" },
+        { id: "t-3", type: "list-item", label: "List Item Three", animId: "element" },
+        { id: "t-4", type: "list-item", label: "List Item Four", animId: "element" },
+      ],
+    },
+  };
+  return scenes[templateId] || null;
+}

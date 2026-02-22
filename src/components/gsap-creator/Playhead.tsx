@@ -18,10 +18,18 @@ export const Playhead = forwardRef<PlayheadHandle, PlayheadProps>(
     const lineRef = useRef<HTMLDivElement>(null);
     const dragRef = useRef<{ startX: number; startTime: number } | null>(null);
 
+    // Keep latest callbacks/zoom in refs so window listeners always read fresh values
+    const zoomRef = useRef(viewState.zoom);
+    zoomRef.current = viewState.zoom;
+    const onScrubRef = useRef(onScrub);
+    onScrubRef.current = onScrub;
+    const onSeekRef = useRef(onSeek);
+    onSeekRef.current = onSeek;
+
     const getTime = useCallback(() => {
       if (!lineRef.current) return 0;
-      return parseFloat(lineRef.current.style.left) / viewState.zoom;
-    }, [viewState.zoom]);
+      return parseFloat(lineRef.current.style.left) / zoomRef.current;
+    }, []);
 
     useImperativeHandle(ref, () => ({
       setTime(time: number) {
@@ -35,32 +43,33 @@ export const Playhead = forwardRef<PlayheadHandle, PlayheadProps>(
       (e: React.PointerEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        const target = e.currentTarget as HTMLElement;
-        target.setPointerCapture(e.pointerId);
         dragRef.current = { startX: e.clientX, startTime: getTime() };
+
+        const handlePointerMove = (ev: PointerEvent) => {
+          if (!dragRef.current || !lineRef.current) return;
+          const deltaX = ev.clientX - dragRef.current.startX;
+          const deltaTime = deltaX / zoomRef.current;
+          const newTime = Math.max(0, dragRef.current.startTime + deltaTime);
+          lineRef.current.style.left = `${newTime * zoomRef.current}px`;
+          onScrubRef.current?.(newTime);
+        };
+
+        const handlePointerUp = () => {
+          window.removeEventListener("pointermove", handlePointerMove);
+          window.removeEventListener("pointerup", handlePointerUp);
+          if (lineRef.current) {
+            const finalTime =
+              parseFloat(lineRef.current.style.left) / zoomRef.current;
+            onSeekRef.current?.(Math.max(0, finalTime));
+          }
+          dragRef.current = null;
+        };
+
+        window.addEventListener("pointermove", handlePointerMove);
+        window.addEventListener("pointerup", handlePointerUp);
       },
       [getTime]
     );
-
-    const handlePointerMove = useCallback(
-      (e: React.PointerEvent) => {
-        if (!dragRef.current || !lineRef.current) return;
-        const deltaX = e.clientX - dragRef.current.startX;
-        const deltaTime = deltaX / viewState.zoom;
-        const newTime = Math.max(0, dragRef.current.startTime + deltaTime);
-        lineRef.current.style.left = `${newTime * viewState.zoom}px`;
-        onScrub?.(newTime);
-      },
-      [viewState.zoom, onScrub]
-    );
-
-    const handlePointerUp = useCallback(() => {
-      if (lineRef.current) {
-        const finalTime = parseFloat(lineRef.current.style.left) / viewState.zoom;
-        onSeek?.(Math.max(0, finalTime));
-      }
-      dragRef.current = null;
-    }, [viewState.zoom, onSeek]);
 
     return (
       <div
@@ -73,8 +82,6 @@ export const Playhead = forwardRef<PlayheadHandle, PlayheadProps>(
           className="absolute -top-1 -left-2 w-4 h-4 bg-red-500 rounded-full shadow-sm
             pointer-events-auto cursor-grab active:cursor-grabbing hover:scale-110 transition-transform"
           onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
         />
       </div>
     );

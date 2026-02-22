@@ -19,6 +19,9 @@ import type {
   Tween,
   PlaybackState,
   TimelineViewState,
+  SceneElement,
+  SceneElementType,
+  TriggerConfig,
 } from "@/lib/gsap-creator/types";
 import { DEFAULT_CONFIG, DEFAULT_TWEEN, TWEEN_COLORS } from "@/lib/gsap-creator/types";
 import { generateCode } from "@/lib/gsap-creator/codegen";
@@ -373,9 +376,18 @@ function GsapCreatorContent() {
   const handleAddTween = useCallback(() => {
     const newId = crypto.randomUUID();
     const colorIndex = config.tweens.length % TWEEN_COLORS.length;
+
+    // Default target to first scene element if custom scene exists
+    let defaultTarget = DEFAULT_TWEEN.target;
+    if (config.scene?.elements.length) {
+      const firstEl = config.scene.elements[0];
+      defaultTarget = `[data-hs-anim="${firstEl.animId}"]`;
+    }
+
     const newTween: Tween = {
       ...DEFAULT_TWEEN,
       id: newId,
+      target: defaultTarget,
       color: TWEEN_COLORS[colorIndex],
       label: `Tween ${config.tweens.length + 1}`,
     };
@@ -386,7 +398,7 @@ function GsapCreatorContent() {
     }));
 
     setSelectedTweenIds(new Set([newId]));
-  }, [config.tweens.length, updateConfig]);
+  }, [config.tweens.length, config.scene, updateConfig]);
 
   const handleSelectTween = useCallback((id: string, e?: { shiftKey?: boolean; metaKey?: boolean; ctrlKey?: boolean }) => {
     if (e?.metaKey || e?.ctrlKey) {
@@ -583,6 +595,57 @@ function GsapCreatorContent() {
     [updateConfig]
   );
 
+  // ── Scene CRUD ────────────────────────────────────────
+  const handleAddSceneElement = useCallback((type: string) => {
+    updateConfig((prev) => {
+      const scene = prev.scene || { layout: "column" as const, elements: [] };
+      const typeCount = scene.elements.filter(e => e.type === type).length + 1;
+      const animId = `${type}-${typeCount}`;
+      const newElement: SceneElement = {
+        id: crypto.randomUUID(),
+        type: type as SceneElementType,
+        label: `${type.charAt(0).toUpperCase() + type.slice(1)} ${typeCount}`,
+        animId,
+      };
+      return {
+        ...prev,
+        scene: { ...scene, elements: [...scene.elements, newElement] },
+      };
+    });
+  }, [updateConfig]);
+
+  const handleRemoveSceneElement = useCallback((elementId: string) => {
+    updateConfig((prev) => {
+      if (!prev.scene) return prev;
+      const element = prev.scene.elements.find(e => e.id === elementId);
+      const newElements = prev.scene.elements.filter(e => e.id !== elementId);
+      const removedAnimId = element?.animId;
+      const newTweens = removedAnimId
+        ? prev.tweens.filter(t => !t.target.includes(removedAnimId))
+        : prev.tweens;
+      return {
+        ...prev,
+        scene: { ...prev.scene, elements: newElements },
+        tweens: newTweens,
+      };
+    });
+  }, [updateConfig]);
+
+  const handleSceneLayoutChange = useCallback((layout: "column" | "center" | "grid") => {
+    updateConfig((prev) => {
+      const scene = prev.scene || { layout: "column" as const, elements: [] };
+      return { ...prev, scene: { ...scene, layout } };
+    });
+  }, [updateConfig]);
+
+  // ── Trigger config ────────────────────────────────────
+  const handleTriggerUpdate = useCallback((updates: Partial<TriggerConfig>) => {
+    updateConfig((prev) => ({
+      ...prev,
+      trigger: { ...prev.trigger, ...updates },
+    }));
+  }, [updateConfig]);
+
   // ── Keyboard shortcuts ─────────────────────────────────
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -762,6 +825,9 @@ function GsapCreatorContent() {
                 playback={playback}
                 onPlaybackChange={handlePlaybackChange}
                 playheadRef={playheadRef}
+                onRemoveSceneElement={handleRemoveSceneElement}
+                onAddSceneElement={handleAddSceneElement}
+                onSceneLayoutChange={handleSceneLayoutChange}
               />
 
               {/* Timeline Editor */}
@@ -828,6 +894,8 @@ function GsapCreatorContent() {
             <PropertyPanel
               tweens={selectedTweens}
               onUpdate={handleUpdateTween}
+              triggerConfig={config.trigger}
+              onTriggerUpdate={handleTriggerUpdate}
             />
           )}
         </div>

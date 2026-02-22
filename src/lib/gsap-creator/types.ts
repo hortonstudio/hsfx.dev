@@ -14,12 +14,28 @@ export interface GsapPresetEntry {
   updated_at: string;
 }
 
+// === Scene Builder ===
+export type SceneElementType = "heading" | "paragraph" | "card" | "box" | "button" | "badge" | "image" | "list-item" | "divider";
+
+export interface SceneElement {
+  id: string;
+  type: SceneElementType;
+  label: string;       // editable display text
+  animId: string;      // data-hs-anim value, e.g. "heading-1"
+}
+
+export interface SceneConfig {
+  layout: "column" | "center" | "grid";
+  elements: SceneElement[];
+}
+
 // === JSONB config shape ===
 export interface GsapPresetConfig {
   tweens: Tween[];
   trigger: TriggerConfig;
   reducedMotion: ReducedMotionConfig;
   timelineSettings: TimelineSettings;
+  scene?: SceneConfig;  // Custom scene builder — when undefined, use template picker
 }
 
 // === Tween ===
