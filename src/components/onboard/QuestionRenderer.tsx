@@ -13,6 +13,8 @@ import { ColorConfirmQuestion } from "./ColorConfirmQuestion";
 import { AddressQuestion } from "./AddressQuestion";
 import { TeamMembersQuestion } from "./TeamMembersQuestion";
 import { ProjectGalleryQuestion } from "./ProjectGalleryQuestion";
+import { TagInputQuestion } from "./TagInputQuestion";
+import { BrandColorsQuestion } from "./BrandColorsQuestion";
 
 const QUESTION_COMPONENTS: Record<
   string,
@@ -30,6 +32,8 @@ const QUESTION_COMPONENTS: Record<
   address: AddressQuestion,
   team_members: TeamMembersQuestion,
   project_gallery: ProjectGalleryQuestion,
+  tag_input: TagInputQuestion,
+  brand_colors: BrandColorsQuestion,
 };
 
 export function QuestionRenderer(props: QuestionProps) {

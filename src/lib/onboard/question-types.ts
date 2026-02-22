@@ -5,6 +5,7 @@ import type {
   YesNoNAValue,
   TeamMember,
   ProjectGalleryValue,
+  BrandColorsValue,
 } from "./types";
 
 /**
@@ -146,6 +147,27 @@ export function validateAnswer(
       return null;
     }
 
+    case "brand_colors": {
+      if (typeof answer !== "object" || Array.isArray(answer)) {
+        return "Expected brand colors data";
+      }
+      return null;
+    }
+
+    case "tag_input": {
+      if (!Array.isArray(answer)) {
+        return "Expected tag values";
+      }
+      const tags = answer as string[];
+      if (question.minTags !== undefined && tags.length < question.minTags) {
+        return `Please add at least ${question.minTags} item(s)`;
+      }
+      if (question.maxTags !== undefined && tags.length > question.maxTags) {
+        return `Maximum ${question.maxTags} item(s) allowed`;
+      }
+      return null;
+    }
+
     default:
       return null;
   }
@@ -181,6 +203,12 @@ export function getDefaultValue(type: QuestionConfig["type"]): AnswerValue {
 
     case "project_gallery":
       return { projects: [], photos: [] };
+
+    case "brand_colors":
+      return { theme: null, keptColors: [], customColors: [], description: "" };
+
+    case "tag_input":
+      return [];
 
     default:
       return null;
@@ -239,6 +267,17 @@ export function isQuestionComplete(
       if (typeof answer !== "object" || Array.isArray(answer)) return false;
       const val = answer as ProjectGalleryValue;
       return val.projects.length > 0 || val.photos.length > 0;
+    }
+
+    case "brand_colors": {
+      if (typeof answer !== "object" || Array.isArray(answer)) return false;
+      const val = answer as BrandColorsValue;
+      return val.theme !== null;
+    }
+
+    case "tag_input": {
+      if (!Array.isArray(answer)) return false;
+      return answer.length > 0;
     }
 
     default:

@@ -6,6 +6,7 @@ import type {
   YesNoNAValue,
   TeamMember,
   ProjectGalleryValue,
+  BrandColorsValue,
   QuestionConfig,
 } from "./types";
 
@@ -103,6 +104,26 @@ function formatAnswerText(
         return counts.length > 0 ? counts.join(", ") : "No projects added";
       }
       return "No projects added";
+    }
+
+    case "brand_colors": {
+      if (typeof answer === "object" && !Array.isArray(answer)) {
+        const val = answer as BrandColorsValue;
+        const parts: string[] = [];
+        if (val.theme) parts.push(`${val.theme} theme`);
+        const colorCount = val.keptColors.length + val.customColors.length;
+        if (colorCount > 0) parts.push(`${colorCount} color(s)`);
+        if (val.description?.trim()) parts.push(val.description);
+        return parts.length > 0 ? parts.join(", ") : "No brand colors configured";
+      }
+      return "No brand colors configured";
+    }
+
+    case "tag_input": {
+      if (Array.isArray(answer) && answer.length > 0) {
+        return (answer as string[]).join(", ");
+      }
+      return "No items added";
     }
 
     default:
@@ -263,6 +284,55 @@ function renderAnswerRow(
         </td>
         <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; vertical-align: top;">
           ${projectHtml}${generalLabel}
+        </td>
+      </tr>`;
+  }
+
+  // For brand_colors, show theme + color swatches
+  if (
+    question.type === "brand_colors" &&
+    typeof answer === "object" &&
+    !Array.isArray(answer) &&
+    answer !== null &&
+    "theme" in answer
+  ) {
+    const val = answer as BrandColorsValue;
+    const swatches = [...val.keptColors, ...val.customColors]
+      .map(
+        (hex) =>
+          `<span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background-color: ${escapeHtml(hex)}; vertical-align: middle; margin-right: 4px; border: 1px solid #d1d5db;"></span><span style="font-size: 12px; color: #6b7280; margin-right: 8px;">${escapeHtml(hex)}</span>`
+      )
+      .join("");
+    const themeLabel = val.theme ? `${val.theme} theme` : "No theme selected";
+    const descHtml = val.description?.trim()
+      ? `<br /><span style="color: #6b7280; font-size: 13px;">${escapeHtml(val.description)}</span>`
+      : "";
+
+    return `
+      <tr>
+        <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; vertical-align: top; width: 40%;">
+          ${escapeHtml(question.question)}
+        </td>
+        <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; vertical-align: top;">
+          ${escapeHtml(themeLabel)}<br />${swatches}${descHtml}
+        </td>
+      </tr>`;
+  }
+
+  // For tag_input, show as comma-separated
+  if (
+    question.type === "tag_input" &&
+    Array.isArray(answer) &&
+    answer.length > 0
+  ) {
+    const tags = (answer as string[]).map((t) => escapeHtml(t)).join(", ");
+    return `
+      <tr>
+        <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; vertical-align: top; width: 40%;">
+          ${escapeHtml(question.question)}
+        </td>
+        <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; vertical-align: top;">
+          ${tags}
         </td>
       </tr>`;
   }

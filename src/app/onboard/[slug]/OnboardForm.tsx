@@ -15,6 +15,7 @@ import type {
   YesNoNAValue,
   TeamMember,
   ProjectGalleryValue,
+  BrandColorsValue,
   QuestionConfig,
 } from "@/lib/onboard/types";
 
@@ -119,6 +120,24 @@ function formatAnswerForReview(
         if (val.projects.length > 0) parts.push(`${val.projects.length} project(s)`);
         if (val.photos.length > 0) parts.push(`${val.photos.length} photo(s)`);
         return parts.length > 0 ? parts.join(", ") : "Skipped";
+      }
+      return "Skipped";
+    }
+    case "brand_colors": {
+      if (typeof answer === "object" && !Array.isArray(answer) && "theme" in answer) {
+        const val = answer as BrandColorsValue;
+        const parts: string[] = [];
+        if (val.theme) parts.push(`${val.theme} theme`);
+        const colorCount = val.keptColors.length + val.customColors.length;
+        if (colorCount > 0) parts.push(`${colorCount} color(s)`);
+        if (val.description?.trim()) parts.push(val.description.slice(0, 40));
+        return parts.length > 0 ? parts.join(", ") : "Skipped";
+      }
+      return "Skipped";
+    }
+    case "tag_input": {
+      if (Array.isArray(answer) && answer.length > 0) {
+        return (answer as string[]).join(", ");
       }
       return "Skipped";
     }
@@ -472,25 +491,11 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
                   Back
                 </Button>
 
-                {/* Progress dots */}
-                <div className="flex items-center gap-1.5">
-                  {questions.map((q, idx) => {
-                    const complete = isQuestionComplete(q, answers[q.id] ?? null);
-                    const isCurrent = idx === currentIndex;
-                    return (
-                      <button
-                        key={q.id}
-                        type="button"
-                        onClick={() => goToQuestion(idx)}
-                        className={`
-                          w-2 h-2 rounded-full transition-all
-                          ${isCurrent ? "w-4 bg-accent" : complete ? "bg-green-500" : "bg-border"}
-                        `}
-                        aria-label={`Go to question ${idx + 1}`}
-                      />
-                    );
-                  })}
-                </div>
+                {/* Progress counter */}
+                <span className="text-sm tabular-nums">
+                  <span className="text-accent font-medium">{currentIndex + 1}</span>
+                  <span className="text-text-dim"> / {questions.length}</span>
+                </span>
 
                 <Button
                   variant="ghost"

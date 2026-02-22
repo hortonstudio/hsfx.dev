@@ -6,6 +6,7 @@ import type {
   YesNoNAValue,
   TeamMember,
   ProjectGalleryValue,
+  BrandColorsValue,
   QuestionConfig,
 } from "./types";
 
@@ -132,6 +133,32 @@ function formatAnswer(question: QuestionConfig, answer: AnswerValue): string {
           : "_No projects or photos added_";
       }
       return "_No projects or photos added_";
+    }
+
+    case "brand_colors": {
+      if (typeof answer === "object" && !Array.isArray(answer)) {
+        const val = answer as BrandColorsValue;
+        const parts: string[] = [];
+        if (val.theme) parts.push(`**Theme:** ${val.theme}`);
+        if (val.keptColors.length > 0) {
+          parts.push(`**Kept colors:** ${val.keptColors.map((c) => `\`${c}\``).join(", ")}`);
+        }
+        if (val.customColors.length > 0) {
+          parts.push(`**Custom colors:** ${val.customColors.map((c) => `\`${c}\``).join(", ")}`);
+        }
+        if (val.description?.trim()) {
+          parts.push(`**Description:** ${val.description}`);
+        }
+        return parts.length > 0 ? parts.join("\n\n") : "_No brand colors configured_";
+      }
+      return "_No brand colors configured_";
+    }
+
+    case "tag_input": {
+      if (Array.isArray(answer) && answer.length > 0) {
+        return answer.map((v) => `- ${v}`).join("\n");
+      }
+      return "_No items added_";
     }
 
     default:

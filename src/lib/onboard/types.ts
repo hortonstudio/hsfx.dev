@@ -8,6 +8,8 @@ export type QuestionType =
   | "yes_no_na"
   | "color_picker"
   | "color_confirm"
+  | "brand_colors"
+  | "tag_input"
   | "address"
   | "team_members"
   | "project_gallery";
@@ -37,6 +39,10 @@ export interface QuestionConfig {
   detectedColors?: DetectedColor[];
   maxLength?: number;
   detailsPrompt?: string;
+  minTags?: number;
+  maxTags?: number;
+  suggestions?: string[];
+  detectedTheme?: "light" | "dark";
 }
 
 export interface OnboardConfig {
@@ -93,6 +99,13 @@ export interface ProjectGalleryValue {
   photos: string[];
 }
 
+export interface BrandColorsValue {
+  theme: "light" | "dark" | null;
+  keptColors: string[];
+  customColors: string[];
+  description: string;
+}
+
 export type AnswerValue =
   | string
   | string[]
@@ -101,6 +114,7 @@ export type AnswerValue =
   | YesNoNAValue
   | TeamMember[]
   | ProjectGalleryValue
+  | BrandColorsValue
   | null;
 
 export interface OnboardSubmission {

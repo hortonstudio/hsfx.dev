@@ -54,11 +54,12 @@ function ConfigCard({
   onDelete,
 }: {
   config: ConfigWithCount;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => void | Promise<void>;
 }) {
   const formUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/onboard/${config.client_slug}`;
   const [copied, setCopied] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function copyUrl(e: React.MouseEvent) {
     e.preventDefault();
@@ -68,80 +69,106 @@ function ConfigCard({
     setTimeout(() => setCopied(false), 2000);
   }
 
-  function handleDelete(e: React.MouseEvent) {
+  function openDeleteModal(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (confirming) {
-      onDelete(config.id);
-      setConfirming(false);
-    } else {
-      setConfirming(true);
-      setTimeout(() => setConfirming(false), 3000);
-    }
+    setDeleteOpen(true);
+  }
+
+  async function confirmDelete() {
+    setDeleting(true);
+    await onDelete(config.id);
+    setDeleting(false);
+    setDeleteOpen(false);
   }
 
   return (
-    <Link
-      href={`/dashboard/onboard/${config.client_slug}`}
-      className="group block p-5 bg-surface border border-border rounded-xl hover:border-accent/50 hover:bg-accent/5 transition-all duration-200"
-    >
-      <div className="flex items-start justify-between mb-1">
-        <div>
-          <h3 className="text-base font-medium text-text-primary group-hover:text-accent transition-colors">
-            {config.client_name}
-          </h3>
-          <p className="text-sm text-text-muted">{config.business_name}</p>
+    <>
+      <Link
+        href={`/dashboard/onboard/${config.client_slug}`}
+        className="group block p-5 bg-surface border border-border rounded-xl hover:border-accent/50 hover:bg-accent/5 transition-all duration-200"
+      >
+        <div className="flex items-start justify-between mb-1">
+          <div>
+            <h3 className="text-base font-medium text-text-primary group-hover:text-accent transition-colors">
+              {config.client_name}
+            </h3>
+            <p className="text-sm text-text-muted">{config.business_name}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={STATUS_VARIANTS[config.status] ?? "default"} dot size="sm">
+              {config.status}
+            </Badge>
+            <button
+              type="button"
+              onClick={openDeleteModal}
+              className="p-1 rounded transition-colors text-text-dim hover:text-red-400 opacity-0 group-hover:opacity-100"
+              title="Delete config"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={STATUS_VARIANTS[config.status] ?? "default"} dot size="sm">
-            {config.status}
-          </Badge>
+
+        <p className="text-xs text-text-dim font-mono mb-3">/{config.client_slug}</p>
+
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-xs text-text-dim">
+            {config.submission_count} submission{config.submission_count !== 1 ? "s" : ""}
+          </span>
           <button
             type="button"
-            onClick={handleDelete}
-            className={`p-1 rounded transition-colors ${
-              confirming
-                ? "text-red-400 hover:text-red-300 bg-red-500/10"
-                : "text-text-dim hover:text-red-400 opacity-0 group-hover:opacity-100"
-            }`}
-            title={confirming ? "Click again to confirm" : "Delete config"}
+            onClick={copyUrl}
+            className="text-xs text-text-dim hover:text-accent transition-colors flex items-center gap-1"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
+            {copied ? (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Copied
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Copy URL
+              </>
+            )}
           </button>
         </div>
-      </div>
+      </Link>
 
-      <p className="text-xs text-text-dim font-mono mb-3">/{config.client_slug}</p>
-
-      <div className="flex items-center justify-between mt-4">
-        <span className="text-xs text-text-dim">
-          {config.submission_count} submission{config.submission_count !== 1 ? "s" : ""}
-        </span>
-        <button
-          type="button"
-          onClick={copyUrl}
-          className="text-xs text-text-dim hover:text-accent transition-colors flex items-center gap-1"
-        >
-          {copied ? (
-            <>
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              Copied
-            </>
-          ) : (
-            <>
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              Copy URL
-            </>
-          )}
-        </button>
-      </div>
-    </Link>
+      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete Config">
+        <div className="mt-4 space-y-4">
+          <p className="text-sm text-text-muted">
+            Are you sure you want to delete <span className="text-text-primary font-medium">{config.business_name}</span> ({config.client_slug})? This will also delete all submissions and cannot be undone.
+          </p>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="flex-1 !bg-red-500/10 !border-red-500/30 !text-red-400 hover:!bg-red-500/20"
+            >
+              {deleting ? (
+                <span className="flex items-center gap-2">
+                  <Spinner size="sm" />
+                  Deleting...
+                </span>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 }
 
@@ -174,6 +201,10 @@ function NewConfigModal({
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [hasAnalyzeApi, setHasAnalyzeApi] = useState<boolean | null>(null);
   const [showManualFlow, setShowManualFlow] = useState(false);
+
+  // Copy for Claude state
+  const [scraping, setScraping] = useState(false);
+  const [scrapeCopied, setScrapeCopied] = useState(false);
 
   // Manual flow state
   const [aiPrompt, setAiPrompt] = useState<string | null>(null);
@@ -310,6 +341,85 @@ function NewConfigModal({
     setTimeout(() => setPromptCopied(false), 2000);
   }
 
+  // Scrape site + build full prompt + copy to clipboard
+  async function handleCopyForClaude() {
+    if (!analyzeUrl.trim() || !aiPrompt) return;
+    setAnalyzeError(null);
+    setScraping(true);
+
+    try {
+      const res = await fetch("/api/onboard/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: analyzeUrl }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Scrape failed");
+      }
+
+      const { data: scraped } = await res.json();
+
+      const colorsText = scraped.colors.length > 0
+        ? scraped.colors.slice(0, 8).map((c: { hex: string; count: number; sources: string[] }) =>
+            `  - ${c.hex} (found ${c.count}x in: ${c.sources.join(", ")})`
+          ).join("\n")
+        : "  No colors detected";
+
+      const userMessage = `
+Website URL: ${analyzeUrl}
+
+== SCRAPED DATA FROM THE WEBSITE ==
+
+COLORS FOUND (ranked by frequency):
+${colorsText}
+
+META:
+  Title: ${scraped.meta.title ?? "N/A"}
+  Description: ${scraped.meta.description ?? "N/A"}
+  OG Title: ${scraped.meta.ogTitle ?? "N/A"}
+  OG Description: ${scraped.meta.ogDescription ?? "N/A"}
+
+CONTACT:
+  Phones: ${scraped.contact.phones.join(", ") || "N/A"}
+  Emails: ${scraped.contact.emails.join(", ") || "N/A"}
+
+HEADINGS:
+${scraped.content.headings.length > 0
+    ? scraped.content.headings.map((h: string) => `  - ${h}`).join("\n")
+    : "  None found"}
+
+SERVICES DETECTED:
+${scraped.content.services.length > 0
+    ? scraped.content.services.map((s: string) => `  - ${s}`).join("\n")
+    : "  None found"}
+
+LOGO: ${scraped.logoUrl ?? "Not found"}
+
+== END SCRAPED DATA ==
+
+Using the scraped data above, generate a complete onboarding config JSON following the schema in your instructions. Use the real colors, contact info, and services found. Return ONLY the JSON — no explanation or markdown formatting.
+`.trim();
+
+      const fullPrompt = `=== SYSTEM PROMPT (paste this first or use as system instructions) ===
+
+${aiPrompt}
+
+=== USER MESSAGE (paste this as your message) ===
+
+${userMessage}`;
+
+      await navigator.clipboard.writeText(fullPrompt);
+      setScrapeCopied(true);
+      setTimeout(() => setScrapeCopied(false), 3000);
+    } catch (err) {
+      setAnalyzeError(err instanceof Error ? err.message : "Scrape failed");
+    } finally {
+      setScraping(false);
+    }
+  }
+
   async function handleCreate() {
     setError(null);
 
@@ -357,6 +467,7 @@ function NewConfigModal({
       setAnalyzeUrl("");
       setAnalyzeError(null);
       setShowManualFlow(false);
+      setScrapeCopied(false);
       onCreated();
       onClose();
     } catch (err) {
@@ -371,28 +482,33 @@ function NewConfigModal({
   return (
     <Modal open={open} onClose={onClose} title="New Onboarding Config" size="lg">
       <div className="space-y-4 mt-4">
-        {/* Auto-analyze (primary flow when API key is set) */}
-        {showAnalyze && (
-          <div className="p-4 bg-accent/5 border border-accent/20 rounded-xl">
-            <p className="text-sm font-medium text-text-primary mb-1">
-              Analyze client website
-            </p>
-            <p className="text-xs text-text-muted mb-3">
-              We&apos;ll scrape the site for colors, services, and contact info, then generate a config automatically.
-            </p>
-            <div className="flex gap-2">
-              <Input
-                value={analyzeUrl}
-                onChange={(e) => setAnalyzeUrl(e.target.value)}
-                placeholder="https://example.com"
-                disabled={analyzing}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && analyzeUrl.trim() && !analyzing) handleAnalyze();
-                }}
-              />
+        {/* Analyze / Copy for Claude section */}
+        <div className="p-4 bg-accent/5 border border-accent/20 rounded-xl">
+          <p className="text-sm font-medium text-text-primary mb-1">
+            Analyze client website
+          </p>
+          <p className="text-xs text-text-muted mb-3">
+            {showAnalyze
+              ? "Scrape the site for colors, services, and contact info, then generate a config automatically."
+              : "Scrape the site and copy a ready-made prompt to paste into Claude or ChatGPT."}
+          </p>
+          <div className="flex gap-2">
+            <Input
+              value={analyzeUrl}
+              onChange={(e) => setAnalyzeUrl(e.target.value)}
+              placeholder="https://example.com"
+              disabled={analyzing || scraping}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && analyzeUrl.trim() && !analyzing && !scraping) {
+                  if (showAnalyze) handleAnalyze();
+                  else handleCopyForClaude();
+                }
+              }}
+            />
+            {showAnalyze && (
               <Button
                 onClick={handleAnalyze}
-                disabled={analyzing || !analyzeUrl.trim()}
+                disabled={analyzing || scraping || !analyzeUrl.trim()}
               >
                 {analyzing ? (
                   <span className="flex items-center gap-2">
@@ -403,39 +519,74 @@ function NewConfigModal({
                   "Analyze"
                 )}
               </Button>
-            </div>
-            {analyzeError && (
-              <p className="text-xs text-red-400 mt-2">{analyzeError}</p>
             )}
-            {autoFilled && (
-              <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                Config generated — review fields below
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowManualFlow(!showManualFlow)}
-              className="text-xs text-text-dim hover:text-accent mt-2 transition-colors"
+            <Button
+              variant={showAnalyze ? "ghost" : "primary"}
+              onClick={handleCopyForClaude}
+              disabled={scraping || analyzing || !analyzeUrl.trim() || !aiPrompt}
+              title="Scrape the site and copy a full prompt for Claude/ChatGPT"
             >
-              {showManualFlow ? "Hide manual flow" : "Or enter config manually"}
-            </button>
+              {scraping ? (
+                <span className="flex items-center gap-2">
+                  <Spinner size="sm" />
+                  Scraping...
+                </span>
+              ) : scrapeCopied ? (
+                <span className="flex items-center gap-1.5 text-green-400">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Copied
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 whitespace-nowrap">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Copy for Claude
+                </span>
+              )}
+            </Button>
           </div>
-        )}
+          {analyzeError && (
+            <p className="text-xs text-red-400 mt-2">{analyzeError}</p>
+          )}
+          {scrapeCopied && (
+            <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Prompt + scraped data copied — paste into Claude or ChatGPT
+            </p>
+          )}
+          {autoFilled && (
+            <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Config generated — review fields below
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowManualFlow(!showManualFlow)}
+            className="text-xs text-text-dim hover:text-accent mt-2 transition-colors"
+          >
+            {showManualFlow ? "Hide manual flow" : "Or enter config manually"}
+          </button>
+        </div>
 
-        {/* Manual flow (primary when no API key, collapsed fallback otherwise) */}
-        {(!showAnalyze || showManualFlow) && (
+        {/* Manual flow (collapsed fallback) */}
+        {showManualFlow && (
           <>
             <div className="p-4 bg-accent/5 border border-accent/20 rounded-xl">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-text-primary">
-                    {showAnalyze ? "Manual config entry" : "Generate config with AI"}
+                    Manual config entry
                   </p>
                   <p className="text-xs text-text-muted mt-0.5">
-                    Copy the prompt, paste into ChatGPT/Claude with the client&apos;s website URL
+                    Copy just the system prompt, then paste into ChatGPT/Claude with the client&apos;s website URL
                   </p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={copyPrompt} disabled={!aiPrompt}>
@@ -468,7 +619,7 @@ function NewConfigModal({
                 placeholder="Paste the full JSON here — fields will auto-fill below"
                 className="w-full min-h-[200px] bg-background border border-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-dim focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none transition-colors font-mono text-sm resize-y"
               />
-              {autoFilled && !showAnalyze && (
+              {autoFilled && (
                 <p className="text-xs text-green-400 mt-1.5 flex items-center gap-1">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />

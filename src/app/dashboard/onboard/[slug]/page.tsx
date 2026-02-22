@@ -23,6 +23,7 @@ import type {
   YesNoNAValue,
   TeamMember,
   ProjectGalleryValue,
+  BrandColorsValue,
   QuestionConfig,
 } from "@/lib/onboard/types";
 
@@ -193,6 +194,50 @@ function formatAnswerDisplay(
         }
       }
       return <span className="text-text-dim italic">No projects added</span>;
+    }
+
+    case "brand_colors": {
+      if (typeof answer === "object" && !Array.isArray(answer) && "theme" in answer) {
+        const val = answer as BrandColorsValue;
+        const allColors = [...val.keptColors, ...val.customColors];
+        return (
+          <div className="space-y-2">
+            {val.theme && (
+              <Badge variant="info">{val.theme} theme</Badge>
+            )}
+            {allColors.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {allColors.map((hex, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <div
+                      className="w-5 h-5 rounded border border-white/20"
+                      style={{ backgroundColor: hex }}
+                    />
+                    <span className="text-text-secondary font-mono text-xs">{hex}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {val.description?.trim() && (
+              <p className="text-text-secondary text-sm">{val.description}</p>
+            )}
+          </div>
+        );
+      }
+      return <span className="text-text-dim italic">No brand colors configured</span>;
+    }
+
+    case "tag_input": {
+      if (Array.isArray(answer) && answer.length > 0) {
+        return (
+          <div className="flex flex-wrap gap-2">
+            {(answer as string[]).map((tag) => (
+              <Badge key={tag} variant="info">{tag}</Badge>
+            ))}
+          </div>
+        );
+      }
+      return <span className="text-text-dim italic">No items added</span>;
     }
 
     default:
