@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { createClient } from "@/lib/supabase/client";
@@ -406,9 +406,9 @@ function SubmissionViewerContent({ slug }: { slug: string }) {
 export default function SubmissionViewerPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }) {
-  const { slug } = use(params);
+  const { slug } = params;
 
   return (
     <ProtectedRoute>

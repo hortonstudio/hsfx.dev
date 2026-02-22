@@ -54,7 +54,7 @@ export default async function OnboardPage({
     .eq("client_slug", slug)
     .order("created_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   return (
     <OnboardForm
