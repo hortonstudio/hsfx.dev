@@ -14,6 +14,9 @@ import {
   GridBackground,
   PageTransition,
   CursorGlow,
+  Tabs,
+  TabList,
+  Tab,
 } from "@/components/ui";
 import Navbar from "@/components/layout/Navbar";
 import type { OnboardConfig } from "@/lib/onboard/types";
@@ -199,33 +202,23 @@ function NewConfigModal({
   const [analyzeUrl, setAnalyzeUrl] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-  const [hasAnalyzeApi, setHasAnalyzeApi] = useState<boolean | null>(null);
-  const [showManualFlow, setShowManualFlow] = useState(false);
-
-  // Copy for Claude state
-  const [scraping, setScraping] = useState(false);
-  const [scrapeCopied, setScrapeCopied] = useState(false);
+  const [analyzeNotes, setAnalyzeNotes] = useState("");
+  const [mode, setMode] = useState<"ai" | "manual">("ai");
 
   // Manual flow state
+  const [scraping, setScraping] = useState(false);
+  const [scrapeCopied, setScrapeCopied] = useState(false);
   const [aiPrompt, setAiPrompt] = useState<string | null>(null);
-  const [promptCopied, setPromptCopied] = useState(false);
 
-  // Check if analyze API is available + fetch prompt for manual fallback
+  // Fetch AI prompt template for manual flow
   useEffect(() => {
-    if (!open) return;
-    fetch("/api/onboard/analyze")
+    if (!open || aiPrompt !== null) return;
+    fetch("/api/onboard/settings?key=ai_prompt_template")
       .then((res) => res.json())
-      .then((data) => setHasAnalyzeApi(data.available === true))
-      .catch(() => setHasAnalyzeApi(false));
-
-    if (aiPrompt === null) {
-      fetch("/api/onboard/settings?key=ai_prompt_template")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.value) setAiPrompt(data.value);
-        })
-        .catch(() => {});
-    }
+      .then((data) => {
+        if (data.value) setAiPrompt(data.value);
+      })
+      .catch(() => {});
   }, [open, aiPrompt]);
 
   // Fetch existing slugs when modal opens for deduplication
@@ -291,7 +284,7 @@ function NewConfigModal({
       const res = await fetch("/api/onboard/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: analyzeUrl }),
+        body: JSON.stringify({ url: analyzeUrl, notes: analyzeNotes.trim() || undefined }),
       });
 
       if (!res.ok) {
@@ -319,29 +312,7 @@ function NewConfigModal({
     }
   }
 
-  // Manual paste handler
-  function handleConfigChange(raw: string) {
-    setConfigJson(raw);
-    setAutoFilled(false);
-
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object" && parsed.config && parsed.client_slug) {
-        applyConfig(parsed);
-      }
-    } catch {
-      // Not valid JSON yet
-    }
-  }
-
-  async function copyPrompt() {
-    if (!aiPrompt) return;
-    await navigator.clipboard.writeText(aiPrompt);
-    setPromptCopied(true);
-    setTimeout(() => setPromptCopied(false), 2000);
-  }
-
-  // Scrape site + build full prompt + copy to clipboard
+  // Manual: scrape + copy prompt to clipboard
   async function handleCopyForClaude() {
     if (!analyzeUrl.trim() || !aiPrompt) return;
     setAnalyzeError(null);
@@ -366,6 +337,8 @@ function NewConfigModal({
             `  - ${c.hex} (found ${c.count}x in: ${c.sources.join(", ")})`
           ).join("\n")
         : "  No colors detected";
+
+      const notes = analyzeNotes.trim();
 
       const userMessage = `
 Website URL: ${analyzeUrl}
@@ -397,9 +370,18 @@ ${scraped.content.services.length > 0
 
 LOGO: ${scraped.logoUrl ?? "Not found"}
 
-== END SCRAPED DATA ==
+PAGES SCRAPED: ${scraped.pagesScraped?.join(", ") ?? analyzeUrl}
 
-Using the scraped data above, generate a complete onboarding config JSON following the schema in your instructions. Use the real colors, contact info, and services found. Return ONLY the JSON — no explanation or markdown formatting.
+== END SCRAPED DATA ==${notes ? `
+
+== NOTES FROM THE DESIGNER ==
+These notes are from the designer who spoke with the client. They take PRIORITY over anything found on the website. If notes contradict scraped data, follow the notes.
+
+${notes}
+
+== END NOTES ==` : ""}
+
+Using the scraped data above${notes ? " and the designer's notes" : ""}, generate a complete onboarding config JSON following the schema in your instructions. Use the real colors, contact info, and services found. Return ONLY the JSON — no explanation or markdown formatting.
 `.trim();
 
       const fullPrompt = `=== SYSTEM PROMPT (paste this first or use as system instructions) ===
@@ -417,6 +399,21 @@ ${userMessage}`;
       setAnalyzeError(err instanceof Error ? err.message : "Scrape failed");
     } finally {
       setScraping(false);
+    }
+  }
+
+  // Manual paste handler
+  function handleConfigChange(raw: string) {
+    setConfigJson(raw);
+    setAutoFilled(false);
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && parsed.config && parsed.client_slug) {
+        applyConfig(parsed);
+      }
+    } catch {
+      // Not valid JSON yet
     }
   }
 
@@ -466,7 +463,8 @@ ${userMessage}`;
       setAutoFilled(false);
       setAnalyzeUrl("");
       setAnalyzeError(null);
-      setShowManualFlow(false);
+      setAnalyzeNotes("");
+      setScraping(false);
       setScrapeCopied(false);
       onCreated();
       onClose();
@@ -477,21 +475,19 @@ ${userMessage}`;
     }
   }
 
-  const showAnalyze = hasAnalyzeApi === true;
-
   return (
     <Modal open={open} onClose={onClose} title="New Onboarding Config" size="lg">
       <div className="space-y-4 mt-4">
-        {/* Analyze / Copy for Claude section */}
+        {/* Tabbed analyze section */}
         <div className="p-4 bg-accent/5 border border-accent/20 rounded-xl">
-          <p className="text-sm font-medium text-text-primary mb-1">
-            Analyze client website
-          </p>
-          <p className="text-xs text-text-muted mb-3">
-            {showAnalyze
-              ? "Scrape the site for colors, services, and contact info, then generate a config automatically."
-              : "Scrape the site and copy a ready-made prompt to paste into Claude or ChatGPT."}
-          </p>
+          <Tabs defaultValue="ai" onValueChange={(v) => setMode(v as "ai" | "manual")}>
+            <TabList className="mb-3">
+              <Tab value="ai">AI Analyze</Tab>
+              <Tab value="manual">Manual</Tab>
+            </TabList>
+          </Tabs>
+
+          {/* Shared: URL input + action button */}
           <div className="flex gap-2">
             <Input
               value={analyzeUrl}
@@ -500,15 +496,15 @@ ${userMessage}`;
               disabled={analyzing || scraping}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && analyzeUrl.trim() && !analyzing && !scraping) {
-                  if (showAnalyze) handleAnalyze();
+                  if (mode === "ai") handleAnalyze();
                   else handleCopyForClaude();
                 }
               }}
             />
-            {showAnalyze && (
+            {mode === "ai" ? (
               <Button
                 onClick={handleAnalyze}
-                disabled={analyzing || scraping || !analyzeUrl.trim()}
+                disabled={analyzing || !analyzeUrl.trim()}
               >
                 {analyzing ? (
                   <span className="flex items-center gap-2">
@@ -519,47 +515,51 @@ ${userMessage}`;
                   "Analyze"
                 )}
               </Button>
+            ) : (
+              <Button
+                onClick={handleCopyForClaude}
+                disabled={scraping || !analyzeUrl.trim() || !aiPrompt}
+              >
+                {scraping ? (
+                  <span className="flex items-center gap-2">
+                    <Spinner size="sm" />
+                    Scraping...
+                  </span>
+                ) : scrapeCopied ? (
+                  <span className="flex items-center gap-1.5 text-green-400">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Copied
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 whitespace-nowrap">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy for Claude
+                  </span>
+                )}
+              </Button>
             )}
-            <Button
-              variant={showAnalyze ? "ghost" : "primary"}
-              onClick={handleCopyForClaude}
-              disabled={scraping || analyzing || !analyzeUrl.trim() || !aiPrompt}
-              title="Scrape the site and copy a full prompt for Claude/ChatGPT"
-            >
-              {scraping ? (
-                <span className="flex items-center gap-2">
-                  <Spinner size="sm" />
-                  Scraping...
-                </span>
-              ) : scrapeCopied ? (
-                <span className="flex items-center gap-1.5 text-green-400">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  Copied
-                </span>
-              ) : (
-                <span className="flex items-center gap-1.5 whitespace-nowrap">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  Copy for Claude
-                </span>
-              )}
-            </Button>
           </div>
+
+          {/* Shared: Notes textarea */}
+          <textarea
+            value={analyzeNotes}
+            onChange={(e) => setAnalyzeNotes(e.target.value)}
+            placeholder="Optional notes — e.g. &quot;Client wants to drop service area X&quot;, call notes, specific requests. These override what's found on the website."
+            disabled={analyzing || scraping}
+            className="w-full mt-2 min-h-[60px] bg-background border border-border rounded-lg px-3 py-2 text-text-primary placeholder:text-text-dim focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none transition-colors text-sm resize-y"
+          />
+
+          {/* Shared: Error display */}
           {analyzeError && (
             <p className="text-xs text-red-400 mt-2">{analyzeError}</p>
           )}
-          {scrapeCopied && (
-            <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              Prompt + scraped data copied — paste into Claude or ChatGPT
-            </p>
-          )}
-          {autoFilled && (
+
+          {/* AI tab: success indicator */}
+          {mode === "ai" && autoFilled && (
             <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -567,72 +567,43 @@ ${userMessage}`;
               Config generated — review fields below
             </p>
           )}
-          <button
-            type="button"
-            onClick={() => setShowManualFlow(!showManualFlow)}
-            className="text-xs text-text-dim hover:text-accent mt-2 transition-colors"
-          >
-            {showManualFlow ? "Hide manual flow" : "Or enter config manually"}
-          </button>
-        </div>
 
-        {/* Manual flow (collapsed fallback) */}
-        {showManualFlow && (
-          <>
-            <div className="p-4 bg-accent/5 border border-accent/20 rounded-xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-text-primary">
-                    Manual config entry
-                  </p>
-                  <p className="text-xs text-text-muted mt-0.5">
-                    Copy just the system prompt, then paste into ChatGPT/Claude with the client&apos;s website URL
-                  </p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={copyPrompt} disabled={!aiPrompt}>
-                  {promptCopied ? (
-                    <span className="flex items-center gap-1.5 text-green-400">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                      Copied
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1.5">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                      {aiPrompt ? "Copy Prompt" : "Loading..."}
-                    </span>
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">
-                Paste AI output
-              </label>
-              <textarea
-                value={configJson}
-                onChange={(e) => handleConfigChange(e.target.value)}
-                placeholder="Paste the full JSON here — fields will auto-fill below"
-                className="w-full min-h-[200px] bg-background border border-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-dim focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none transition-colors font-mono text-sm resize-y"
-              />
-              {autoFilled && (
-                <p className="text-xs text-green-400 mt-1.5 flex items-center gap-1">
+          {/* Manual tab: copy confirmation + paste textarea */}
+          {mode === "manual" && (
+            <>
+              {scrapeCopied && (
+                <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  Auto-filled from AI output
+                  Prompt + scraped data copied — paste into Claude or ChatGPT
                 </p>
               )}
-            </div>
-          </>
-        )}
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-text-primary mb-1.5">
+                  Paste AI output
+                </label>
+                <textarea
+                  value={configJson}
+                  onChange={(e) => handleConfigChange(e.target.value)}
+                  placeholder="Paste the full JSON here — fields will auto-fill below"
+                  className="w-full min-h-[160px] bg-background border border-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-dim focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none transition-colors font-mono text-sm resize-y"
+                />
+                {autoFilled && (
+                  <p className="text-xs text-green-400 mt-1.5 flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Auto-filled from AI output
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
 
-        {/* Config JSON (shown when auto-analyze filled it, for review/editing) */}
-        {showAnalyze && !showManualFlow && configJson && (
+        {/* Config JSON (shown when AI auto-analyze filled it, for review/editing) */}
+        {mode === "ai" && configJson && (
           <div>
             <label className="block text-sm font-medium text-text-primary mb-1.5">
               Generated config (editable)

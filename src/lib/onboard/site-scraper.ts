@@ -22,6 +22,7 @@ export interface ScrapedData {
     services: string[];
   };
   logoUrl: string | null;
+  pagesScraped?: string[];
 }
 
 // ── Named color map (common subset) ──────────────────────
@@ -203,7 +204,197 @@ function resolveUrl(href: string, baseUrl: string): string {
   }
 }
 
-// ── Main scraper ─────────────────────────────────────────
+// ── Extraction helpers (reusable across pages) ───────────
+
+function extractContact(html: string): { phones: string[]; emails: string[] } {
+  const phones: string[] = [];
+  const emails: string[] = [];
+
+  try {
+    const textContent = html.replace(/<[^>]+>/g, " ");
+
+    const phoneMatches = textContent.match(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g);
+    if (phoneMatches) phones.push(...Array.from(new Set(phoneMatches)));
+
+    const emailMatches = textContent.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+    if (emailMatches) emails.push(...Array.from(new Set(emailMatches)));
+
+    const mailtoMatches = html.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi);
+    if (mailtoMatches) {
+      for (const m of mailtoMatches) {
+        const email = m.replace(/^mailto:/i, "");
+        if (!emails.includes(email)) emails.push(email);
+      }
+    }
+  } catch {
+    // Partial failure OK
+  }
+
+  return { phones: phones.slice(0, 5), emails: emails.slice(0, 5) };
+}
+
+function extractHeadings(html: string): string[] {
+  const headings: string[] = [];
+
+  try {
+    const headingRe = /<h([1-3])[^>]*>([\s\S]*?)<\/h\1>/gi;
+    let hMatch;
+    while ((hMatch = headingRe.exec(html)) !== null) {
+      const text = hMatch[2].replace(/<[^>]+>/g, "").trim();
+      if (text && text.length < 200) headings.push(text);
+    }
+  } catch {
+    // Partial failure OK
+  }
+
+  return headings;
+}
+
+function extractServices(html: string): string[] {
+  const services: string[] = [];
+
+  try {
+    const serviceSection = html.match(
+      /(?:services?|offerings?|solutions?|what we (?:do|offer)|our work)[^]*?<\/(?:section|div|ul|ol)>/gi
+    );
+    if (serviceSection) {
+      for (const section of serviceSection.slice(0, 3)) {
+        const listItems = section.match(/<li[^>]*>([\s\S]*?)<\/li>/gi);
+        if (listItems) {
+          for (const li of listItems) {
+            const text = li.replace(/<[^>]+>/g, "").trim();
+            if (text && text.length < 100 && !services.includes(text)) {
+              services.push(text);
+            }
+          }
+        }
+        const subHeadings = section.match(/<h[2-4][^>]*>([\s\S]*?)<\/h[2-4]>/gi);
+        if (subHeadings) {
+          for (const sh of subHeadings) {
+            const text = sh.replace(/<[^>]+>/g, "").trim();
+            if (text && text.length < 100 && !services.includes(text)) {
+              services.push(text);
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Partial failure OK
+  }
+
+  return services;
+}
+
+function extractColorsFromHTML(
+  html: string,
+  colorMap: Map<string, { count: number; sources: Set<string> }>
+) {
+  try {
+    const inlineStyles = html.match(/style=["']([^"']+)["']/gi);
+    if (inlineStyles) {
+      for (const s of inlineStyles) {
+        const val = s.replace(/^style=["']|["']$/gi, "");
+        extractColorsFromCSS(val, "inline", colorMap);
+      }
+    }
+
+    const styleTags = html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi);
+    if (styleTags) {
+      for (const tag of styleTags) {
+        const css = tag.replace(/<\/?style[^>]*>/gi, "");
+        extractColorsFromCSS(css, "style-tag", colorMap);
+      }
+    }
+  } catch {
+    // Partial failure OK
+  }
+}
+
+// ── Link discovery for multi-page scraping ───────────────
+
+const PAGE_KEYWORDS: Record<string, string[]> = {
+  services: ["services", "what-we-do", "offerings", "solutions", "our-work", "our-services"],
+  about: ["about", "about-us", "our-story", "who-we-are", "our-team", "about-us"],
+  contact: ["contact", "contact-us", "get-in-touch", "reach-us"],
+  "service-area": ["service-area", "areas-served", "locations", "coverage", "where-we-serve", "areas-we-serve", "service-areas"],
+};
+
+function discoverLinks(html: string, baseUrl: string): string[] {
+  const origin = new URL(baseUrl).origin;
+  const seen = new Set<string>();
+  const scored: { url: string; score: number }[] = [];
+
+  // Extract links from nav, header, and footer
+  const navSections = html.match(/<(?:nav|header|footer)[\s>][\s\S]*?<\/(?:nav|header|footer)>/gi) ?? [];
+
+  // Also get top-level links as fallback (some sites don't use semantic elements)
+  const allSections = [...navSections, html];
+
+  for (const section of allSections) {
+    const linkRe = /<a\s[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let m;
+    while ((m = linkRe.exec(section)) !== null) {
+      const href = m[1].trim();
+      const linkText = m[2].replace(/<[^>]+>/g, "").trim().toLowerCase();
+
+      let resolved: string;
+      try {
+        const u = new URL(href, baseUrl);
+        if (u.origin !== origin) continue;
+        u.hash = "";
+        u.search = "";
+        resolved = u.href;
+      } catch {
+        continue;
+      }
+
+      // Skip homepage, assets, and anchors
+      if (resolved === baseUrl || resolved === baseUrl + "/") continue;
+      if (/\.(jpg|jpeg|png|gif|svg|webp|pdf|css|js|ico)$/i.test(resolved)) continue;
+      if (seen.has(resolved)) continue;
+      seen.add(resolved);
+
+      // Score against keyword heuristics
+      const path = new URL(resolved).pathname.toLowerCase();
+      let score = 0;
+
+      for (const keywords of Object.values(PAGE_KEYWORDS)) {
+        for (const kw of keywords) {
+          if (path.includes(kw)) score += 3;
+          if (linkText.includes(kw.replace(/-/g, " "))) score += 2;
+        }
+      }
+
+      // Only keep links that matched at least one keyword (from nav sections)
+      // or that have a high score from the full HTML scan
+      if (score > 0) {
+        scored.push({ url: resolved, score });
+      }
+    }
+
+    // Only scan nav/header/footer links, not the full HTML
+    if (section === html && scored.length >= 4) break;
+  }
+
+  // Sort by score descending, dedupe by taking the best
+  scored.sort((a, b) => b.score - a.score);
+
+  const result: string[] = [];
+  const usedPaths = new Set<string>();
+
+  for (const { url } of scored) {
+    const path = new URL(url).pathname;
+    if (usedPaths.has(path)) continue;
+    usedPaths.add(path);
+    result.push(url);
+    if (result.length >= 4) break;
+  }
+
+  return result;
+}
+
+// ── Main scraper (single page) ───────────────────────────
 
 export async function scrapeSite(url: string): Promise<ScrapedData> {
   const html = await fetchWithTimeout(url, 10_000);
@@ -238,93 +429,26 @@ export async function scrapeSite(url: string): Promise<ScrapedData> {
   }
 
   // ── Contact info ───────────────────────────────────────
-  try {
-    // Strip HTML tags for text-based extraction
-    const textContent = html.replace(/<[^>]+>/g, " ");
-
-    const phones = textContent.match(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g);
-    if (phones) result.contact.phones = Array.from(new Set(phones)).slice(0, 5);
-
-    const emails = textContent.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
-    if (emails) result.contact.emails = Array.from(new Set(emails)).slice(0, 5);
-
-    // Also check mailto: links
-    const mailtoMatches = html.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi);
-    if (mailtoMatches) {
-      for (const m of mailtoMatches) {
-        const email = m.replace(/^mailto:/i, "");
-        if (!result.contact.emails.includes(email)) {
-          result.contact.emails.push(email);
-        }
-      }
-    }
-  } catch {
-    // Partial failure OK
-  }
+  const contact = extractContact(html);
+  result.contact = contact;
 
   // ── Headings ───────────────────────────────────────────
-  try {
-    const headingRe = /<h([1-3])[^>]*>([\s\S]*?)<\/h\1>/gi;
-    let hMatch;
-    while ((hMatch = headingRe.exec(html)) !== null) {
-      const text = hMatch[2].replace(/<[^>]+>/g, "").trim();
-      if (text && text.length < 200) {
-        result.content.headings.push(text);
-      }
-    }
-    result.content.headings = result.content.headings.slice(0, 20);
-  } catch {
-    // Partial failure OK
-  }
+  result.content.headings = extractHeadings(html).slice(0, 20);
 
   // ── Services detection ─────────────────────────────────
-  try {
-    // Look for list items near "service" keywords in the HTML
-    const serviceSection = html.match(
-      /(?:services?|offerings?|solutions?|what we (?:do|offer)|our work)[^]*?<\/(?:section|div|ul|ol)>/gi
-    );
-    if (serviceSection) {
-      for (const section of serviceSection.slice(0, 3)) {
-        const listItems = section.match(/<li[^>]*>([\s\S]*?)<\/li>/gi);
-        if (listItems) {
-          for (const li of listItems) {
-            const text = li.replace(/<[^>]+>/g, "").trim();
-            if (text && text.length < 100 && !result.content.services.includes(text)) {
-              result.content.services.push(text);
-            }
-          }
-        }
-        // Also check h2/h3/h4 inside service sections
-        const subHeadings = section.match(/<h[2-4][^>]*>([\s\S]*?)<\/h[2-4]>/gi);
-        if (subHeadings) {
-          for (const sh of subHeadings) {
-            const text = sh.replace(/<[^>]+>/g, "").trim();
-            if (text && text.length < 100 && !result.content.services.includes(text)) {
-              result.content.services.push(text);
-            }
-          }
-        }
-      }
-    }
-    result.content.services = result.content.services.slice(0, 15);
-  } catch {
-    // Partial failure OK
-  }
+  result.content.services = extractServices(html).slice(0, 15);
 
   // ── Logo detection ─────────────────────────────────────
   try {
-    // OG image
     if (result.meta.ogImage) {
       result.logoUrl = result.meta.ogImage;
     }
 
-    // apple-touch-icon or icon link
     const iconMatch = html.match(/<link[^>]*rel=["'](?:apple-touch-icon|icon|shortcut icon)["'][^>]*href=["']([^"']+)["']/i);
     if (iconMatch) {
       result.logoUrl = resolveUrl(iconMatch[1], url);
     }
 
-    // img with "logo" in attributes
     const logoImgMatch = html.match(/<img[^>]*(?:class|alt|src)=["'][^"']*logo[^"']*["'][^>]*>/i);
     if (logoImgMatch) {
       const srcMatch = logoImgMatch[0].match(/src=["']([^"']+)["']/i);
@@ -339,27 +463,7 @@ export async function scrapeSite(url: string): Promise<ScrapedData> {
   // ── Colors ─────────────────────────────────────────────
   const colorMap = new Map<string, { count: number; sources: Set<string> }>();
 
-  try {
-    // Inline styles
-    const inlineStyles = html.match(/style=["']([^"']+)["']/gi);
-    if (inlineStyles) {
-      for (const s of inlineStyles) {
-        const val = s.replace(/^style=["']|["']$/gi, "");
-        extractColorsFromCSS(val, "inline", colorMap);
-      }
-    }
-
-    // <style> tags
-    const styleTags = html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi);
-    if (styleTags) {
-      for (const tag of styleTags) {
-        const css = tag.replace(/<\/?style[^>]*>/gi, "");
-        extractColorsFromCSS(css, "style-tag", colorMap);
-      }
-    }
-  } catch {
-    // Partial failure OK
-  }
+  extractColorsFromHTML(html, colorMap);
 
   // Linked stylesheets (fetch up to 5)
   try {
@@ -385,6 +489,176 @@ export async function scrapeSite(url: string): Promise<ScrapedData> {
   }
 
   // Build sorted color array
+  result.colors = Array.from(colorMap.entries())
+    .map(([hex, data]) => ({
+      hex,
+      count: data.count,
+      sources: Array.from(data.sources),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  return result;
+}
+
+// ── Multi-page scraper ───────────────────────────────────
+
+export async function scrapeMultiPage(url: string): Promise<ScrapedData> {
+  // Scrape homepage first
+  const html = await fetchWithTimeout(url, 10_000);
+  const homepage = await scrapeSiteFromHTML(html, url);
+
+  // Discover internal links worth scraping
+  const innerLinks = discoverLinks(html, url);
+  const pagesScraped = [url];
+
+  if (innerLinks.length === 0) {
+    homepage.pagesScraped = pagesScraped;
+    return homepage;
+  }
+
+  // Fetch inner pages in parallel
+  const innerResults = await Promise.allSettled(
+    innerLinks.map((link) => fetchWithTimeout(link, 10_000))
+  );
+
+  // Shared color map — start with homepage colors
+  const colorMap = new Map<string, { count: number; sources: Set<string> }>();
+  extractColorsFromHTML(html, colorMap);
+
+  // Collect merged data
+  const allPhones = new Set(homepage.contact.phones);
+  const allEmails = new Set(homepage.contact.emails);
+  const allHeadings = [...homepage.content.headings];
+  const allServices = [...homepage.content.services];
+
+  for (let i = 0; i < innerResults.length; i++) {
+    const r = innerResults[i];
+    if (r.status !== "fulfilled") continue;
+
+    const innerHtml = r.value;
+    const innerUrl = innerLinks[i];
+    pagesScraped.push(innerUrl);
+
+    // Extract content from inner page
+    const contact = extractContact(innerHtml);
+    for (const p of contact.phones) allPhones.add(p);
+    for (const e of contact.emails) allEmails.add(e);
+
+    for (const h of extractHeadings(innerHtml)) {
+      if (!allHeadings.includes(h)) allHeadings.push(h);
+    }
+
+    for (const s of extractServices(innerHtml)) {
+      if (!allServices.includes(s)) allServices.push(s);
+    }
+
+    extractColorsFromHTML(innerHtml, colorMap);
+  }
+
+  // Also fetch stylesheets from homepage for color extraction
+  try {
+    const linkRe = /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["']/gi;
+    const stylesheetUrls: string[] = [];
+    let linkMatch;
+    while ((linkMatch = linkRe.exec(html)) !== null && stylesheetUrls.length < 5) {
+      stylesheetUrls.push(resolveUrl(linkMatch[1], url));
+    }
+
+    const cssResults = await Promise.allSettled(
+      stylesheetUrls.map((cssUrl) => fetchWithTimeout(cssUrl, 3_000))
+    );
+
+    for (let i = 0; i < cssResults.length; i++) {
+      const r = cssResults[i];
+      if (r.status === "fulfilled") {
+        extractColorsFromCSS(r.value, `stylesheet:${stylesheetUrls[i]}`, colorMap);
+      }
+    }
+  } catch {
+    // Partial failure OK
+  }
+
+  // Build merged result
+  return {
+    url,
+    colors: Array.from(colorMap.entries())
+      .map(([hex, data]) => ({
+        hex,
+        count: data.count,
+        sources: Array.from(data.sources),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10),
+    meta: homepage.meta,
+    contact: {
+      phones: Array.from(allPhones).slice(0, 5),
+      emails: Array.from(allEmails).slice(0, 5),
+    },
+    content: {
+      headings: allHeadings.slice(0, 30),
+      services: allServices.slice(0, 20),
+    },
+    logoUrl: homepage.logoUrl,
+    pagesScraped,
+  };
+}
+
+// Helper: scrape from already-fetched HTML (avoids double-fetch for homepage)
+async function scrapeSiteFromHTML(html: string, url: string): Promise<ScrapedData> {
+  const result: ScrapedData = {
+    url,
+    colors: [],
+    meta: { title: null, description: null, ogTitle: null, ogDescription: null, ogImage: null },
+    contact: { phones: [], emails: [] },
+    content: { headings: [], services: [] },
+    logoUrl: null,
+  };
+
+  // Meta tags
+  try {
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    if (titleMatch) result.meta.title = titleMatch[1].trim();
+
+    const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+    if (descMatch) result.meta.description = descMatch[1].trim();
+
+    const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
+    if (ogTitleMatch) result.meta.ogTitle = ogTitleMatch[1].trim();
+
+    const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i);
+    if (ogDescMatch) result.meta.ogDescription = ogDescMatch[1].trim();
+
+    const ogImgMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
+    if (ogImgMatch) result.meta.ogImage = resolveUrl(ogImgMatch[1].trim(), url);
+  } catch {
+    // Partial failure OK
+  }
+
+  result.contact = extractContact(html);
+  result.content.headings = extractHeadings(html).slice(0, 20);
+  result.content.services = extractServices(html).slice(0, 15);
+
+  // Logo detection
+  try {
+    if (result.meta.ogImage) result.logoUrl = result.meta.ogImage;
+
+    const iconMatch = html.match(/<link[^>]*rel=["'](?:apple-touch-icon|icon|shortcut icon)["'][^>]*href=["']([^"']+)["']/i);
+    if (iconMatch) result.logoUrl = resolveUrl(iconMatch[1], url);
+
+    const logoImgMatch = html.match(/<img[^>]*(?:class|alt|src)=["'][^"']*logo[^"']*["'][^>]*>/i);
+    if (logoImgMatch) {
+      const srcMatch = logoImgMatch[0].match(/src=["']([^"']+)["']/i);
+      if (srcMatch) result.logoUrl = resolveUrl(srcMatch[1], url);
+    }
+  } catch {
+    // Partial failure OK
+  }
+
+  // Colors (inline + style tags only, no stylesheet fetch — that's done by caller)
+  const colorMap = new Map<string, { count: number; sources: Set<string> }>();
+  extractColorsFromHTML(html, colorMap);
+
   result.colors = Array.from(colorMap.entries())
     .map(([hex, data]) => ({
       hex,

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { scrapeSite } from "@/lib/onboard/site-scraper";
+import { scrapeMultiPage } from "@/lib/onboard/site-scraper";
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -53,14 +53,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { url: string };
+  let body: { url: string; notes?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { url } = body;
+  const { url, notes } = body;
   if (!url) {
     return NextResponse.json({ error: "Missing url" }, { status: 400 });
   }
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   // Scrape the site
   let scrapedData;
   try {
-    scrapedData = await scrapeSite(url);
+    scrapedData = await scrapeMultiPage(url);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
@@ -144,9 +144,18 @@ ${scrapedData.content.services.length > 0
 
 LOGO: ${scrapedData.logoUrl ?? "Not found"}
 
-== END SCRAPED DATA ==
+PAGES SCRAPED: ${scrapedData.pagesScraped?.join(", ") ?? url}
 
-Using the scraped data above, generate a complete onboarding config JSON following the schema in your instructions. Use the real colors, contact info, and services found. Return ONLY the JSON — no explanation or markdown formatting.
+== END SCRAPED DATA ==${notes ? `
+
+== NOTES FROM THE DESIGNER ==
+These notes are from the designer who spoke with the client. They take PRIORITY over anything found on the website. If notes contradict scraped data, follow the notes.
+
+${notes}
+
+== END NOTES ==` : ""}
+
+Using the scraped data above${notes ? " and the designer's notes" : ""}, generate a complete onboarding config JSON following the schema in your instructions. Use the real colors, contact info, and services found. Return ONLY the JSON — no explanation or markdown formatting.
 `.trim();
 
   // Call Claude Haiku 4.5

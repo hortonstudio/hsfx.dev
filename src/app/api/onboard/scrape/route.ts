@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import { scrapeSite } from "@/lib/onboard/site-scraper";
+import { scrapeMultiPage } from "@/lib/onboard/site-scraper";
 import { NextRequest, NextResponse } from "next/server";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 // SSRF protection: block private/internal IPs
 function isPrivateUrl(hostname: string): boolean {
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const scrapedData = await scrapeSite(url);
+    const scrapedData = await scrapeMultiPage(url);
     return NextResponse.json({ success: true, data: scrapedData });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
