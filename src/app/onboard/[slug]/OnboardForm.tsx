@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button, Spinner } from "@/components/ui";
 import { ProgressBar } from "@/components/onboard/ProgressBar";
 import { TransitionWrapper } from "@/components/onboard/TransitionWrapper";
 import { QuestionRenderer } from "@/components/onboard/QuestionRenderer";
-import { isQuestionComplete } from "@/lib/onboard/question-types";
+import { isQuestionComplete, shouldShowQuestion } from "@/lib/onboard/question-types";
 import type {
   OnboardConfig,
   OnboardSubmission,
@@ -28,6 +28,8 @@ type Screen = "welcome" | "questions" | "review" | "submitted";
 interface OnboardFormProps {
   config: OnboardConfig;
   existingSubmission: OnboardSubmission | null;
+  preview?: boolean;
+  onExitPreview?: () => void;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -150,7 +152,7 @@ function formatAnswerForReview(
 // MAIN FORM COMPONENT
 // ════════════════════════════════════════════════════════════
 
-export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
+export function OnboardForm({ config, existingSubmission, preview = false, onExitPreview }: OnboardFormProps) {
   const questions = config.config.questions;
   const slug = config.client_slug;
 
@@ -165,8 +167,24 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
   const [fileUrls, setFileUrls] = useState<Record<string, string[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasInteracted = useRef(false);
 
   const initialized = useRef(false);
+
+  // Conditional questions: filter to only visible questions
+  const visibleQuestions = useMemo(
+    () => questions.filter((q) => shouldShowQuestion(q, answers)),
+    [questions, answers]
+  );
+
+  // Clamp currentIndex when visible questions shrink
+  useEffect(() => {
+    if (screen === "questions" && currentIndex >= visibleQuestions.length && visibleQuestions.length > 0) {
+      setCurrentIndex(visibleQuestions.length - 1);
+    }
+  }, [visibleQuestions.length, currentIndex, screen]);
 
   // Load saved answers on mount
   useEffect(() => {
@@ -199,19 +217,55 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
 
   // Auto-save answers to localStorage
   useEffect(() => {
+    if (preview) return;
     if (screen === "submitted") return;
     saveAnswers(slug, answers);
-  }, [answers, slug, screen]);
+  }, [answers, slug, screen, preview]);
+
+  // Auto-save to Supabase (debounced)
+  useEffect(() => {
+    if (preview) return;
+    if (screen === "submitted") return;
+    if (!hasInteracted.current) return; // Don't save on initial load
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+
+    saveTimerRef.current = setTimeout(async () => {
+      if (Object.keys(answers).length === 0) return;
+      setSaveStatus("saving");
+      try {
+        const res = await fetch(`/api/onboard/${slug}/submit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            answers,
+            file_urls: fileUrls,
+            status: "in_progress",
+          }),
+        });
+        setSaveStatus(res.ok ? "saved" : "error");
+        if (res.ok) {
+          setTimeout(() => setSaveStatus((prev) => (prev === "saved" ? "idle" : prev)), 2000);
+        }
+      } catch {
+        setSaveStatus("error");
+      }
+    }, 3000);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [answers, fileUrls, slug, screen, preview]);
 
   // Navigation helpers
   const goNext = useCallback(() => {
-    if (currentIndex < questions.length - 1) {
+    if (currentIndex < visibleQuestions.length - 1) {
       setDirection(1);
       setCurrentIndex((prev) => prev + 1);
     } else {
       setScreen("review");
     }
-  }, [currentIndex, questions.length]);
+  }, [currentIndex, visibleQuestions.length]);
 
   const goPrev = useCallback(() => {
     if (currentIndex > 0) {
@@ -231,7 +285,7 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
         return;
       }
 
-      const currentQ = questions[currentIndex];
+      const currentQ = visibleQuestions[currentIndex];
 
       if (e.key === "Enter" && currentQ?.type !== "textarea") {
         e.preventDefault();
@@ -246,7 +300,7 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [screen, currentIndex, questions, goNext, goPrev]);
+  }, [screen, currentIndex, visibleQuestions, goNext, goPrev]);
 
   function goToQuestion(idx: number) {
     setDirection(idx > currentIndex ? 1 : -1);
@@ -255,6 +309,7 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
   }
 
   function updateAnswer(questionId: string, value: AnswerValue) {
+    hasInteracted.current = true;
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   }
 
@@ -264,6 +319,10 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
     questionId: string,
     file: File
   ): Promise<string> {
+    if (preview) {
+      return URL.createObjectURL(file);
+    }
+
     // Step 1: Get signed upload URL
     const res = await fetch("/api/onboard/upload", {
       method: "POST",
@@ -341,9 +400,9 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
         ? 100
         : screen === "review"
           ? 95
-          : Math.round(((currentIndex + 1) / questions.length) * 90);
+          : Math.round(((currentIndex + 1) / visibleQuestions.length) * 90);
 
-  const currentQuestion = questions[currentIndex];
+  const currentQuestion = visibleQuestions[currentIndex];
   const isOptional = currentQuestion && !currentQuestion.required;
 
   // ══════════════════════════════════════════════════════
@@ -351,7 +410,22 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
   // ══════════════════════════════════════════════════════
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className={`min-h-screen bg-background flex flex-col ${preview ? "pt-10" : ""}`}>
+      {preview && (
+        <div className="fixed top-0 left-0 right-0 z-[60] bg-amber-500/90 backdrop-blur-sm text-black text-center py-2 px-4 text-sm font-medium flex items-center justify-center gap-3">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          Preview Mode
+          <button
+            onClick={onExitPreview}
+            className="ml-2 px-3 py-1 bg-black/20 hover:bg-black/30 rounded text-xs font-medium transition-colors"
+          >
+            Exit Preview
+          </button>
+        </div>
+      )}
       <ProgressBar percent={progressPercent} />
 
       <AnimatePresence mode="wait">
@@ -403,7 +477,7 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
                 </svg>
               </Button>
               <p className="mt-6 text-sm text-text-dim">
-                {questions.length} questions &middot; ~{Math.max(2, Math.ceil(questions.length * 0.5))} min
+                {visibleQuestions.length} questions &middot; ~{Math.max(2, Math.ceil(visibleQuestions.length * 0.5))} min
               </p>
             </div>
           </motion.div>
@@ -430,7 +504,7 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
                     <div className="flex items-center gap-2 mb-3">
                       <p className="text-sm text-accent font-medium">
                         {currentIndex + 1}{" "}
-                        <span className="text-text-dim">/ {questions.length}</span>
+                        <span className="text-text-dim">/ {visibleQuestions.length}</span>
                       </p>
                       {isOptional && (
                         <span className="text-xs text-text-dim bg-surface border border-border rounded-full px-2 py-0.5">
@@ -504,17 +578,26 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
                   Back
                 </Button>
 
-                {/* Progress counter */}
-                <span className="text-sm tabular-nums">
-                  <span className="text-accent font-medium">{currentIndex + 1}</span>
-                  <span className="text-text-dim"> / {questions.length}</span>
-                </span>
+                {/* Progress counter + save status */}
+                <div className="text-center">
+                  <span className="text-sm tabular-nums">
+                    <span className="text-accent font-medium">{currentIndex + 1}</span>
+                    <span className="text-text-dim"> / {visibleQuestions.length}</span>
+                  </span>
+                  {saveStatus !== "idle" && (
+                    <p className="text-xs mt-0.5">
+                      {saveStatus === "saving" && <span className="text-text-dim animate-pulse">Saving...</span>}
+                      {saveStatus === "saved" && <span className="text-green-500">Saved</span>}
+                      {saveStatus === "error" && <span className="text-red-400">Save failed</span>}
+                    </p>
+                  )}
+                </div>
 
                 <Button
                   variant="ghost"
                   onClick={goNext}
                 >
-                  {currentIndex === questions.length - 1 ? "Review" : "Next"}
+                  {currentIndex === visibleQuestions.length - 1 ? "Review" : "Next"}
                   <svg
                     className="w-4 h-4 ml-1"
                     fill="none"
@@ -553,7 +636,7 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
               </p>
 
               <div className="space-y-3">
-                {questions.map((q, idx) => {
+                {visibleQuestions.map((q, idx) => {
                   const answer = answers[q.id] ?? null;
                   const complete = isQuestionComplete(q, answer);
                   const reviewText = formatAnswerForReview(q, answer);
@@ -621,26 +704,35 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
                   variant="ghost"
                   onClick={() => {
                     setDirection(-1);
-                    setCurrentIndex(questions.length - 1);
+                    setCurrentIndex(visibleQuestions.length - 1);
                     setScreen("questions");
                   }}
                 >
                   Back
                 </Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="flex-1 !py-4"
-                >
-                  {submitting ? (
-                    <span className="flex items-center gap-2">
-                      <Spinner size="sm" />
-                      Submitting...
-                    </span>
-                  ) : (
-                    "Submit"
-                  )}
-                </Button>
+                {preview ? (
+                  <Button
+                    onClick={onExitPreview}
+                    className="flex-1 !py-4"
+                  >
+                    Exit Preview
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="flex-1 !py-4"
+                  >
+                    {submitting ? (
+                      <span className="flex items-center gap-2">
+                        <Spinner size="sm" />
+                        Submitting...
+                      </span>
+                    ) : (
+                      "Submit"
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
           </motion.div>
@@ -679,6 +771,22 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
                 {config.config.completion?.message ??
                   `Your responses have been submitted successfully. We'll review everything and be in touch soon.`}
               </p>
+
+              {/* Edit Responses button */}
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  // Load answers from submission if state is empty (first edit)
+                  if (Object.keys(answers).length === 0 && existingSubmission) {
+                    setAnswers(existingSubmission.answers ?? {});
+                    setFileUrls(existingSubmission.file_urls ?? {});
+                  }
+                  setScreen("review");
+                }}
+                className="mt-8"
+              >
+                Edit Responses
+              </Button>
             </div>
           </motion.div>
         )}

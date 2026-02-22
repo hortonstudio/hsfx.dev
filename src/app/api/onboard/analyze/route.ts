@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { scrapeMultiPage } from "@/lib/onboard/site-scraper";
+import { buildSystemPrompt, type BusinessNiche } from "@/lib/onboard/niche-prompts";
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -34,6 +35,13 @@ export async function GET() {
   return NextResponse.json({ available: true });
 }
 
+interface AnalyzeBody {
+  url: string;
+  notes?: string;
+  niche?: BusinessNiche;
+  screenshots?: string[];
+}
+
 // POST: Scrape site + generate config via Claude
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -53,14 +61,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { url: string; notes?: string };
+  let body: AnalyzeBody;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { url, notes } = body;
+  const { url, notes, niche, screenshots } = body;
   if (!url) {
     return NextResponse.json({ error: "Missing url" }, { status: 400 });
   }
@@ -79,6 +87,11 @@ export async function POST(request: NextRequest) {
   if (isPrivateUrl(parsedUrl.hostname)) {
     return NextResponse.json({ error: "Cannot analyze internal URLs" }, { status: 400 });
   }
+
+  // Validate screenshots
+  const validScreenshots = (screenshots ?? [])
+    .filter((s) => typeof s === "string" && s.startsWith("data:image/"))
+    .slice(0, 5);
 
   // Scrape the site
   let scrapedData;
@@ -113,6 +126,10 @@ export async function POST(request: NextRequest) {
         `  - ${c.hex} (found ${c.count}x in: ${c.sources.join(", ")})`
       ).join("\n")
     : "  No colors detected";
+
+  const screenshotNote = validScreenshots.length > 0
+    ? `\n\n${validScreenshots.length} screenshot(s) of the website are attached above. Use these for visual context about the site's design, layout, and branding.`
+    : "";
 
   const userMessage = `
 Website URL: ${url}
@@ -155,8 +172,32 @@ ${notes}
 
 == END NOTES ==` : ""}
 
-Using the scraped data above${notes ? " and the designer's notes" : ""}, generate a complete onboarding config JSON following the schema in your instructions. Use the real colors, contact info, and services found. Return ONLY the JSON — no explanation or markdown formatting.
+Using the scraped data above${notes ? " and the designer's notes" : ""}, generate a complete onboarding config JSON following the schema in your instructions. Use the real colors, contact info, and services found. IMPORTANT: Do NOT fabricate or guess any contact info (emails, phones, addresses). If a field shows "N/A" above, leave it out or ask the client for it. Only pre-fill values that were actually scraped. Return ONLY the JSON, no explanation or markdown formatting.${screenshotNote}
 `.trim();
+
+  // Build multi-modal content for Claude
+  const userContent: Anthropic.MessageCreateParams["messages"][0]["content"] = [];
+
+  // Add screenshot images first (vision)
+  for (const dataUrl of validScreenshots) {
+    const match = dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+    if (match) {
+      userContent.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: match[1] as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+          data: match[2],
+        },
+      });
+    }
+  }
+
+  // Add text message
+  userContent.push({ type: "text", text: userMessage });
+
+  // Build system prompt with niche addendum
+  const systemPrompt = buildSystemPrompt(promptData.value, niche ?? "other");
 
   // Call Claude Haiku 4.5
   const anthropic = new Anthropic();
@@ -166,8 +207,8 @@ Using the scraped data above${notes ? " and the designer's notes" : ""}, generat
     response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 4096,
-      system: promptData.value,
-      messages: [{ role: "user", content: userMessage }],
+      system: systemPrompt,
+      messages: [{ role: "user", content: userContent }],
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -221,7 +262,7 @@ Using the scraped data above${notes ? " and the designer's notes" : ""}, generat
   // Log usage for cost monitoring
   const usage = response.usage;
   console.log(
-    `[onboard/analyze] URL: ${url} | Input: ${usage.input_tokens} tokens | Output: ${usage.output_tokens} tokens | Total: ${usage.input_tokens + usage.output_tokens} tokens`
+    `[onboard/analyze] URL: ${url} | Niche: ${niche ?? "other"} | Screenshots: ${validScreenshots.length} | Input: ${usage.input_tokens} | Output: ${usage.output_tokens} | Total: ${usage.input_tokens + usage.output_tokens} tokens`
   );
 
   return NextResponse.json({

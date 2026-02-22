@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
+import { Resend } from "resend";
+import { buildInvitationEmail } from "@/lib/onboard/emails/invitation";
 import type { OnboardConfig } from "@/lib/onboard/types";
 
 export async function POST(request: NextRequest) {
@@ -18,6 +21,7 @@ export async function POST(request: NextRequest) {
     client_slug: string;
     client_name: string;
     business_name: string;
+    client_email?: string;
     config: OnboardConfig["config"];
     status?: "draft" | "active" | "archived";
   };
@@ -71,14 +75,24 @@ export async function POST(request: NextRequest) {
     client_slug,
     client_name,
     business_name,
+    client_email: body.client_email || null,
     config,
     status,
     updated_at: new Date().toISOString(),
   };
 
   let result: OnboardConfig;
+  let previousStatus: string | null = null;
 
   if (existing) {
+    // Fetch current status before updating
+    const { data: currentConfig } = await supabase
+      .from("onboard_configs")
+      .select("status")
+      .eq("id", existing.id)
+      .single();
+    previousStatus = currentConfig?.status ?? null;
+
     // Update existing config
     const { data, error } = await supabase
       .from("onboard_configs")
@@ -111,6 +125,47 @@ export async function POST(request: NextRequest) {
     }
 
     result = data as OnboardConfig;
+  }
+
+  // Send invitation email on any transition to "active" status
+  if (
+    status === "active" &&
+    previousStatus !== "active" &&
+    body.client_email &&
+    process.env.RESEND_API_KEY
+  ) {
+    const adminClient = createAdminClient();
+    const origin = request.nextUrl.origin;
+
+    adminClient.auth.admin
+      .generateLink({
+        type: "magiclink",
+        email: body.client_email,
+        options: {
+          redirectTo: `${origin}/auth/callback?next=/onboard/${client_slug}`,
+        },
+      })
+      .then(({ data: linkData }) => {
+        if (!linkData?.properties?.action_link) return;
+
+        const { subject, html } = buildInvitationEmail({
+          clientName: client_name,
+          businessName: business_name,
+          senderName: "Devan Horton",
+          magicLink: linkData.properties.action_link,
+        });
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        return resend.emails.send({
+          from: "Onboarding <onboarding@hsfx.dev>",
+          to: [body.client_email!],
+          subject,
+          html,
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to send invitation email:", err);
+      });
   }
 
   return NextResponse.json(result);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Input } from "@/components/ui";
+import { Input, Button } from "@/components/ui";
 import type { QuestionProps } from "@/lib/onboard/types";
 
 function formatPhone(raw: string): string {
@@ -42,9 +42,14 @@ export function TextQuestion({ question, value, onChange, onNext }: QuestionProp
         className="!text-lg !py-4 !px-5"
         {...(isPhone ? { inputMode: "tel" as const } : {})}
       />
-      <p className="text-text-dim text-sm">
-        Press <span className="font-medium text-text-muted">Enter</span> to continue
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-text-dim text-sm">
+          Press <span className="font-medium text-text-muted">Enter</span> to continue
+        </p>
+        <Button onClick={onNext} size="md">
+          Continue
+        </Button>
+      </div>
     </div>
   );
 }

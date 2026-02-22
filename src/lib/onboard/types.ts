@@ -45,6 +45,7 @@ export interface QuestionConfig {
   detectedTheme?: "light" | "dark";
   defaultValue?: string;
   format?: "phone" | "email";
+  showIf?: { questionId: string; equals: string | boolean };
 }
 
 export interface OnboardConfig {
@@ -52,6 +53,7 @@ export interface OnboardConfig {
   client_slug: string;
   client_name: string;
   business_name: string;
+  client_email?: string;
   config: {
     questions: QuestionConfig[];
     branding?: {
@@ -68,6 +70,7 @@ export interface OnboardConfig {
     };
   };
   status: "draft" | "active" | "archived";
+  access_token?: string;
   created_at: string;
   updated_at: string;
 }
@@ -119,6 +122,8 @@ export type AnswerValue =
   | BrandColorsValue
   | null;
 
+export type ReviewStatus = "new" | "reviewed" | "in_progress" | "complete";
+
 export interface OnboardSubmission {
   id: string;
   config_id: string;
@@ -126,6 +131,7 @@ export interface OnboardSubmission {
   answers: Record<string, AnswerValue>;
   file_urls: Record<string, string[]>;
   status: "in_progress" | "submitted";
+  review_status: ReviewStatus;
   submitted_at: string | null;
   created_at: string;
   updated_at: string;

@@ -1,0 +1,73 @@
+<!--
+  Magic Link Email Template for Supabase Dashboard
+  Copy this into: Authentication > Email Templates > Magic Link
+
+  Variables available:
+    {{ .ConfirmationURL }} - The magic link URL
+    {{ .Email }} - The user's email address
+    {{ .SiteURL }} - Your site URL
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in to your portal</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0a0a0f; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #0a0a0f;">
+    <tr>
+      <td style="padding: 40px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="520" style="margin: 0 auto; max-width: 520px;">
+
+          <!-- Header -->
+          <tr>
+            <td style="padding: 32px 32px 24px; text-align: center;">
+              <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #ffffff; letter-spacing: -0.3px;">
+                hsfx<span style="color: #3b82f6;">.</span>dev
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Card -->
+          <tr>
+            <td style="background-color: #111118; border: 1px solid #1e1e2a; border-radius: 12px; padding: 40px 32px; text-align: center;">
+              <h2 style="margin: 0 0 8px; font-size: 22px; font-weight: 600; color: #ffffff;">
+                Sign in to your portal
+              </h2>
+              <p style="margin: 0 0 32px; font-size: 15px; color: #8b8b9e; line-height: 1.5;">
+                Click the button below to sign in. This link expires in 24 hours.
+              </p>
+
+              <!-- Button -->
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                <tr>
+                  <td style="border-radius: 8px; background-color: #3b82f6;">
+                    <a href="{{ .ConfirmationURL }}" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px;">
+                      Sign In
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 32px 0 0; font-size: 13px; color: #55556a; line-height: 1.5;">
+                If you didn't request this link, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 32px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #44445a;">
+                hsfx.dev
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

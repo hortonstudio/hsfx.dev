@@ -60,6 +60,23 @@ export async function POST(
 
   const typedConfig = config as OnboardConfig;
 
+  // Session auth
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401 }
+    );
+  }
+
+  if (typedConfig.client_email && typedConfig.client_email !== user.email) {
+    return NextResponse.json(
+      { error: "Not authorized for this form" },
+      { status: 403 }
+    );
+  }
+
   // Check for existing submission for this slug + config
   const { data: existing } = await supabase
     .from("onboard_submissions")

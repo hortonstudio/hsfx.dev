@@ -18,6 +18,7 @@ import { generateMarkdown } from "@/lib/onboard/markdown";
 import type {
   OnboardConfig,
   OnboardSubmission,
+  ReviewStatus,
   AnswerValue,
   AddressValue,
   YesNoNAValue,
@@ -324,6 +325,21 @@ function SubmissionCard({
   config: OnboardConfig;
   submission: OnboardSubmission;
 }) {
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatus>(submission.review_status ?? "new");
+  const [updating, setUpdating] = useState(false);
+
+  async function updateReviewStatus(newStatus: string) {
+    setUpdating(true);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("onboard_submissions")
+      .update({ review_status: newStatus, updated_at: new Date().toISOString() })
+      .eq("id", submission.id);
+
+    if (!error) setReviewStatus(newStatus as ReviewStatus);
+    setUpdating(false);
+  }
+
   return (
     <div className="bg-surface border border-border rounded-xl overflow-hidden">
       {/* Submission header */}
@@ -336,6 +352,17 @@ function SubmissionCard({
           >
             {submission.status === "submitted" ? "Submitted" : "In Progress"}
           </Badge>
+          <select
+            value={reviewStatus}
+            onChange={(e) => updateReviewStatus(e.target.value)}
+            disabled={updating}
+            className="text-xs bg-surface border border-border rounded-md px-2 py-1 text-text-secondary focus:outline-none focus:border-accent"
+          >
+            <option value="new">New</option>
+            <option value="reviewed">Reviewed</option>
+            <option value="in_progress">In Review</option>
+            <option value="complete">Complete</option>
+          </select>
           {submission.submitted_at && (
             <span className="text-xs text-text-dim">
               {new Date(submission.submitted_at).toLocaleDateString("en-US", {
@@ -532,6 +559,12 @@ function SubmissionViewerContent({ slug }: { slug: string }) {
           <div>
             <p className="text-text-dim mb-0.5">Slug</p>
             <p className="text-text-primary font-medium font-mono">{config.client_slug}</p>
+          </div>
+          <div>
+            <p className="text-text-dim mb-0.5">Client Email</p>
+            <p className="text-text-primary font-medium">
+              {config.client_email || <span className="text-text-dim italic">Not set</span>}
+            </p>
           </div>
         </div>
       </div>

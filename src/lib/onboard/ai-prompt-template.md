@@ -8,7 +8,7 @@ You are generating a JSON configuration for a client onboarding form. Analyze th
 2. Generate a JSON config following the schema below
 3. Make questions conversational and friendly (like Typeform)
 4. Pre-fill detected values where possible (colors, phone, services)
-5. Keep it to 8-15 questions — enough to gather what we need, not so many it feels tedious
+5. Keep it to 8-15 questions. Enough to gather what we need, not so many it feels tedious.
 
 ## JSON Schema
 
@@ -55,7 +55,7 @@ Long answer input. Use for descriptions, bios, detailed answers.
   "id": "business_description",
   "type": "textarea",
   "question": "How would you describe your business in a few sentences?",
-  "description": "This helps us write your site copy. Don't overthink it — just tell us what you do!",
+  "description": "This helps us write your site copy. Don't overthink it, just tell us what you do!",
   "placeholder": "We specialize in...",
   "maxLength": 500,
   "required": true
@@ -115,7 +115,7 @@ File upload with drag-and-drop.
   "id": "logo",
   "type": "file_upload",
   "question": "Got a logo? Upload it here.",
-  "description": "PNG or SVG preferred. If you don't have one, no worries — we can work with that.",
+  "description": "PNG or SVG preferred. If you don't have one, no worries, we can work with that.",
   "maxFiles": 3,
   "acceptedTypes": ["image/png", "image/svg+xml", "image/jpeg"],
   "required": false
@@ -162,6 +162,108 @@ Structured address input (street, city, state, zip).
 }
 ```
 
+### yes_no_na
+Yes/No with a "Not Applicable" option. Shows three buttons. Yes and No show an optional details input, while N/A auto-advances to the next question.
+```json
+{
+  "id": "has_insurance",
+  "type": "yes_no_na",
+  "question": "Do you carry liability insurance?",
+  "detailsPrompt": "What's your policy provider?",
+  "required": true
+}
+```
+
+### brand_colors
+Advanced color selection with theme picker (light/dark), detected colors as toggleable chips, and a custom color picker. Use INSTEAD of color_confirm when you want theme selection alongside color choices.
+```json
+{
+  "id": "brand_identity",
+  "type": "brand_colors",
+  "question": "Let's nail down your brand colors and style.",
+  "detectedColors": [
+    { "hex": "#1E40AF", "label": "Primary Blue", "source": "header" },
+    { "hex": "#F59E0B", "label": "Accent Gold", "source": "buttons" }
+  ],
+  "detectedTheme": "dark",
+  "required": true
+}
+```
+
+### tag_input
+Freeform tag/chip input with optional suggestions and min/max limits. Tags are typed and comma-separated, or clicked from suggestions.
+```json
+{
+  "id": "service_areas",
+  "type": "tag_input",
+  "question": "What areas do you serve?",
+  "suggestions": ["Downtown", "Midtown", "Suburbs", "Metro Area"],
+  "minTags": 1,
+  "maxTags": 10,
+  "placeholder": "Type an area and press Enter...",
+  "required": true
+}
+```
+
+### team_members
+Add team members with name, short bio (150 char max), and optional photo upload.
+```json
+{
+  "id": "team",
+  "type": "team_members",
+  "question": "Who's on your team?",
+  "description": "Add the people you'd like featured on your site.",
+  "required": false
+}
+```
+
+### project_gallery
+Two modes: Before & After (named projects with before/after photo pairs) or Photo Gallery (simple grid, up to 20 photos). User toggles between modes.
+```json
+{
+  "id": "past_work",
+  "type": "project_gallery",
+  "question": "Got photos of your work?",
+  "description": "Show off completed projects or upload a gallery of your best shots.",
+  "required": false
+}
+```
+
+## Conditional Questions (showIf)
+
+Questions can be conditionally shown based on previous answers using the `showIf` property. The question only appears when the condition is met.
+
+```json
+{
+  "id": "google_reviews_link",
+  "type": "text",
+  "question": "Drop your Google reviews link here.",
+  "description": "We'll pull in your best reviews to feature on the site.",
+  "placeholder": "https://g.page/your-business/review",
+  "showIf": { "questionId": "has_reviews", "equals": true },
+  "required": false
+}
+```
+
+### How showIf works
+- `questionId`: The `id` of the question whose answer to check
+- `equals`: The value to compare against:
+  - `true` / `false` for yes_no questions
+  - `"yes"` / `"no"` / `"na"` for yes_no_na questions
+  - A string value for select questions
+  - A string value for multi_select (checks if the value is included)
+
+### When to use showIf
+- Follow-up questions that only make sense if a previous answer is a certain value
+- The most common pattern: a yes_no question followed by a details question shown only on "yes"
+- Example: "Do you have Google reviews?" (yes_no) followed by "Drop your link" (text, showIf equals true)
+- Example: "Do you offer emergency service?" (yes_no) followed by "What's your emergency line?" (text, showIf equals true)
+
+### Rules for showIf
+- The referenced `questionId` MUST appear BEFORE the conditional question in the questions array
+- Hidden questions are automatically skipped in the form
+- Keep conditional chains short. One level deep is ideal, avoid chaining conditionals.
+
 ## Example: Full Config for a Plumber
 
 ```json
@@ -172,7 +274,7 @@ Structured address input (street, city, state, zip).
   "config": {
     "welcome": {
       "title": "Hey Chad! Let's get your new site dialed in.",
-      "subtitle": "Just a few quick questions — should take about 5 minutes."
+      "subtitle": "Just a few quick questions. Should take about 5 minutes."
     },
     "completion": {
       "title": "That's a wrap!",
@@ -262,6 +364,15 @@ Structured address input (street, city, state, zip).
         "required": true
       },
       {
+        "id": "google_reviews_link",
+        "type": "text",
+        "question": "Drop your Google reviews link here.",
+        "description": "We'll pull in your best reviews to feature on the site. You can find this by searching your business on Google Maps and copying the URL.",
+        "placeholder": "https://g.page/your-business/review",
+        "showIf": { "questionId": "has_reviews", "equals": true },
+        "required": false
+      },
+      {
         "id": "photos",
         "type": "file_upload",
         "question": "Got any photos of your work, team, or trucks?",
@@ -271,10 +382,20 @@ Structured address input (street, city, state, zip).
         "required": false
       },
       {
+        "id": "words_to_avoid",
+        "type": "tag_input",
+        "question": "Any words or phrases we should absolutely NOT use on your site?",
+        "description": "Some words just don't fit your brand or rub customers the wrong way. Let us know so we can steer clear.",
+        "suggestions": ["Cheap", "Budget", "Discount", "Quick fix"],
+        "maxTags": 20,
+        "placeholder": "Type a word or phrase and press Enter...",
+        "required": false
+      },
+      {
         "id": "anything_else",
         "type": "textarea",
         "question": "Anything else we should know?",
-        "description": "Special promotions, certifications, years in business — anything that sets you apart.",
+        "description": "Special promotions, certifications, years in business, anything that sets you apart.",
         "required": false
       }
     ]
@@ -285,11 +406,14 @@ Structured address input (street, city, state, zip).
 ## Guidelines for the AI
 
 - Use the client's first name in welcome/completion messages
-- Pre-populate detected values (colors from their site, services found, phone number)
+- Pre-populate detected values (colors from their site, services found, phone number) but ONLY if the data was actually found in the scraped data. If a value shows "N/A" in the scraped data, do NOT make one up or guess. Leave the field empty or ask the client for it instead.
+- NEVER fabricate contact info (emails, phones, addresses). Only use what was actually scraped from the site. If no email was found, do not invent one.
 - Start with visual questions (colors, logo) to keep it engaging
 - Put the most important questions first
-- Keep questions conversational — avoid corporate/legal language
+- Keep questions conversational. Avoid corporate/legal language.
 - Use description fields to explain WHY you're asking
 - Make file uploads optional unless critical
+- **ALWAYS include a "words_to_avoid" question** (tag_input type) near the end of the form, right before the "anything else" question. This is critical — clients often have strong opinions about language that doesn't fit their brand. Tailor the suggestions to the industry (e.g. a luxury brand might want to avoid "cheap/budget", a medical practice might want to avoid "pain/hurt").
 - End with an open-ended "anything else" question
 - The client_slug must be URL-safe: lowercase, hyphens only, no special characters
+- Use showIf for follow-up questions that depend on previous answers. The most common pattern: yes_no followed by a conditional text question for details.

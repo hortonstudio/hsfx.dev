@@ -9,6 +9,44 @@ import type {
 } from "./types";
 
 /**
+ * Determines whether a question should be shown based on its showIf condition.
+ * Returns true if the question has no showIf, or if the condition is met.
+ */
+export function shouldShowQuestion(
+  question: QuestionConfig,
+  answers: Record<string, AnswerValue>
+): boolean {
+  if (!question.showIf) return true;
+
+  const { questionId, equals } = question.showIf;
+  const answer = answers[questionId];
+
+  if (answer === null || answer === undefined) return false;
+
+  // Boolean comparison (yes_no stores boolean)
+  if (typeof equals === "boolean") {
+    return answer === equals;
+  }
+
+  // String comparison (select, text)
+  if (typeof answer === "string") {
+    return answer === equals;
+  }
+
+  // YesNoNAValue: compare .answer property
+  if (typeof answer === "object" && !Array.isArray(answer) && "answer" in answer) {
+    return (answer as YesNoNAValue).answer === equals;
+  }
+
+  // Array comparison (multi_select: check if value is included)
+  if (Array.isArray(answer)) {
+    return (answer as string[]).includes(equals);
+  }
+
+  return false;
+}
+
+/**
  * Validates an answer against its question configuration.
  * Returns an error message string if invalid, or null if valid.
  */

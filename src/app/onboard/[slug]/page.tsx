@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { OnboardForm } from "./OnboardForm";
 import type { Metadata } from "next";
 import type { OnboardConfig, OnboardSubmission } from "@/lib/onboard/types";
@@ -37,6 +37,13 @@ export default async function OnboardPage({
   const { slug } = await params;
   const supabase = await createClient();
 
+  // Session auth
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect(`/client?redirect=/onboard/${slug}`);
+  }
+
   const { data: config } = await supabase
     .from("onboard_configs")
     .select("*")
@@ -44,7 +51,7 @@ export default async function OnboardPage({
     .eq("status", "active")
     .single();
 
-  if (!config) {
+  if (!config || !config.client_email || config.client_email !== user.email) {
     notFound();
   }
 
@@ -56,9 +63,12 @@ export default async function OnboardPage({
     .limit(1)
     .maybeSingle();
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { access_token: _token, ...safeConfig } = config;
+
   return (
     <OnboardForm
-      config={config as OnboardConfig}
+      config={safeConfig as OnboardConfig}
       existingSubmission={(submission as OnboardSubmission) ?? null}
     />
   );

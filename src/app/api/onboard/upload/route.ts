@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: config, error: configError } = await supabase
     .from("onboard_configs")
-    .select("id")
+    .select("id, client_email")
     .eq("client_slug", slug)
     .limit(1)
     .single();
@@ -41,6 +41,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "Onboarding configuration not found for this slug" },
       { status: 404 }
+    );
+  }
+
+  // Session auth
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401 }
+    );
+  }
+
+  if (config.client_email && config.client_email !== user.email) {
+    return NextResponse.json(
+      { error: "Not authorized for this form" },
+      { status: 403 }
     );
   }
 
