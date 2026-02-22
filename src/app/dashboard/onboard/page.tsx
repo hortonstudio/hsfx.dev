@@ -49,9 +49,16 @@ const STATUS_VARIANTS: Record<string, "success" | "warning" | "default"> = {
 // CONFIG CARD
 // ════════════════════════════════════════════════════════════
 
-function ConfigCard({ config }: { config: ConfigWithCount }) {
+function ConfigCard({
+  config,
+  onDelete,
+}: {
+  config: ConfigWithCount;
+  onDelete: (id: string) => void;
+}) {
   const formUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/onboard/${config.client_slug}`;
   const [copied, setCopied] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   async function copyUrl(e: React.MouseEvent) {
     e.preventDefault();
@@ -61,22 +68,52 @@ function ConfigCard({ config }: { config: ConfigWithCount }) {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  function handleDelete(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (confirming) {
+      onDelete(config.id);
+      setConfirming(false);
+    } else {
+      setConfirming(true);
+      setTimeout(() => setConfirming(false), 3000);
+    }
+  }
+
   return (
     <Link
       href={`/dashboard/onboard/${config.client_slug}`}
       className="group block p-5 bg-surface border border-border rounded-xl hover:border-accent/50 hover:bg-accent/5 transition-all duration-200"
     >
-      <div className="flex items-start justify-between mb-3">
+      <div className="flex items-start justify-between mb-1">
         <div>
           <h3 className="text-base font-medium text-text-primary group-hover:text-accent transition-colors">
             {config.client_name}
           </h3>
           <p className="text-sm text-text-muted">{config.business_name}</p>
         </div>
-        <Badge variant={STATUS_VARIANTS[config.status] ?? "default"} dot size="sm">
-          {config.status}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant={STATUS_VARIANTS[config.status] ?? "default"} dot size="sm">
+            {config.status}
+          </Badge>
+          <button
+            type="button"
+            onClick={handleDelete}
+            className={`p-1 rounded transition-colors ${
+              confirming
+                ? "text-red-400 hover:text-red-300 bg-red-500/10"
+                : "text-text-dim hover:text-red-400 opacity-0 group-hover:opacity-100"
+            }`}
+            title={confirming ? "Click again to confirm" : "Delete config"}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      <p className="text-xs text-text-dim font-mono mb-3">/{config.client_slug}</p>
 
       <div className="flex items-center justify-between mt-4">
         <span className="text-xs text-text-dim">
@@ -129,25 +166,59 @@ function NewConfigModal({
   const [configJson, setConfigJson] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [promptCopied, setPromptCopied] = useState(false);
   const [autoFilled, setAutoFilled] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState<string | null>(null);
 
-  // Fetch AI prompt from Supabase
+  // Analyze state
+  const [analyzeUrl, setAnalyzeUrl] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [hasAnalyzeApi, setHasAnalyzeApi] = useState<boolean | null>(null);
+  const [showManualFlow, setShowManualFlow] = useState(false);
+
+  // Manual flow state
+  const [aiPrompt, setAiPrompt] = useState<string | null>(null);
+  const [promptCopied, setPromptCopied] = useState(false);
+
+  // Check if analyze API is available + fetch prompt for manual fallback
   useEffect(() => {
-    if (!open || aiPrompt !== null) return;
-    fetch("/api/onboard/settings?key=ai_prompt_template")
+    if (!open) return;
+    fetch("/api/onboard/analyze")
       .then((res) => res.json())
-      .then((data) => {
-        if (data.value) setAiPrompt(data.value);
-      })
-      .catch(() => {
-        // Fallback: prompt not available
-      });
+      .then((data) => setHasAnalyzeApi(data.available === true))
+      .catch(() => setHasAnalyzeApi(false));
+
+    if (aiPrompt === null) {
+      fetch("/api/onboard/settings?key=ai_prompt_template")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.value) setAiPrompt(data.value);
+        })
+        .catch(() => {});
+    }
   }, [open, aiPrompt]);
 
-  // Auto-generate slug from client name unless manually edited
-  const derivedSlug = useMemo(() => slugify(clientName), [clientName]);
+  // Fetch existing slugs when modal opens for deduplication
+  const [existingSlugs, setExistingSlugs] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    const supabase = createClient();
+    supabase
+      .from("onboard_configs")
+      .select("client_slug")
+      .then(({ data }) => {
+        if (data) setExistingSlugs(data.map((r) => r.client_slug));
+      });
+  }, [open]);
+
+  const derivedSlug = useMemo(() => {
+    const base = slugify(clientName);
+    if (!base) return "";
+    if (!existingSlugs.includes(base)) return base;
+    let i = 2;
+    while (existingSlugs.includes(`${base}-${i}`)) i++;
+    return `${base}-${i}`;
+  }, [clientName, existingSlugs]);
 
   useEffect(() => {
     if (!slugManual) {
@@ -160,35 +231,83 @@ function NewConfigModal({
     setClientSlug(slugify(val));
   }
 
+  // Auto-fill fields from a full config object (used by both analyze and manual paste)
+  function applyConfig(parsed: {
+    client_name?: string;
+    business_name?: string;
+    client_slug?: string;
+    config?: object;
+  }) {
+    if (parsed.client_name) setClientName(parsed.client_name);
+    if (parsed.business_name) setBusinessName(parsed.business_name);
+    if (parsed.client_slug) {
+      setClientSlug(parsed.client_slug);
+      setSlugManual(true);
+    }
+    if (parsed.config) {
+      setConfigJson(JSON.stringify(parsed.config, null, 2));
+    }
+    setAutoFilled(true);
+  }
+
+  // Analyze handler
+  async function handleAnalyze() {
+    setAnalyzeError(null);
+    setError(null);
+    setAnalyzing(true);
+
+    try {
+      const res = await fetch("/api/onboard/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: analyzeUrl }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Analysis failed");
+      }
+
+      const data = await res.json();
+
+      if (!data.success || !data.config) {
+        throw new Error("Invalid response from analysis");
+      }
+
+      applyConfig(data.config);
+
+      if (data.usage) {
+        console.log(
+          `[analyze] ${data.usage.input_tokens + data.usage.output_tokens} tokens used`
+        );
+      }
+    } catch (err) {
+      setAnalyzeError(err instanceof Error ? err.message : "Analysis failed");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  // Manual paste handler
+  function handleConfigChange(raw: string) {
+    setConfigJson(raw);
+    setAutoFilled(false);
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && parsed.config && parsed.client_slug) {
+        applyConfig(parsed);
+      }
+    } catch {
+      // Not valid JSON yet
+    }
+  }
+
   async function copyPrompt() {
     if (!aiPrompt) return;
     await navigator.clipboard.writeText(aiPrompt);
     setPromptCopied(true);
     setTimeout(() => setPromptCopied(false), 2000);
-  }
-
-  // When JSON is pasted/changed, try to auto-extract top-level fields
-  function handleConfigChange(raw: string) {
-    setConfigJson(raw);
-    setAutoFilled(false);
-
-    // Try to parse and extract client_name, business_name, client_slug
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object" && parsed.config && parsed.client_slug) {
-        // Full AI output detected — extract fields and keep only config
-        if (parsed.client_name) setClientName(parsed.client_name);
-        if (parsed.business_name) setBusinessName(parsed.business_name);
-        if (parsed.client_slug) {
-          setClientSlug(parsed.client_slug);
-          setSlugManual(true);
-        }
-        setConfigJson(JSON.stringify(parsed.config, null, 2));
-        setAutoFilled(true);
-      }
-    } catch {
-      // Not valid JSON yet — that's fine, user is still typing/pasting
-    }
   }
 
   async function handleCreate() {
@@ -235,6 +354,9 @@ function NewConfigModal({
       setStatus("draft");
       setConfigJson("");
       setAutoFilled(false);
+      setAnalyzeUrl("");
+      setAnalyzeError(null);
+      setShowManualFlow(false);
       onCreated();
       onClose();
     } catch (err) {
@@ -244,62 +366,135 @@ function NewConfigModal({
     }
   }
 
+  const showAnalyze = hasAnalyzeApi === true;
+
   return (
     <Modal open={open} onClose={onClose} title="New Onboarding Config" size="lg">
       <div className="space-y-4 mt-4">
-        {/* Step 1: Copy AI Prompt */}
-        <div className="p-4 bg-accent/5 border border-accent/20 rounded-xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-text-primary">
-                Step 1: Generate config with AI
-              </p>
-              <p className="text-xs text-text-muted mt-0.5">
-                Copy the prompt, paste into ChatGPT/Claude with the client&apos;s website URL
-              </p>
+        {/* Auto-analyze (primary flow when API key is set) */}
+        {showAnalyze && (
+          <div className="p-4 bg-accent/5 border border-accent/20 rounded-xl">
+            <p className="text-sm font-medium text-text-primary mb-1">
+              Analyze client website
+            </p>
+            <p className="text-xs text-text-muted mb-3">
+              We&apos;ll scrape the site for colors, services, and contact info, then generate a config automatically.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={analyzeUrl}
+                onChange={(e) => setAnalyzeUrl(e.target.value)}
+                placeholder="https://example.com"
+                disabled={analyzing}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && analyzeUrl.trim() && !analyzing) handleAnalyze();
+                }}
+              />
+              <Button
+                onClick={handleAnalyze}
+                disabled={analyzing || !analyzeUrl.trim()}
+              >
+                {analyzing ? (
+                  <span className="flex items-center gap-2">
+                    <Spinner size="sm" />
+                    Analyzing...
+                  </span>
+                ) : (
+                  "Analyze"
+                )}
+              </Button>
             </div>
-            <Button variant="ghost" size="sm" onClick={copyPrompt} disabled={!aiPrompt}>
-              {promptCopied ? (
-                <span className="flex items-center gap-1.5 text-green-400">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            {analyzeError && (
+              <p className="text-xs text-red-400 mt-2">{analyzeError}</p>
+            )}
+            {autoFilled && (
+              <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Config generated — review fields below
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowManualFlow(!showManualFlow)}
+              className="text-xs text-text-dim hover:text-accent mt-2 transition-colors"
+            >
+              {showManualFlow ? "Hide manual flow" : "Or enter config manually"}
+            </button>
+          </div>
+        )}
+
+        {/* Manual flow (primary when no API key, collapsed fallback otherwise) */}
+        {(!showAnalyze || showManualFlow) && (
+          <>
+            <div className="p-4 bg-accent/5 border border-accent/20 rounded-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-text-primary">
+                    {showAnalyze ? "Manual config entry" : "Generate config with AI"}
+                  </p>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Copy the prompt, paste into ChatGPT/Claude with the client&apos;s website URL
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={copyPrompt} disabled={!aiPrompt}>
+                  {promptCopied ? (
+                    <span className="flex items-center gap-1.5 text-green-400">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Copied
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      {aiPrompt ? "Copy Prompt" : "Loading..."}
+                    </span>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                Paste AI output
+              </label>
+              <textarea
+                value={configJson}
+                onChange={(e) => handleConfigChange(e.target.value)}
+                placeholder="Paste the full JSON here — fields will auto-fill below"
+                className="w-full min-h-[200px] bg-background border border-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-dim focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none transition-colors font-mono text-sm resize-y"
+              />
+              {autoFilled && !showAnalyze && (
+                <p className="text-xs text-green-400 mt-1.5 flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  Copied
-                </span>
-              ) : (
-                <span className="flex items-center gap-1.5">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  {aiPrompt ? "Copy AI Prompt" : "Loading..."}
-                </span>
+                  Auto-filled from AI output
+                </p>
               )}
-            </Button>
+            </div>
+          </>
+        )}
+
+        {/* Config JSON (shown when auto-analyze filled it, for review/editing) */}
+        {showAnalyze && !showManualFlow && configJson && (
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              Generated config (editable)
+            </label>
+            <textarea
+              value={configJson}
+              onChange={(e) => setConfigJson(e.target.value)}
+              className="w-full min-h-[160px] bg-background border border-border rounded-lg px-4 py-3 text-text-primary focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none transition-colors font-mono text-sm resize-y"
+            />
           </div>
-        </div>
+        )}
 
-        {/* Step 2: Paste AI output */}
-        <div>
-          <label className="block text-sm font-medium text-text-primary mb-1.5">
-            Step 2: Paste the AI output
-          </label>
-          <textarea
-            value={configJson}
-            onChange={(e) => handleConfigChange(e.target.value)}
-            placeholder="Paste the full JSON from ChatGPT/Claude here — fields will auto-fill below"
-            className="w-full min-h-[200px] bg-background border border-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-dim focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none transition-colors font-mono text-sm resize-y"
-          />
-          {autoFilled && (
-            <p className="text-xs text-green-400 mt-1.5 flex items-center gap-1">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              Auto-filled name, business, and slug from AI output
-            </p>
-          )}
-        </div>
-
-        {/* Auto-filled fields (editable) */}
+        {/* Fields */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-text-primary mb-1.5">
@@ -396,6 +591,12 @@ function OnboardDashboardContent() {
   const [configs, setConfigs] = useState<ConfigWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  async function handleDelete(id: string) {
+    const res = await fetch(`/api/onboard/config?id=${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setConfigs((prev) => prev.filter((c) => c.id !== id));
+    }
+  }
 
   const fetchConfigs = async () => {
     const supabase = createClient();
@@ -485,7 +686,11 @@ function OnboardDashboardContent() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {configs.map((config) => (
-                <ConfigCard key={config.id} config={config} />
+                <ConfigCard
+                  key={config.id}
+                  config={config}
+                  onDelete={handleDelete}
+                />
               ))}
             </div>
           )}

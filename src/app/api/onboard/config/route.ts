@@ -115,3 +115,43 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json(result);
 }
+
+export async function DELETE(request: NextRequest) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const id = request.nextUrl.searchParams.get("id");
+  if (!id) {
+    return NextResponse.json(
+      { error: "Missing id parameter" },
+      { status: 400 }
+    );
+  }
+
+  // Delete submissions first (foreign key)
+  await supabase
+    .from("onboard_submissions")
+    .delete()
+    .eq("config_id", id);
+
+  const { error } = await supabase
+    .from("onboard_configs")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Failed to delete config" },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ success: true });
+}
