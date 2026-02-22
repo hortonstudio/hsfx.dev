@@ -3,6 +3,9 @@ import type {
   OnboardSubmission,
   AnswerValue,
   AddressValue,
+  YesNoNAValue,
+  TeamMember,
+  ProjectGalleryValue,
   QuestionConfig,
 } from "./types";
 
@@ -55,6 +58,80 @@ function formatAnswer(question: QuestionConfig, answer: AnswerValue): string {
         return parts.length > 0 ? parts.join(", ") : "_No address provided_";
       }
       return "_No address provided_";
+    }
+
+    case "yes_no_na": {
+      if (typeof answer === "object" && !Array.isArray(answer)) {
+        const val = answer as YesNoNAValue;
+        const labels: Record<string, string> = {
+          yes: "Yes",
+          no: "No",
+          na: "Not Applicable",
+        };
+        const label = labels[val.answer] ?? "_No answer provided_";
+        if (val.details?.trim()) {
+          return `${label}\n\n> ${val.details}`;
+        }
+        return label;
+      }
+      return "_No answer provided_";
+    }
+
+    case "team_members": {
+      if (Array.isArray(answer) && answer.length > 0) {
+        const members = answer as TeamMember[];
+        return members
+          .map((m) => {
+            const lines = [`- **${m.name}**`, `  ${m.bio}`];
+            if (m.photoUrl) {
+              lines.push(`  Photo: [${m.photoUrl}](${m.photoUrl})`);
+            }
+            return lines.join("\n");
+          })
+          .join("\n");
+      }
+      return "_No team members added_";
+    }
+
+    case "project_gallery": {
+      if (typeof answer === "object" && !Array.isArray(answer)) {
+        const gallery = answer as ProjectGalleryValue;
+        const parts: string[] = [];
+
+        if (gallery.projects.length > 0) {
+          for (const project of gallery.projects) {
+            parts.push(`### ${project.title}`);
+            if (project.beforePhotos.length > 0) {
+              parts.push("**Before:**");
+              parts.push(
+                project.beforePhotos
+                  .map((url) => `- [${url}](${url})`)
+                  .join("\n")
+              );
+            }
+            if (project.afterPhotos.length > 0) {
+              parts.push("**After:**");
+              parts.push(
+                project.afterPhotos
+                  .map((url) => `- [${url}](${url})`)
+                  .join("\n")
+              );
+            }
+          }
+        }
+
+        if (gallery.photos.length > 0) {
+          parts.push("**General Photos:**");
+          parts.push(
+            gallery.photos.map((url) => `- [${url}](${url})`).join("\n")
+          );
+        }
+
+        return parts.length > 0
+          ? parts.join("\n\n")
+          : "_No projects or photos added_";
+      }
+      return "_No projects or photos added_";
     }
 
     default:

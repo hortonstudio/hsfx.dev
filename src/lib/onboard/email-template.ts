@@ -3,6 +3,9 @@ import type {
   OnboardSubmission,
   AnswerValue,
   AddressValue,
+  YesNoNAValue,
+  TeamMember,
+  ProjectGalleryValue,
   QuestionConfig,
 } from "./types";
 
@@ -58,6 +61,48 @@ function formatAnswerText(
         return parts.length > 0 ? parts.join(", ") : "No address provided";
       }
       return "No address provided";
+    }
+
+    case "yes_no_na": {
+      if (typeof answer === "object" && !Array.isArray(answer)) {
+        const val = answer as YesNoNAValue;
+        const labels: Record<string, string> = {
+          yes: "Yes",
+          no: "No",
+          na: "Not Applicable",
+        };
+        const label = labels[val.answer] ?? "No answer provided";
+        if (val.details?.trim()) {
+          return `${label} — ${val.details}`;
+        }
+        return label;
+      }
+      return "No answer provided";
+    }
+
+    case "team_members": {
+      if (Array.isArray(answer) && answer.length > 0) {
+        const members = answer as TeamMember[];
+        return members
+          .map((m) => `${m.name}: ${m.bio}`)
+          .join("; ");
+      }
+      return "No team members added";
+    }
+
+    case "project_gallery": {
+      if (typeof answer === "object" && !Array.isArray(answer)) {
+        const gallery = answer as ProjectGalleryValue;
+        const counts: string[] = [];
+        if (gallery.projects.length > 0) {
+          counts.push(`${gallery.projects.length} project(s)`);
+        }
+        if (gallery.photos.length > 0) {
+          counts.push(`${gallery.photos.length} photo(s)`);
+        }
+        return counts.length > 0 ? counts.join(", ") : "No projects added";
+      }
+      return "No projects added";
     }
 
     default:
@@ -123,6 +168,101 @@ function renderAnswerRow(
         <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; vertical-align: top;">
           <span style="display: inline-block; width: 16px; height: 16px; border-radius: 3px; background-color: ${escapeHtml(answer)}; vertical-align: middle; margin-right: 8px; border: 1px solid #d1d5db;"></span>
           ${escapeHtml(answer)}
+        </td>
+      </tr>`;
+  }
+
+  // For yes_no_na, show the answer with optional details
+  if (
+    question.type === "yes_no_na" &&
+    typeof answer === "object" &&
+    !Array.isArray(answer)
+  ) {
+    const val = answer as YesNoNAValue;
+    const labels: Record<string, string> = {
+      yes: "Yes",
+      no: "No",
+      na: "Not Applicable",
+    };
+    const label = labels[val.answer] ?? "No answer provided";
+    const detailsHtml = val.details?.trim()
+      ? `<br /><span style="color: #6b7280; font-size: 13px;">${escapeHtml(val.details)}</span>`
+      : "";
+
+    return `
+      <tr>
+        <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; vertical-align: top; width: 40%;">
+          ${escapeHtml(question.question)}
+        </td>
+        <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; vertical-align: top;">
+          ${escapeHtml(label)}${detailsHtml}
+        </td>
+      </tr>`;
+  }
+
+  // For team_members, render each member as a list
+  if (
+    question.type === "team_members" &&
+    Array.isArray(answer) &&
+    answer.length > 0
+  ) {
+    const members = answer as TeamMember[];
+    const memberHtml = members
+      .map((m) => {
+        const photoHtml = m.photoUrl
+          ? ` <a href="${escapeHtml(m.photoUrl)}" style="color: #2563eb; text-decoration: underline; font-size: 12px;">[photo]</a>`
+          : "";
+        return `<div style="margin-bottom: 8px;"><strong>${escapeHtml(m.name)}</strong>${photoHtml}<br /><span style="color: #6b7280; font-size: 13px;">${escapeHtml(m.bio)}</span></div>`;
+      })
+      .join("");
+
+    return `
+      <tr>
+        <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; vertical-align: top; width: 40%;">
+          ${escapeHtml(question.question)}
+        </td>
+        <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; vertical-align: top;">
+          ${memberHtml}
+        </td>
+      </tr>`;
+  }
+
+  // For project_gallery, render project titles and photo counts
+  if (
+    question.type === "project_gallery" &&
+    typeof answer === "object" &&
+    !Array.isArray(answer)
+  ) {
+    const gallery = answer as ProjectGalleryValue;
+    const projectHtml = gallery.projects
+      .map((p) => {
+        const beforeCount = p.beforePhotos.length;
+        const afterCount = p.afterPhotos.length;
+        const photoCounts = [
+          beforeCount > 0 ? `${beforeCount} before` : "",
+          afterCount > 0 ? `${afterCount} after` : "",
+        ]
+          .filter(Boolean)
+          .join(", ");
+        const countLabel = photoCounts
+          ? ` <span style="color: #6b7280; font-size: 12px;">(${photoCounts})</span>`
+          : "";
+        return `<div style="margin-bottom: 4px;"><strong>${escapeHtml(p.title)}</strong>${countLabel}</div>`;
+      })
+      .join("");
+
+    const generalLabel =
+      gallery.photos.length > 0
+        ? `<div style="margin-top: 8px; color: #6b7280; font-size: 13px;">${gallery.photos.length} general photo(s)</div>`
+        : "";
+
+    return `
+      <tr>
+        <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; vertical-align: top; width: 40%;">
+          ${escapeHtml(question.question)}
+        </td>
+        <td style="padding: 12px 16px; border-bottom: 1px solid #e5e7eb; color: #111827; vertical-align: top;">
+          ${projectHtml}${generalLabel}
         </td>
       </tr>`;
   }

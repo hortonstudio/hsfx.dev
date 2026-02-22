@@ -12,6 +12,9 @@ import type {
   OnboardSubmission,
   AnswerValue,
   AddressValue,
+  YesNoNAValue,
+  TeamMember,
+  ProjectGalleryValue,
   QuestionConfig,
 } from "@/lib/onboard/types";
 
@@ -63,35 +66,61 @@ function formatAnswerForReview(
   question: QuestionConfig,
   answer: AnswerValue
 ): string {
-  if (answer === null || answer === undefined) return "Not answered";
+  if (answer === null || answer === undefined) {
+    return question.required ? "Not answered" : "Skipped";
+  }
 
   switch (question.type) {
     case "text":
     case "textarea":
     case "select":
-      return typeof answer === "string" && answer.trim() ? answer : "Not answered";
+      return typeof answer === "string" && answer.trim() ? answer : "Skipped";
     case "multi_select":
       return Array.isArray(answer) && answer.length > 0
         ? answer.join(", ")
-        : "None selected";
+        : "Skipped";
     case "yes_no":
-      return typeof answer === "boolean" ? (answer ? "Yes" : "No") : "Not answered";
+      return typeof answer === "boolean" ? (answer ? "Yes" : "No") : "Skipped";
+    case "yes_no_na": {
+      if (typeof answer === "object" && !Array.isArray(answer) && "answer" in answer) {
+        const val = answer as YesNoNAValue;
+        const label = val.answer === "yes" ? "Yes" : val.answer === "no" ? "No" : "N/A";
+        return val.details ? `${label} — ${val.details}` : label;
+      }
+      return "Skipped";
+    }
     case "color_picker":
     case "color_confirm":
-      return typeof answer === "string" && answer.trim() ? answer : "Not selected";
+      return typeof answer === "string" && answer.trim() ? answer : "Skipped";
     case "file_upload":
       return Array.isArray(answer) && answer.length > 0
-        ? `${answer.length} file(s) uploaded`
-        : "No files";
+        ? `${answer.length} file(s)`
+        : "Skipped";
     case "address": {
       if (typeof answer === "object" && !Array.isArray(answer)) {
         const addr = answer as AddressValue;
         const parts = [addr.street, addr.city, addr.state, addr.zip].filter(
           (p) => p?.trim()
         );
-        return parts.length > 0 ? parts.join(", ") : "Not provided";
+        return parts.length > 0 ? parts.join(", ") : "Skipped";
       }
-      return "Not provided";
+      return "Skipped";
+    }
+    case "team_members": {
+      if (Array.isArray(answer) && answer.length > 0) {
+        return `${(answer as TeamMember[]).length} member(s)`;
+      }
+      return "Skipped";
+    }
+    case "project_gallery": {
+      if (typeof answer === "object" && !Array.isArray(answer) && "projects" in answer) {
+        const val = answer as ProjectGalleryValue;
+        const parts: string[] = [];
+        if (val.projects.length > 0) parts.push(`${val.projects.length} project(s)`);
+        if (val.photos.length > 0) parts.push(`${val.photos.length} photo(s)`);
+        return parts.length > 0 ? parts.join(", ") : "Skipped";
+      }
+      return "Skipped";
     }
     default:
       return String(answer);
@@ -106,7 +135,6 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
   const questions = config.config.questions;
   const slug = config.client_slug;
 
-  // Determine initial screen
   const initialScreen: Screen = existingSubmission?.status === "submitted"
     ? "submitted"
     : "welcome";
@@ -143,28 +171,6 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
     saveAnswers(slug, answers);
   }, [answers, slug, screen]);
 
-  // Keyboard navigation
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (screen !== "questions") return;
-
-      const currentQuestion = questions[currentIndex];
-
-      if (e.key === "Enter" && currentQuestion?.type !== "textarea") {
-        e.preventDefault();
-        goNext();
-      }
-
-      if (e.key === "Escape") {
-        e.preventDefault();
-        goPrev();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  });
-
   // Navigation helpers
   const goNext = useCallback(() => {
     if (currentIndex < questions.length - 1) {
@@ -182,6 +188,34 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
     }
   }, [currentIndex]);
 
+  // Keyboard navigation
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (screen !== "questions") return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      const currentQ = questions[currentIndex];
+
+      if (e.key === "Enter" && currentQ?.type !== "textarea") {
+        e.preventDefault();
+        goNext();
+      }
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        goPrev();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [screen, currentIndex, questions, goNext, goPrev]);
+
   function goToQuestion(idx: number) {
     setDirection(idx > currentIndex ? 1 : -1);
     setCurrentIndex(idx);
@@ -192,29 +226,32 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   }
 
-  // File upload handler
+  // File upload handler — sends JSON to get signed URL, then PUTs file
   async function handleFileUpload(
     clientSlug: string,
     questionId: string,
     file: File
   ): Promise<string> {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("slug", clientSlug);
-    formData.append("questionId", questionId);
-
+    // Step 1: Get signed upload URL
     const res = await fetch("/api/onboard/upload", {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug: clientSlug,
+        questionId,
+        filename: file.name,
+        contentType: file.type,
+      }),
     });
 
     if (!res.ok) {
-      throw new Error("Upload failed");
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error ?? "Failed to get upload URL");
     }
 
-    const { signedUrl } = await res.json();
+    const { signedUrl, publicUrl } = await res.json();
 
-    // Upload to signed URL
+    // Step 2: Upload file to signed URL
     const uploadRes = await fetch(signedUrl, {
       method: "PUT",
       body: file,
@@ -222,12 +259,10 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
     });
 
     if (!uploadRes.ok) {
-      throw new Error("File upload to storage failed");
+      throw new Error("File upload failed");
     }
 
-    const publicUrl = signedUrl.split("?")[0];
-
-    // Track file URLs
+    // Track file URLs for submission
     setFileUrls((prev) => ({
       ...prev,
       [questionId]: [...(prev[questionId] ?? []), publicUrl],
@@ -245,7 +280,11 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
       const res = await fetch(`/api/onboard/${slug}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers, file_urls: fileUrls }),
+        body: JSON.stringify({
+          answers,
+          file_urls: fileUrls,
+          status: "submitted",
+        }),
       });
 
       if (!res.ok) {
@@ -273,6 +312,7 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
           : Math.round(((currentIndex + 1) / questions.length) * 90);
 
   const currentQuestion = questions[currentIndex];
+  const isOptional = currentQuestion && !currentQuestion.required;
 
   // ══════════════════════════════════════════════════════
   // RENDER
@@ -354,11 +394,18 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
                   currentKey={currentIndex}
                 >
                   <div>
-                    {/* Question counter */}
-                    <p className="text-sm text-accent font-medium mb-3">
-                      {currentIndex + 1}{" "}
-                      <span className="text-text-dim">/ {questions.length}</span>
-                    </p>
+                    {/* Question counter + optional badge */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <p className="text-sm text-accent font-medium">
+                        {currentIndex + 1}{" "}
+                        <span className="text-text-dim">/ {questions.length}</span>
+                      </p>
+                      {isOptional && (
+                        <span className="text-xs text-text-dim bg-surface border border-border rounded-full px-2 py-0.5">
+                          Optional
+                        </span>
+                      )}
+                    </div>
 
                     {/* Question text */}
                     <h2 className="font-serif text-2xl md:text-3xl text-text-primary leading-tight mb-2">
@@ -383,6 +430,19 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
                         slug={slug}
                       />
                     </div>
+
+                    {/* Skip button for optional questions */}
+                    {isOptional && !isQuestionComplete(currentQuestion, answers[currentQuestion.id] ?? null) && (
+                      <div className="mt-4 text-center">
+                        <button
+                          type="button"
+                          onClick={goNext}
+                          className="text-sm text-text-dim hover:text-text-muted transition-colors"
+                        >
+                          Skip this question →
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </TransitionWrapper>
               </div>
@@ -468,63 +528,66 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
           >
             <div className="max-w-xl mx-auto">
               <h2 className="font-serif text-3xl md:text-4xl text-text-primary mb-2">
-                Review your answers
+                Almost done!
               </h2>
               <p className="text-text-muted mb-8">
-                Make sure everything looks good before submitting.
+                Quick look at your answers. Tap any to change it.
               </p>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {questions.map((q, idx) => {
                   const answer = answers[q.id] ?? null;
                   const complete = isQuestionComplete(q, answer);
+                  const reviewText = formatAnswerForReview(q, answer);
+
                   return (
-                    <div
+                    <button
                       key={q.id}
-                      className="bg-surface border border-border rounded-lg p-5"
+                      type="button"
+                      onClick={() => goToQuestion(idx)}
+                      className="w-full text-left bg-surface border border-border rounded-lg px-4 py-3 hover:border-accent/50 transition-colors group"
                     >
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        {/* Status indicator */}
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          complete ? "bg-green-500/20" : "bg-border"
+                        }`}>
+                          {complete ? (
+                            <svg className="w-3 h-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <span className="w-1.5 h-1.5 rounded-full bg-text-dim" />
+                          )}
+                        </div>
+
+                        {/* Question + answer */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-text-dim mb-1">
-                            Question {idx + 1}
-                          </p>
-                          <p className="text-text-primary font-medium mb-2">
+                          <p className="text-sm text-text-primary font-medium truncate">
                             {q.question}
                           </p>
-
-                          {/* Answer display */}
-                          {q.type === "color_picker" || q.type === "color_confirm" ? (
-                            <div className="flex items-center gap-2">
-                              {typeof answer === "string" && answer && (
-                                <div
-                                  className="w-5 h-5 rounded border border-white/20"
-                                  style={{ backgroundColor: answer }}
-                                />
-                              )}
-                              <span
-                                className={`text-sm font-mono ${complete ? "text-text-secondary" : "text-text-dim italic"}`}
-                              >
-                                {formatAnswerForReview(q, answer)}
-                              </span>
+                          {/* Color swatch for color questions */}
+                          {(q.type === "color_picker" || q.type === "color_confirm") && typeof answer === "string" && answer ? (
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <div
+                                className="w-3.5 h-3.5 rounded border border-white/20"
+                                style={{ backgroundColor: answer }}
+                              />
+                              <span className="text-xs text-text-dim font-mono">{answer}</span>
                             </div>
                           ) : (
-                            <p
-                              className={`text-sm ${complete ? "text-text-secondary" : "text-text-dim italic"}`}
-                            >
-                              {formatAnswerForReview(q, answer)}
+                            <p className={`text-xs mt-0.5 truncate ${complete ? "text-text-muted" : "text-text-dim italic"}`}>
+                              {reviewText}
                             </p>
                           )}
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => goToQuestion(idx)}
-                          className="text-accent text-sm hover:underline shrink-0"
-                        >
-                          Edit
-                        </button>
+                        {/* Edit arrow */}
+                        <svg className="w-4 h-4 text-text-dim group-hover:text-accent transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -544,19 +607,6 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
                     setScreen("questions");
                   }}
                 >
-                  <svg
-                    className="w-4 h-4 mr-1"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
-                    />
-                  </svg>
                   Back
                 </Button>
                 <Button

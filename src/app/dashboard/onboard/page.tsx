@@ -112,112 +112,6 @@ function ConfigCard({ config }: { config: ConfigWithCount }) {
 // NEW CONFIG MODAL
 // ════════════════════════════════════════════════════════════
 
-// ── AI Prompt Template (embedded) ──────────────────────────
-// Kept inline so it's copiable from the dashboard without a fetch
-const AI_PROMPT_TEMPLATE = `# Client Onboarding Config Generator
-
-You are generating a JSON configuration for a client onboarding form. Analyze the client's website and business to create personalized questions.
-
-## Instructions
-
-1. Visit the client's website and note: colors, logo, services, contact info, location, industry
-2. Generate a JSON config following the schema below
-3. Make questions conversational and friendly (like Typeform)
-4. Pre-fill detected values where possible (colors, phone, services)
-5. Keep it to 8-15 questions — enough to gather what we need, not so many it feels tedious
-
-## JSON Schema
-
-\`\`\`json
-{
-  "client_slug": "kebab-case-business-name",
-  "client_name": "First name or friendly name",
-  "business_name": "Full Business Name",
-  "config": {
-    "welcome": {
-      "title": "Hey [Name]! Let's get your new site set up.",
-      "subtitle": "This should only take about 5 minutes."
-    },
-    "completion": {
-      "title": "You're all set!",
-      "message": "We've got everything we need. We'll be in touch soon with next steps."
-    },
-    "questions": [
-      // Array of question objects (see types below)
-    ]
-  }
-}
-\`\`\`
-
-## Question Types
-
-### text
-Short answer input. Use for names, phone numbers, single-line answers.
-\`\`\`json
-{ "id": "phone", "type": "text", "question": "What's the best phone number to reach you?", "description": "We'll use this for your site's contact section.", "placeholder": "(555) 123-4567", "required": true }
-\`\`\`
-
-### textarea
-Long answer input. Use for descriptions, bios, detailed answers.
-\`\`\`json
-{ "id": "business_description", "type": "textarea", "question": "How would you describe your business in a few sentences?", "description": "This helps us write your site copy. Don't overthink it — just tell us what you do!", "placeholder": "We specialize in...", "maxLength": 500, "required": true }
-\`\`\`
-
-### select
-Single choice from options. Shows as large clickable cards.
-\`\`\`json
-{ "id": "site_style", "type": "select", "question": "What vibe are you going for with your website?", "options": [ { "label": "Clean & Professional", "value": "professional" }, { "label": "Bold & Modern", "value": "modern" }, { "label": "Warm & Friendly", "value": "friendly" }, { "label": "Luxury & Premium", "value": "luxury" } ], "required": true }
-\`\`\`
-
-### multi_select
-Multiple choice. Use when they can pick more than one.
-\`\`\`json
-{ "id": "services", "type": "multi_select", "question": "Which services should we feature on your site?", "description": "Pick all that apply.", "options": [ { "label": "Drain Cleaning", "value": "drain_cleaning" }, { "label": "Water Heater Repair", "value": "water_heater" }, { "label": "Pipe Installation", "value": "pipe_install" } ], "allowOther": true, "required": true }
-\`\`\`
-
-### yes_no
-Simple yes/no toggle. Shows two large buttons.
-\`\`\`json
-{ "id": "has_reviews", "type": "yes_no", "question": "Do you have Google reviews you'd like us to showcase?", "required": true }
-\`\`\`
-
-### file_upload
-File upload with drag-and-drop.
-\`\`\`json
-{ "id": "logo", "type": "file_upload", "question": "Got a logo? Upload it here.", "description": "PNG or SVG preferred. If you don't have one, no worries — we can work with that.", "maxFiles": 3, "acceptedTypes": ["image/png", "image/svg+xml", "image/jpeg"], "required": false }
-\`\`\`
-
-### color_picker
-Lets them pick a color. Use when you need a new color choice.
-\`\`\`json
-{ "id": "accent_color", "type": "color_picker", "question": "Pick an accent color you like.", "description": "This will be used for buttons and highlights.", "required": false }
-\`\`\`
-
-### color_confirm
-Shows detected colors from their current site. They can keep or change each one.
-\`\`\`json
-{ "id": "brand_colors", "type": "color_confirm", "question": "We found these colors on your current site. Keep them or change them up?", "detectedColors": [ { "hex": "#1E40AF", "label": "Primary Blue", "source": "header background" }, { "hex": "#FFFFFF", "label": "Background White", "source": "page background" }, { "hex": "#F59E0B", "label": "Accent Gold", "source": "CTA buttons" } ], "required": true }
-\`\`\`
-
-### address
-Structured address input (street, city, state, zip).
-\`\`\`json
-{ "id": "business_address", "type": "address", "question": "What's your business address?", "description": "We'll add this to your contact page and Google Maps embed.", "required": true }
-\`\`\`
-
-## Guidelines
-
-- Use the client's first name in welcome/completion messages
-- Pre-populate detected values (colors from their site, services found, phone number)
-- Start with visual questions (colors, logo) to keep it engaging
-- Put the most important questions first
-- Keep questions conversational — avoid corporate/legal language
-- Use description fields to explain WHY you're asking
-- Make file uploads optional unless critical
-- End with an open-ended "anything else" question
-- The client_slug must be URL-safe: lowercase, hyphens only, no special characters
-- Return ONLY the raw JSON object — no markdown fences, no explanation`;
-
 function NewConfigModal({
   open,
   onClose,
@@ -237,6 +131,20 @@ function NewConfigModal({
   const [error, setError] = useState<string | null>(null);
   const [promptCopied, setPromptCopied] = useState(false);
   const [autoFilled, setAutoFilled] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState<string | null>(null);
+
+  // Fetch AI prompt from Supabase
+  useEffect(() => {
+    if (!open || aiPrompt !== null) return;
+    fetch("/api/onboard/settings?key=ai_prompt_template")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.value) setAiPrompt(data.value);
+      })
+      .catch(() => {
+        // Fallback: prompt not available
+      });
+  }, [open, aiPrompt]);
 
   // Auto-generate slug from client name unless manually edited
   const derivedSlug = useMemo(() => slugify(clientName), [clientName]);
@@ -253,7 +161,8 @@ function NewConfigModal({
   }
 
   async function copyPrompt() {
-    await navigator.clipboard.writeText(AI_PROMPT_TEMPLATE);
+    if (!aiPrompt) return;
+    await navigator.clipboard.writeText(aiPrompt);
     setPromptCopied(true);
     setTimeout(() => setPromptCopied(false), 2000);
   }
@@ -349,7 +258,7 @@ function NewConfigModal({
                 Copy the prompt, paste into ChatGPT/Claude with the client&apos;s website URL
               </p>
             </div>
-            <Button variant="ghost" size="sm" onClick={copyPrompt}>
+            <Button variant="ghost" size="sm" onClick={copyPrompt} disabled={!aiPrompt}>
               {promptCopied ? (
                 <span className="flex items-center gap-1.5 text-green-400">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -362,7 +271,7 @@ function NewConfigModal({
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                  Copy AI Prompt
+                  {aiPrompt ? "Copy AI Prompt" : "Loading..."}
                 </span>
               )}
             </Button>

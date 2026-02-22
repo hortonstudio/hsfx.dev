@@ -5,9 +5,12 @@ export type QuestionType =
   | "multi_select"
   | "file_upload"
   | "yes_no"
+  | "yes_no_na"
   | "color_picker"
   | "color_confirm"
-  | "address";
+  | "address"
+  | "team_members"
+  | "project_gallery";
 
 export interface QuestionOption {
   label: string;
@@ -33,6 +36,7 @@ export interface QuestionConfig {
   acceptedTypes?: string[];
   detectedColors?: DetectedColor[];
   maxLength?: number;
+  detailsPrompt?: string;
 }
 
 export interface OnboardConfig {
@@ -67,7 +71,37 @@ export interface AddressValue {
   zip: string;
 }
 
-export type AnswerValue = string | string[] | boolean | AddressValue | null;
+export interface YesNoNAValue {
+  answer: "yes" | "no" | "na";
+  details?: string;
+}
+
+export interface TeamMember {
+  name: string;
+  bio: string;
+  photoUrl?: string;
+}
+
+export interface ProjectEntry {
+  title: string;
+  beforePhotos: string[];
+  afterPhotos: string[];
+}
+
+export interface ProjectGalleryValue {
+  projects: ProjectEntry[];
+  photos: string[];
+}
+
+export type AnswerValue =
+  | string
+  | string[]
+  | boolean
+  | AddressValue
+  | YesNoNAValue
+  | TeamMember[]
+  | ProjectGalleryValue
+  | null;
 
 export interface OnboardSubmission {
   id: string;

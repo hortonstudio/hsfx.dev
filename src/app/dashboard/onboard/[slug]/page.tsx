@@ -20,6 +20,9 @@ import type {
   OnboardSubmission,
   AnswerValue,
   AddressValue,
+  YesNoNAValue,
+  TeamMember,
+  ProjectGalleryValue,
   QuestionConfig,
 } from "@/lib/onboard/types";
 
@@ -133,6 +136,63 @@ function formatAnswerDisplay(
         }
       }
       return <span className="text-text-dim italic">No address provided</span>;
+    }
+
+    case "yes_no_na": {
+      if (typeof answer === "object" && !Array.isArray(answer) && "answer" in answer) {
+        const val = answer as YesNoNAValue;
+        const label = val.answer === "yes" ? "Yes" : val.answer === "no" ? "No" : "N/A";
+        const variant = val.answer === "yes" ? "success" : val.answer === "no" ? "error" : "default";
+        return (
+          <div>
+            <Badge variant={variant as "success" | "error" | "default"}>{label}</Badge>
+            {val.details && (
+              <p className="text-text-secondary text-sm mt-1">{val.details}</p>
+            )}
+          </div>
+        );
+      }
+      return <span className="text-text-dim italic">Not answered</span>;
+    }
+
+    case "team_members": {
+      if (Array.isArray(answer) && answer.length > 0) {
+        const members = answer as TeamMember[];
+        return (
+          <div className="space-y-2">
+            {members.map((m, i) => (
+              <div key={i} className="flex items-center gap-3">
+                {m.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={m.photoUrl} alt={m.name} className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-border flex items-center justify-center text-text-dim text-xs">
+                    {m.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <p className="text-text-secondary text-sm font-medium">{m.name}</p>
+                  {m.bio && <p className="text-text-dim text-xs">{m.bio}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
+      return <span className="text-text-dim italic">No team members added</span>;
+    }
+
+    case "project_gallery": {
+      if (typeof answer === "object" && !Array.isArray(answer) && "projects" in answer) {
+        const val = answer as ProjectGalleryValue;
+        const parts: string[] = [];
+        if (val.projects.length > 0) parts.push(`${val.projects.length} project(s)`);
+        if (val.photos.length > 0) parts.push(`${val.photos.length} photo(s)`);
+        if (parts.length > 0) {
+          return <p className="text-text-secondary text-sm">{parts.join(", ")}</p>;
+        }
+      }
+      return <span className="text-text-dim italic">No projects added</span>;
     }
 
     default:

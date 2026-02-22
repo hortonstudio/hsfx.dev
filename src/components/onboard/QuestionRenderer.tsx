@@ -7,9 +7,12 @@ import { SelectQuestion } from "./SelectQuestion";
 import { MultiSelectQuestion } from "./MultiSelectQuestion";
 import { FileUploadQuestion } from "./FileUploadQuestion";
 import { YesNoQuestion } from "./YesNoQuestion";
+import { YesNoNAQuestion } from "./YesNoNAQuestion";
 import { ColorPickerQuestion } from "./ColorPickerQuestion";
 import { ColorConfirmQuestion } from "./ColorConfirmQuestion";
 import { AddressQuestion } from "./AddressQuestion";
+import { TeamMembersQuestion } from "./TeamMembersQuestion";
+import { ProjectGalleryQuestion } from "./ProjectGalleryQuestion";
 
 const QUESTION_COMPONENTS: Record<
   string,
@@ -21,9 +24,12 @@ const QUESTION_COMPONENTS: Record<
   multi_select: MultiSelectQuestion,
   file_upload: FileUploadQuestion,
   yes_no: YesNoQuestion,
+  yes_no_na: YesNoNAQuestion,
   color_picker: ColorPickerQuestion,
   color_confirm: ColorConfirmQuestion,
   address: AddressQuestion,
+  team_members: TeamMembersQuestion,
+  project_gallery: ProjectGalleryQuestion,
 };
 
 export function QuestionRenderer(props: QuestionProps) {
@@ -32,23 +38,11 @@ export function QuestionRenderer(props: QuestionProps) {
 
   if (!Component) {
     return (
-      <div className="max-w-2xl mx-auto px-6">
-        <p className="text-text-muted">
-          Unknown question type: {question.type}
-        </p>
-      </div>
+      <p className="text-text-muted">
+        Unknown question type: {question.type}
+      </p>
     );
   }
 
-  return (
-    <div className="max-w-2xl mx-auto px-6">
-      <h2 className="font-serif text-3xl md:text-4xl text-text-primary mb-3 leading-tight">
-        {question.question}
-      </h2>
-      {question.description && (
-        <p className="text-text-muted text-lg mb-8">{question.description}</p>
-      )}
-      <Component {...props} />
-    </div>
-  );
+  return <Component {...props} />;
 }

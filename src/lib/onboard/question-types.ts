@@ -1,4 +1,11 @@
-import type { QuestionConfig, AnswerValue, AddressValue } from "./types";
+import type {
+  QuestionConfig,
+  AnswerValue,
+  AddressValue,
+  YesNoNAValue,
+  TeamMember,
+  ProjectGalleryValue,
+} from "./types";
 
 /**
  * Validates an answer against its question configuration.
@@ -59,7 +66,7 @@ export function validateAnswer(
       }
       if (question.options && !question.allowOther) {
         const validValues = question.options.map((o) => o.value);
-        for (const val of answer) {
+        for (const val of answer as string[]) {
           if (!validValues.includes(val)) {
             return `Invalid selection: ${val}`;
           }
@@ -69,7 +76,6 @@ export function validateAnswer(
     }
 
     case "file_upload": {
-      // File uploads are tracked as string arrays of URLs
       if (!Array.isArray(answer)) {
         return "Expected file upload values";
       }
@@ -86,12 +92,22 @@ export function validateAnswer(
       return null;
     }
 
+    case "yes_no_na": {
+      if (typeof answer !== "object" || Array.isArray(answer)) {
+        return "Expected a yes/no/na value";
+      }
+      const val = answer as YesNoNAValue;
+      if (!["yes", "no", "na"].includes(val.answer)) {
+        return "Expected yes, no, or not applicable";
+      }
+      return null;
+    }
+
     case "color_picker":
     case "color_confirm": {
       if (typeof answer !== "string") {
         return "Expected a color value";
       }
-      // Basic hex color validation
       if (!/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(answer)) {
         return "Invalid color format. Use hex format (e.g. #FF0000)";
       }
@@ -108,6 +124,24 @@ export function validateAnswer(
         if (!addr.city?.trim()) return "City is required";
         if (!addr.state?.trim()) return "State is required";
         if (!addr.zip?.trim()) return "ZIP code is required";
+      }
+      return null;
+    }
+
+    case "team_members": {
+      if (!Array.isArray(answer)) {
+        return "Expected team member entries";
+      }
+      const members = answer as TeamMember[];
+      for (const m of members) {
+        if (!m.name?.trim()) return "Each team member needs a name";
+      }
+      return null;
+    }
+
+    case "project_gallery": {
+      if (typeof answer !== "object" || Array.isArray(answer)) {
+        return "Expected project gallery data";
       }
       return null;
     }
@@ -136,8 +170,17 @@ export function getDefaultValue(type: QuestionConfig["type"]): AnswerValue {
     case "yes_no":
       return null;
 
+    case "yes_no_na":
+      return null;
+
     case "address":
       return { street: "", city: "", state: "", zip: "" };
+
+    case "team_members":
+      return [];
+
+    case "project_gallery":
+      return { projects: [], photos: [] };
 
     default:
       return null;
@@ -170,6 +213,12 @@ export function isQuestionComplete(
     case "yes_no":
       return typeof answer === "boolean";
 
+    case "yes_no_na": {
+      if (typeof answer !== "object" || Array.isArray(answer)) return false;
+      const val = answer as YesNoNAValue;
+      return ["yes", "no", "na"].includes(val.answer);
+    }
+
     case "address": {
       if (typeof answer !== "object" || Array.isArray(answer)) return false;
       const addr = answer as AddressValue;
@@ -179,6 +228,17 @@ export function isQuestionComplete(
         addr.state?.trim() &&
         addr.zip?.trim()
       );
+    }
+
+    case "team_members": {
+      if (!Array.isArray(answer)) return false;
+      return (answer as TeamMember[]).length > 0;
+    }
+
+    case "project_gallery": {
+      if (typeof answer !== "object" || Array.isArray(answer)) return false;
+      const val = answer as ProjectGalleryValue;
+      return val.projects.length > 0 || val.photos.length > 0;
     }
 
     default:
