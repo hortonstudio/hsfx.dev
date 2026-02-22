@@ -30,6 +30,7 @@ interface SelectorParts {
   idName: string;
   tagName: string;
   customSelector: string;
+  combinator: string; // "" for self, " > *" for direct children, " *" for all descendants, or custom
 }
 
 function parseSelectorType(selector: string): SelectorParts {
@@ -41,39 +42,77 @@ function parseSelectorType(selector: string): SelectorParts {
     idName: "element",
     tagName: "div",
     customSelector: selector,
+    combinator: "",
   };
 
+  // Try to detect combinator suffix — look for the base selector pattern then a trailing part
+  let base = selector;
+  let combinator = "";
+
+  // Check for attribute selector with possible combinator
   if (selector.startsWith("[")) {
-    const match = selector.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/);
+    const closeIdx = selector.indexOf("]");
+    if (closeIdx !== -1 && closeIdx < selector.length - 1) {
+      base = selector.slice(0, closeIdx + 1);
+      combinator = selector.slice(closeIdx + 1); // e.g. " > *"
+    }
+    const match = base.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/);
     if (match) {
-      return { ...defaults, type: "attribute", attrName: match[1], attrValue: match[2] || "" };
+      return { ...defaults, type: "attribute", attrName: match[1], attrValue: match[2] || "", combinator };
     }
   }
   if (selector.startsWith("#")) {
-    return { ...defaults, type: "id", idName: selector.slice(1) };
+    const spaceIdx = selector.indexOf(" ");
+    if (spaceIdx !== -1) {
+      base = selector.slice(0, spaceIdx);
+      combinator = selector.slice(spaceIdx);
+    }
+    return { ...defaults, type: "id", idName: base.slice(1), combinator };
   }
   if (selector.startsWith(".")) {
-    return { ...defaults, type: "class", className: selector.slice(1) };
+    const spaceIdx = selector.indexOf(" ");
+    if (spaceIdx !== -1) {
+      base = selector.slice(0, spaceIdx);
+      combinator = selector.slice(spaceIdx);
+    }
+    return { ...defaults, type: "class", className: base.slice(1), combinator };
   }
   if (/^[a-z][a-z0-9]*$/i.test(selector)) {
-    return { ...defaults, type: "tag", tagName: selector };
+    return { ...defaults, type: "tag", tagName: selector, combinator: "" };
   }
-  return { ...defaults, type: "custom" };
+  // For tag with combinator (e.g. "div > *")
+  if (/^[a-z][a-z0-9]*/i.test(selector)) {
+    const spaceIdx = selector.indexOf(" ");
+    if (spaceIdx !== -1) {
+      base = selector.slice(0, spaceIdx);
+      combinator = selector.slice(spaceIdx);
+      return { ...defaults, type: "tag", tagName: base, combinator };
+    }
+  }
+  return { ...defaults, type: "custom", combinator: "" };
 }
 
 function buildSelector(parts: SelectorParts): string {
+  let base: string;
   switch (parts.type) {
     case "attribute":
-      return parts.attrValue ? `[${parts.attrName}="${parts.attrValue}"]` : `[${parts.attrName}]`;
+      base = parts.attrValue ? `[${parts.attrName}="${parts.attrValue}"]` : `[${parts.attrName}]`;
+      break;
     case "class":
-      return `.${parts.className}`;
+      base = `.${parts.className}`;
+      break;
     case "id":
-      return `#${parts.idName}`;
+      base = `#${parts.idName}`;
+      break;
     case "tag":
-      return parts.tagName;
+      base = parts.tagName;
+      break;
     case "custom":
-      return parts.customSelector;
+      return parts.customSelector; // custom already includes everything
+    default:
+      base = "";
   }
+  return base + parts.combinator;
 }
 
 function getCommonValue<T>(items: Tween[], getter: (t: Tween) => T): T | "mixed" {
@@ -186,7 +225,7 @@ export function PropertyPanel({ tweens, onUpdate, triggerConfig, onTriggerUpdate
     const commonEase = getCommonValue(tweens, (t) => t.ease);
 
     return (
-      <div className="w-80 flex flex-col bg-surface border-l border-border min-h-0 overflow-y-auto">
+      <div className="w-80 flex flex-col bg-surface border-l border-border min-h-0 overflow-y-auto" data-lenis-prevent>
         {/* Header */}
         <div className="px-3 py-2 border-b border-border">
           <span className="text-xs font-medium text-text-primary">{tweens.length} tweens selected</span>
@@ -274,7 +313,7 @@ export function PropertyPanel({ tweens, onUpdate, triggerConfig, onTriggerUpdate
   const availableProps = Object.keys(PROPERTY_META).filter((p) => !activeTween.properties[p]);
 
   return (
-    <div className="w-80 bg-surface border-l border-border overflow-y-auto overscroll-contain">
+    <div className="w-80 bg-surface border-l border-border overflow-y-auto overscroll-contain" data-lenis-prevent>
       {/* Target */}
       <PropertySection title="Target">
         {/* Selector type tabs */}
@@ -391,6 +430,68 @@ export function PropertyPanel({ tweens, onUpdate, triggerConfig, onTriggerUpdate
                 border border-border rounded-md focus:outline-none focus:border-accent/50"
               placeholder='.parent > .child[data-active="true"]'
             />
+          </div>
+        )}
+
+        {/* Combinator / targeting */}
+        {selectorParts.type !== "custom" && (
+          <div className="space-y-1">
+            <label className="text-[9px] text-text-dim block">Targeting</label>
+            <div className="flex gap-0.5">
+              {(
+                [
+                  { value: "", label: "Self" },
+                  { value: " > *", label: "> *" },
+                  { value: " *", label: "All *" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.label}
+                  onClick={() => updateSelector({ ...selectorParts, combinator: opt.value })}
+                  className={`flex-1 px-1.5 py-1 text-[9px] font-mono rounded transition-colors ${
+                    selectorParts.combinator === opt.value
+                      ? "bg-accent/20 text-accent border border-accent/30"
+                      : "bg-black/20 text-text-dim border border-transparent hover:text-text-muted"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              <button
+                onClick={() =>
+                  updateSelector({
+                    ...selectorParts,
+                    combinator:
+                      selectorParts.combinator !== "" &&
+                      selectorParts.combinator !== " > *" &&
+                      selectorParts.combinator !== " *"
+                        ? ""
+                        : " > ",
+                  })
+                }
+                className={`flex-1 px-1.5 py-1 text-[9px] font-mono rounded transition-colors ${
+                  selectorParts.combinator !== "" &&
+                  selectorParts.combinator !== " > *" &&
+                  selectorParts.combinator !== " *"
+                    ? "bg-accent/20 text-accent border border-accent/30"
+                    : "bg-black/20 text-text-dim border border-transparent hover:text-text-muted"
+                }`}
+              >
+                Custom
+              </button>
+            </div>
+            {selectorParts.combinator !== "" &&
+              selectorParts.combinator !== " > *" &&
+              selectorParts.combinator !== " *" && (
+                <input
+                  type="text"
+                  value={selectorParts.combinator}
+                  onChange={(e) => updateSelector({ ...selectorParts, combinator: e.target.value })}
+                  className="w-full h-7 px-2 text-xs font-mono text-text-primary bg-black/20
+                    border border-border rounded-md focus:outline-none focus:border-accent/50"
+                  placeholder=" > button:first-child"
+                />
+              )}
           </div>
         )}
 

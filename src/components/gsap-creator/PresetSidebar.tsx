@@ -68,7 +68,7 @@ export function PresetSidebar({
       </div>
 
       {/* Preset list */}
-      <div className="flex-1 overflow-y-auto py-1">
+      <div className="flex-1 overflow-y-auto py-1" data-lenis-prevent>
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-xs text-text-dim">Loading...</div>

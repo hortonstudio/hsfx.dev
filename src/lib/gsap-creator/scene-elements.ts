@@ -37,7 +37,7 @@ export function renderSceneElement(el: SceneElement): string {
 </div>`;
 
     case "box":
-      return `<div ${dataAttrs} style="width:120px;height:120px;border-radius:0.75rem;background:rgba(14,165,233,0.2);border:1px solid rgba(14,165,233,0.3);"></div>`;
+      return `<div ${dataAttrs} style="width:120px;height:120px;border-radius:0.75rem;background:rgba(14,165,233,0.2);border:1px solid rgba(14,165,233,0.3);display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:700;color:rgba(14,165,233,0.8);">${el.label}</div>`;
 
     case "button":
       return `<button ${dataAttrs} style="padding:0.75rem 1.5rem;border-radius:0.5rem;background:rgba(14,165,233,1);color:white;font-weight:500;font-size:0.875rem;border:none;cursor:pointer;">${el.label}</button>`;

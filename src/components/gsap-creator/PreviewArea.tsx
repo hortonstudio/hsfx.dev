@@ -529,10 +529,22 @@ export const PreviewArea = forwardRef<PreviewAreaHandle, PreviewAreaProps>(
                 height: hoverRect.height,
               }}
             >
-              <div className="absolute -top-6 left-0 flex items-center gap-1 pointer-events-auto">
+              <div className="absolute -top-7 left-0 flex items-center gap-1 pointer-events-auto">
                 <span className="text-[9px] font-mono text-accent bg-accent/10 px-1.5 py-0.5 rounded">
-                  {hoveredAnimId}
+                  {`[data-hs-anim="${hoveredAnimId}"]`}
                 </span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`[data-hs-anim="${hoveredAnimId}"]`);
+                  }}
+                  className="w-4 h-4 flex items-center justify-center rounded bg-accent/20 text-accent hover:bg-accent/30"
+                  title="Copy selector"
+                >
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                  </svg>
+                </button>
                 <button
                   onClick={() => onRemoveSceneElement?.(hoveredElementId)}
                   className="w-4 h-4 flex items-center justify-center rounded bg-red-500/80 text-white hover:bg-red-500"
