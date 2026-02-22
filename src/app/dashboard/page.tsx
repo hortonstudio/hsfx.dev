@@ -350,7 +350,7 @@ export default function DashboardPage() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <DashboardCard
-                href="/dashboard/onboard"
+                href="/clients"
                 icon={
                   <svg
                     className="w-5 h-5"

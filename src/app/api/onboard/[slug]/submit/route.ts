@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { buildSubmissionEmail } from "@/lib/onboard/email-template";
+import { generateMarkdown } from "@/lib/onboard/markdown";
 import type { OnboardConfig, OnboardSubmission } from "@/lib/onboard/types";
 
 export async function POST(
@@ -146,6 +147,29 @@ export async function POST(
       })
       .catch((err) => {
         console.error("Failed to send submission email:", err);
+      });
+  }
+
+  // Create a knowledge entry for the client if this config is linked to one
+  if (status === "submitted" && typedConfig.client_id) {
+    const markdown = generateMarkdown(typedConfig, {
+      answers,
+      file_urls: file_urls,
+    } as OnboardSubmission);
+
+    supabase
+      .from("client_knowledge_entries")
+      .insert({
+        client_id: typedConfig.client_id,
+        type: "submission_summary",
+        title: `Onboarding submission — ${new Date().toLocaleDateString()}`,
+        content: markdown,
+        metadata: { submission_id: submission.id, config_slug: slug },
+      })
+      .then(({ error: knowledgeError }) => {
+        if (knowledgeError) {
+          console.error("Failed to create knowledge entry:", knowledgeError);
+        }
       });
   }
 

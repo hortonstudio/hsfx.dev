@@ -54,6 +54,7 @@ export interface OnboardConfig {
   client_name: string;
   business_name: string;
   client_email?: string;
+  client_id?: string;
   config: {
     questions: QuestionConfig[];
     branding?: {

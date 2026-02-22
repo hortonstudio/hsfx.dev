@@ -177,6 +177,30 @@ function PortalView({
           </button>
         </div>
 
+        <div className="mb-8 flex items-center gap-1 border-b border-border-primary">
+          <button className="px-4 py-2 text-sm font-medium text-blue-400 border-b-2 border-blue-400 -mb-px">
+            Onboarding
+          </button>
+          <button
+            disabled
+            className="px-4 py-2 text-sm font-medium text-text-dim/50 cursor-not-allowed"
+          >
+            Sitemap
+          </button>
+          <button
+            disabled
+            className="px-4 py-2 text-sm font-medium text-text-dim/50 cursor-not-allowed"
+          >
+            Mockups
+          </button>
+          <button
+            disabled
+            className="px-4 py-2 text-sm font-medium text-text-dim/50 cursor-not-allowed"
+          >
+            Project Status
+          </button>
+        </div>
+
         {configs.length === 0 ? (
           <div className="rounded-xl border border-border-primary bg-bg-secondary p-12 text-center">
             <p className="text-text-dim">

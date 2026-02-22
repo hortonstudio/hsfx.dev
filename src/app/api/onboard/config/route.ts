@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     client_name: string;
     business_name: string;
     client_email?: string;
+    client_id?: string;
     config: OnboardConfig["config"];
     status?: "draft" | "active" | "archived";
   };
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
     client_name,
     business_name,
     client_email: body.client_email || null,
+    client_id: body.client_id || null,
     config,
     status,
     updated_at: new Date().toISOString(),

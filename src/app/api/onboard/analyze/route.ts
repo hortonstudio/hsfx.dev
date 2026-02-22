@@ -40,6 +40,7 @@ interface AnalyzeBody {
   notes?: string;
   niche?: BusinessNiche;
   screenshots?: string[];
+  knowledgeBase?: string;
 }
 
 // POST: Scrape site + generate config via Claude
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { url, notes, niche, screenshots } = body;
+  const { url, notes, niche, screenshots, knowledgeBase } = body;
   if (!url) {
     return NextResponse.json({ error: "Missing url" }, { status: 400 });
   }
@@ -93,18 +94,6 @@ export async function POST(request: NextRequest) {
     .filter((s) => typeof s === "string" && s.startsWith("data:image/"))
     .slice(0, 5);
 
-  // Scrape the site
-  let scrapedData;
-  try {
-    scrapedData = await scrapeMultiPage(url);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json(
-      { error: `Failed to scrape site: ${msg}` },
-      { status: 502 }
-    );
-  }
-
   // Fetch AI prompt template from Supabase
   const adminClient = createAdminClient();
   const { data: promptData } = await adminClient
@@ -120,18 +109,57 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Build the user message with scraped data
-  const colorsText = scrapedData.colors.length > 0
-    ? scrapedData.colors.slice(0, 8).map((c) =>
-        `  - ${c.hex} (found ${c.count}x in: ${c.sources.join(", ")})`
-      ).join("\n")
-    : "  No colors detected";
+  let userMessage: string;
 
-  const screenshotNote = validScreenshots.length > 0
-    ? `\n\n${validScreenshots.length} screenshot(s) of the website are attached above. Use these for visual context about the site's design, layout, and branding.`
-    : "";
+  if (knowledgeBase) {
+    // Use knowledge base content instead of scraping
+    const screenshotNote = validScreenshots.length > 0
+      ? `\n\n${validScreenshots.length} screenshot(s) of the website are attached above. Use these for visual context about the site's design, layout, and branding.`
+      : "";
 
-  const userMessage = `
+    userMessage = `
+Website URL: ${url}
+
+== CLIENT KNOWLEDGE BASE ==
+
+${knowledgeBase}
+
+== END KNOWLEDGE BASE ==${notes ? `
+
+== NOTES FROM THE DESIGNER ==
+These notes are from the designer who spoke with the client. They take PRIORITY over anything found in the knowledge base. If notes contradict knowledge base data, follow the notes.
+
+${notes}
+
+== END NOTES ==` : ""}
+
+Using the knowledge base above${notes ? " and the designer's notes" : ""}, generate a complete onboarding config JSON following the schema in your instructions. Use the real colors, contact info, and services found. IMPORTANT: Do NOT fabricate or guess any contact info (emails, phones, addresses). If a field is not present in the knowledge base, leave it out or ask the client for it. Only pre-fill values that were actually provided. Return ONLY the JSON, no explanation or markdown formatting.${screenshotNote}
+`.trim();
+  } else {
+    // Scrape the site
+    let scrapedData;
+    try {
+      scrapedData = await scrapeMultiPage(url);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      return NextResponse.json(
+        { error: `Failed to scrape site: ${msg}` },
+        { status: 502 }
+      );
+    }
+
+    // Build the user message with scraped data
+    const colorsText = scrapedData.colors.length > 0
+      ? scrapedData.colors.slice(0, 8).map((c) =>
+          `  - ${c.hex} (found ${c.count}x in: ${c.sources.join(", ")})`
+        ).join("\n")
+      : "  No colors detected";
+
+    const screenshotNote = validScreenshots.length > 0
+      ? `\n\n${validScreenshots.length} screenshot(s) of the website are attached above. Use these for visual context about the site's design, layout, and branding.`
+      : "";
+
+    userMessage = `
 Website URL: ${url}
 
 == SCRAPED DATA FROM THE WEBSITE ==
@@ -151,13 +179,13 @@ CONTACT:
 
 HEADINGS:
 ${scrapedData.content.headings.length > 0
-    ? scrapedData.content.headings.map((h) => `  - ${h}`).join("\n")
-    : "  None found"}
+      ? scrapedData.content.headings.map((h) => `  - ${h}`).join("\n")
+      : "  None found"}
 
 SERVICES DETECTED:
 ${scrapedData.content.services.length > 0
-    ? scrapedData.content.services.map((s) => `  - ${s}`).join("\n")
-    : "  None found"}
+      ? scrapedData.content.services.map((s) => `  - ${s}`).join("\n")
+      : "  None found"}
 
 LOGO: ${scrapedData.logoUrl ?? "Not found"}
 
@@ -174,6 +202,7 @@ ${notes}
 
 Using the scraped data above${notes ? " and the designer's notes" : ""}, generate a complete onboarding config JSON following the schema in your instructions. Use the real colors, contact info, and services found. IMPORTANT: Do NOT fabricate or guess any contact info (emails, phones, addresses). If a field shows "N/A" above, leave it out or ask the client for it. Only pre-fill values that were actually scraped. Return ONLY the JSON, no explanation or markdown formatting.${screenshotNote}
 `.trim();
+  }
 
   // Build multi-modal content for Claude
   const userContent: Anthropic.MessageCreateParams["messages"][0]["content"] = [];
