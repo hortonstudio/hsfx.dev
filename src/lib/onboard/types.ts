@@ -43,6 +43,8 @@ export interface QuestionConfig {
   maxTags?: number;
   suggestions?: string[];
   detectedTheme?: "light" | "dark";
+  defaultValue?: string;
+  format?: "phone" | "email";
 }
 
 export interface OnboardConfig {

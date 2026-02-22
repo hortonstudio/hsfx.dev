@@ -182,7 +182,20 @@ export function OnboardForm({ config, existingSubmission }: OnboardFormProps) {
         setAnswers(saved);
       }
     }
-  }, [slug, existingSubmission]);
+
+    // Apply defaultValues from config for questions without answers
+    setAnswers(prev => {
+      const next = { ...prev };
+      let changed = false;
+      for (const q of questions) {
+        if (q.defaultValue !== undefined && (next[q.id] === undefined || next[q.id] === null || next[q.id] === "")) {
+          next[q.id] = q.defaultValue;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [slug, existingSubmission, questions]);
 
   // Auto-save answers to localStorage
   useEffect(() => {

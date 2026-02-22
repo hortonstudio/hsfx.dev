@@ -51,16 +51,17 @@ function formatAnswerDisplay(
       return <span className="text-text-dim italic">No files uploaded</span>;
     }
     return (
-      <div className="space-y-1">
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
         {urls.map((url, idx) => (
           <a
             key={idx}
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block text-sm text-accent hover:underline truncate"
+            className="block relative aspect-square rounded-lg overflow-hidden bg-background border border-border hover:border-accent/50 transition-colors"
           >
-            {url.split("/").pop() ?? url}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={url} alt={`File ${idx + 1}`} className="w-full h-full object-cover" />
           </a>
         ))}
       </div>
@@ -186,12 +187,66 @@ function formatAnswerDisplay(
     case "project_gallery": {
       if (typeof answer === "object" && !Array.isArray(answer) && "projects" in answer) {
         const val = answer as ProjectGalleryValue;
-        const parts: string[] = [];
-        if (val.projects.length > 0) parts.push(`${val.projects.length} project(s)`);
-        if (val.photos.length > 0) parts.push(`${val.photos.length} photo(s)`);
-        if (parts.length > 0) {
-          return <p className="text-text-secondary text-sm">{parts.join(", ")}</p>;
+        if (val.projects.length === 0 && val.photos.length === 0) {
+          return <span className="text-text-dim italic">No projects added</span>;
         }
+        return (
+          <div className="space-y-4">
+            {val.projects.map((project, pi) => (
+              <div key={pi} className="space-y-2">
+                {project.title && (
+                  <p className="text-text-secondary text-sm font-medium">{project.title}</p>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  {project.beforePhotos.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-text-dim text-xs font-medium uppercase tracking-wider">Before</p>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {project.beforePhotos.map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                            className="block relative aspect-square rounded-lg overflow-hidden bg-background border border-border hover:border-accent/50 transition-colors">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={url} alt={`Before ${i + 1}`} className="w-full h-full object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {project.afterPhotos.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-text-dim text-xs font-medium uppercase tracking-wider">After</p>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {project.afterPhotos.map((url, i) => (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                            className="block relative aspect-square rounded-lg overflow-hidden bg-background border border-border hover:border-accent/50 transition-colors">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={url} alt={`After ${i + 1}`} className="w-full h-full object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {val.photos.length > 0 && (
+              <div className="space-y-1">
+                {val.projects.length > 0 && (
+                  <p className="text-text-dim text-xs font-medium uppercase tracking-wider">General Photos</p>
+                )}
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {val.photos.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                      className="block relative aspect-square rounded-lg overflow-hidden bg-background border border-border hover:border-accent/50 transition-colors">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
       }
       return <span className="text-text-dim italic">No projects added</span>;
     }

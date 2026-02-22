@@ -78,26 +78,32 @@ export function ProjectGalleryQuestion({
     update({ ...gallery, projects: updated });
   };
 
-  const handleProjectPhoto = useCallback(
+  const handleProjectPhotos = useCallback(
     async (
       projectIndex: number,
       side: "before" | "after",
-      file: File
+      files: FileList
     ) => {
-      if (!onFileUpload || !slug) return;
+      if (!onFileUpload || !slug || files.length === 0) return;
       setUploading(`${side}-${projectIndex}`);
-      try {
-        const url = await onFileUpload(slug, question.id, file);
+      const newUrls: string[] = [];
+      for (const file of Array.from(files)) {
+        try {
+          const url = await onFileUpload(slug, question.id, file);
+          newUrls.push(url);
+        } catch {
+          // Upload failed silently
+        }
+      }
+      if (newUrls.length > 0) {
         const updated = gallery.projects.map((p, i) => {
           if (i !== projectIndex) return p;
           if (side === "before") {
-            return { ...p, beforePhotos: [...p.beforePhotos, url] };
+            return { ...p, beforePhotos: [...p.beforePhotos, ...newUrls] };
           }
-          return { ...p, afterPhotos: [...p.afterPhotos, url] };
+          return { ...p, afterPhotos: [...p.afterPhotos, ...newUrls] };
         });
         update({ ...gallery, projects: updated });
-      } catch {
-        // Upload failed silently
       }
       setUploading(null);
     },
@@ -330,12 +336,12 @@ export function ProjectGalleryQuestion({
                       if (el) beforeInputRefs.current.set(projectIndex, el);
                     }}
                     type="file"
+                    multiple
                     className="hidden"
                     accept={ACCEPTED_IMAGE_TYPES}
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleProjectPhoto(projectIndex, "before", file);
+                      if (e.target.files && e.target.files.length > 0) {
+                        handleProjectPhotos(projectIndex, "before", e.target.files);
                         e.target.value = "";
                       }
                     }}
@@ -424,12 +430,12 @@ export function ProjectGalleryQuestion({
                       if (el) afterInputRefs.current.set(projectIndex, el);
                     }}
                     type="file"
+                    multiple
                     className="hidden"
                     accept={ACCEPTED_IMAGE_TYPES}
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleProjectPhoto(projectIndex, "after", file);
+                      if (e.target.files && e.target.files.length > 0) {
+                        handleProjectPhotos(projectIndex, "after", e.target.files);
                         e.target.value = "";
                       }
                     }}

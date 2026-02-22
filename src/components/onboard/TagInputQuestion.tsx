@@ -114,20 +114,20 @@ export function TagInputQuestion({
 
   return (
     <div className="space-y-4">
-      {/* Tags grid */}
+      {/* Tags */}
       {tags.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+        <div className="flex flex-wrap gap-2">
           {tags.map((tag, index) => (
             <div
               key={`${tag}-${index}`}
               className="
-                flex items-center justify-between gap-2
+                flex items-center gap-2
                 px-4 py-2.5 min-h-[44px]
                 bg-accent/10 border border-accent/30 rounded-xl
                 text-text-primary text-sm font-medium
               "
             >
-              <span className="truncate">{tag}</span>
+              <span>{tag}</span>
               <button
                 type="button"
                 onClick={() => removeTag(index)}
