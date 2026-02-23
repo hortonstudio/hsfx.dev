@@ -58,6 +58,35 @@ export function WebflowDebugModal({
   // Re-push
   const [repushing, setRepushing] = useState(false);
 
+  // Population script
+  const [copyingScript, setCopyingScript] = useState(false);
+
+  // ──────────────────────────────────────────────────
+  // COPY POPULATION SCRIPT
+  // ──────────────────────────────────────────────────
+
+  async function handleCopyScript() {
+    setCopyingScript(true);
+    try {
+      const res = await fetch("/api/webflow/script");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to fetch script");
+      }
+      const data = await res.json();
+      await navigator.clipboard.writeText(data.script);
+      addToast({ variant: "success", title: "Population script copied to clipboard" });
+    } catch (err) {
+      addToast({
+        variant: "error",
+        title: "Failed to copy script",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setCopyingScript(false);
+    }
+  }
+
   // ──────────────────────────────────────────────────
   // COLLECTION INSPECTOR
   // ──────────────────────────────────────────────────
@@ -440,6 +469,31 @@ export function WebflowDebugModal({
               <span className="text-xs text-red-400">Invalid</span>
             )}
           </div>
+        </section>
+
+        <hr className="border-border" />
+
+        {/* ──── Section 5: Population Script ──── */}
+        <section className="space-y-3">
+          <h4 className="text-sm font-medium text-text-primary">Population Script</h4>
+          <p className="text-xs text-text-dim">
+            Copy the minified mockup-populate.js wrapped in {"<script>"} tags for pasting into Webflow.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCopyScript}
+            disabled={copyingScript}
+          >
+            {copyingScript ? (
+              <>
+                <Spinner size="sm" />
+                Copying...
+              </>
+            ) : (
+              "Copy Population Script"
+            )}
+          </Button>
         </section>
       </div>
     </Modal>
