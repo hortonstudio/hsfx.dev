@@ -174,6 +174,7 @@ function ClientDetailContent({ id }: { id: string }) {
         <TabPanel value="knowledge">
           <KnowledgeBase
             clientId={id}
+            clientName={client?.business_name || client?.first_name + " " + client?.last_name || ""}
             entries={knowledgeEntries}
             compiledDoc={knowledgeDoc}
             onDataChanged={fetchData}

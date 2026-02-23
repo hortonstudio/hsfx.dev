@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { Button, Input, Spinner, useToast } from "@/components/ui";
 import { KnowledgeEntryCard } from "./KnowledgeEntryCard";
 import { AddNotesModal } from "./AddNotesModal";
 import { CompiledDocViewer } from "./CompiledDocViewer";
 import type { KnowledgeEntry, KnowledgeDocument } from "@/lib/clients/types";
+import { compressImage } from "@/lib/image-compression";
+import { estimateCompilationCost } from "@/lib/clients/token-estimator";
 
 interface KnowledgeBaseProps {
   clientId: string;
+  clientName: string;
   entries: KnowledgeEntry[];
   compiledDoc: KnowledgeDocument | null;
   onDataChanged: () => void;
@@ -18,6 +21,7 @@ const IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image
 
 export function KnowledgeBase({
   clientId,
+  clientName,
   entries,
   compiledDoc,
   onDataChanged,
@@ -47,13 +51,16 @@ export function KnowledgeBase({
   // ──────────────────────────────────────────────────
 
   const uploadFile = useCallback(async (file: File) => {
+    // Step 0: Compress image if applicable
+    const fileToUpload = await compressImage(file);
+
     // Step 1: Get signed upload URL
     const uploadRes = await fetch(`/api/clients/${clientId}/knowledge/upload`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        filename: file.name,
-        contentType: file.type,
+        filename: fileToUpload.name,
+        contentType: fileToUpload.type,
       }),
     });
 
@@ -67,8 +74,8 @@ export function KnowledgeBase({
     // Step 2: Upload file to signed URL
     const putRes = await fetch(signedUrl, {
       method: "PUT",
-      headers: { "Content-Type": file.type },
-      body: file,
+      headers: { "Content-Type": fileToUpload.type },
+      body: fileToUpload,
     });
 
     if (!putRes.ok) {
@@ -284,6 +291,12 @@ export function KnowledgeBase({
   // Use local doc if we just compiled, otherwise use prop
   const displayDoc = localCompiledDoc ?? compiledDoc;
 
+  // Token estimation for compile cost preview
+  const costEstimate = useMemo(() => {
+    if (entries.length === 0) return null;
+    return estimateCompilationCost(entries, clientName);
+  }, [entries, clientName]);
+
   return (
     <div
       className="space-y-6 relative"
@@ -440,23 +453,31 @@ export function KnowledgeBase({
           <h3 className="text-sm font-medium text-text-primary">
             Compiled Knowledge Base
           </h3>
-          <Button
-            size="sm"
-            variant={displayDoc ? "outline" : "primary"}
-            onClick={handleCompile}
-            disabled={compiling || entries.length === 0}
-          >
-            {compiling ? (
-              <>
-                <Spinner size="sm" />
-                Compiling...
-              </>
-            ) : displayDoc ? (
-              "Recompile"
-            ) : (
-              "Compile Knowledge Base"
+          <div className="flex items-center gap-3">
+            {costEstimate && (
+              <div className="text-xs text-text-muted">
+                Est: {costEstimate.formattedInput} in + {costEstimate.formattedOutput} out ≈{" "}
+                <span className="font-medium text-text-primary">{costEstimate.estimatedCost}</span>
+              </div>
             )}
-          </Button>
+            <Button
+              size="sm"
+              variant={displayDoc ? "outline" : "primary"}
+              onClick={handleCompile}
+              disabled={compiling || entries.length === 0}
+            >
+              {compiling ? (
+                <>
+                  <Spinner size="sm" />
+                  Compiling...
+                </>
+              ) : displayDoc ? (
+                "Recompile"
+              ) : (
+                "Compile Knowledge Base"
+              )}
+            </Button>
+          </div>
         </div>
 
         {compiling && (
