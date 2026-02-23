@@ -47,16 +47,16 @@ export interface KnowledgeDocument {
 // ── Variant Types ──
 
 export type NavbarVariant =
-  | "Full With Top"
-  | "Full Without Top"
-  | "Island With Top"
-  | "Island Without Top";
+  | "Full"
+  | "Full, no top"
+  | "Island"
+  | "Island, no top";
 
 export type FooterVariant = "Minimal" | "Full";
 
 export type HeroVariant =
-  | "Full Height Left Align"
-  | "Auto Height Center Align"
+  | "Full Height, Left Align"
+  | "Auto Height, Center Align"
   | "Text and Image 2 Grid";
 
 export type ServicesVariant = "Three Grid" | "Sticky List";

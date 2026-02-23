@@ -96,7 +96,7 @@ export function WebflowDebugModal({
     if (!collectionData) return;
     const lines = collectionData.fields.map((f) => {
       let line = `${f.slug}\t${f.displayName}\t${f.type}`;
-      if (f.options?.length) line += `\t[${f.options.join(", ")}]`;
+      if (f.options?.length) line += `\t[${f.options.join(" | ")}]`;
       return line;
     });
     const text = `Slug\tDisplay Name\tType\tOptions\n${lines.join("\n")}`;
@@ -325,7 +325,7 @@ export function WebflowDebugModal({
                           <td className="pr-3 py-0.5">{f.type}</td>
                           <td className="py-0.5">
                             {f.options?.length ? (
-                              <span className="text-text-dim">{f.options.join(", ")}</span>
+                              <span className="text-text-dim">{f.options.join(" | ")}</span>
                             ) : null}
                           </td>
                         </tr>

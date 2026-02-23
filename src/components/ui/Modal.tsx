@@ -46,6 +46,7 @@ export function Modal({
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
+                    data-lenis-prevent
                     className={`
                       relative w-full max-h-[85vh] overflow-y-auto
                       bg-surface border border-border rounded-xl p-6 shadow-xl

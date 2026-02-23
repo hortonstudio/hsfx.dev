@@ -27,10 +27,10 @@ master_json contains dynamic data populated by JS:
 - contact: { form: { inputs: { name: { label, placeholder }, phone: { label, placeholder }, email: { label, placeholder }, address: { label, placeholder } }, textarea: { notes: { label, placeholder } }, checkbox_text, submit_button } }
 
 wf_fields contains CMS-bound values:
-- navbar_variant: "Full With Top" | "Full Without Top" | "Island With Top" | "Island Without Top"
+- navbar_variant: "Full" | "Full, no top" | "Island" | "Island, no top"
 - footer_variant: "Minimal" | "Full"
 - hero_tag, hero_heading, hero_paragraph, hero_button_1_text, hero_button_2_text
-- hero_variant: "Full Height Left Align" | "Auto Height Center Align" | "Text and Image 2 Grid"
+- hero_variant: "Full Height, Left Align" | "Auto Height, Center Align" | "Text and Image 2 Grid"
 - services_variant: "Three Grid" | "Sticky List"
 - services_tag, services_heading, services_paragraph, services_button
 - process_variant: "Sticky List" | "Card Grid"
@@ -285,14 +285,14 @@ Generate the complete homepage mockup config JSON.`;
 
     mockupConfig = {
       master_json: fullMasterJson,
-      navbar_variant: wf.navbar_variant ?? "Full Without Top",
+      navbar_variant: wf.navbar_variant ?? "Full, no top",
       footer_variant: wf.footer_variant ?? "Minimal",
       hero_tag: wf.hero_tag ?? "",
       hero_heading: wf.hero_heading ?? "",
       hero_paragraph: wf.hero_paragraph ?? "",
       hero_button_1_text: wf.hero_button_1_text ?? "Get a Free Quote",
       hero_button_2_text: wf.hero_button_2_text ?? "",
-      hero_variant: wf.hero_variant ?? "Auto Height Center Align",
+      hero_variant: wf.hero_variant ?? "Auto Height, Center Align",
       hero_image: "",
       services_variant: wf.services_variant ?? "Three Grid",
       services_tag: wf.services_tag ?? "",
