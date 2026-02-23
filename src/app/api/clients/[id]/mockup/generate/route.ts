@@ -46,7 +46,8 @@ wf_fields contains CMS-bound values:
 - css: { brand_1, brand_1_text, brand_2, brand_2_text, dark_900, dark_800, light_100, light_200, radius: "sharp"|"soft"|"rounded", theme: "light"|"dark" }
 
 Rules:
-- Logo src and hero_image must be "" (uploaded separately)
+- Logo src must be "" (uploaded separately)
+- For hero_image, about_image, and service card image_url: pick appropriate stock image URLs from the provided list. Match by industry/category. If no stock images are available, use "".
 - All CTA/button hrefs go to #contact
 - Nav/footer hrefs are anchors: #about, #services, #contact, #service-area, #areas
 - Services Three Grid → Process Sticky List (and vice versa)
@@ -176,6 +177,25 @@ export async function POST(
     .map(([group, names]) => `  ${group}: ${names.join(", ")}`)
     .join("\n");
 
+  // Fetch stock images for AI to pick from
+  const { data: stockImages } = await adminClient
+    .from("stock_images")
+    .select("name, category, image_url")
+    .order("category")
+    .order("name");
+
+  const typedStockImages = (stockImages ?? []) as { name: string; category: string; image_url: string }[];
+
+  // Build stock image list for prompt
+  const imagesByCategory: Record<string, { name: string; url: string }[]> = {};
+  for (const img of typedStockImages) {
+    if (!imagesByCategory[img.category]) imagesByCategory[img.category] = [];
+    imagesByCategory[img.category].push({ name: img.name, url: img.image_url });
+  }
+  const stockImageListText = Object.entries(imagesByCategory)
+    .map(([cat, imgs]) => `  ${cat}: ${imgs.map((i) => `${i.name} (${i.url})`).join(", ")}`)
+    .join("\n");
+
   // Build user message
   const businessName =
     client.business_name || `${client.first_name} ${client.last_name}`;
@@ -187,6 +207,9 @@ ${kbDoc.content}
 
 Available icon names by group:
 ${iconListText}
+
+Available stock images by category (pick appropriate ones for hero_image, about_image, and service card image_url fields):
+${stockImageListText || "  (no stock images available — leave image fields as empty strings)"}
 
 Generate the complete homepage mockup config JSON.`;
 
@@ -294,7 +317,7 @@ Generate the complete homepage mockup config JSON.`;
       hero_button_1_text: wf.hero_button_1_text ?? "Get a Free Quote",
       hero_button_2_text: wf.hero_button_2_text ?? "",
       hero_variant: wf.hero_variant ?? "Auto Height, Center Align",
-      hero_image: "",
+      hero_image: wf.hero_image ?? "",
       services_variant: wf.services_variant ?? "Three Grid",
       services_tag: wf.services_tag ?? "",
       services_heading: wf.services_heading ?? "",
@@ -310,7 +333,7 @@ Generate the complete homepage mockup config JSON.`;
       about_subheading: wf.about_subheading ?? "",
       about_button_1: wf.about_button_1 ?? "",
       about_button_2: wf.about_button_2 ?? "",
-      about_image: "",
+      about_image: wf.about_image ?? "",
       stats_benefits_visibility: wf.stats_benefits_visibility ?? "Benefits",
       testimonials_tag: wf.testimonials_tag ?? "",
       testimonials_heading: wf.testimonials_heading ?? "",

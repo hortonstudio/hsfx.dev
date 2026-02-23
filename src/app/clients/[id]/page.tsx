@@ -22,7 +22,9 @@ import { ClientOverview } from "@/components/clients/ClientOverview";
 import { KnowledgeBase } from "@/components/clients/KnowledgeBase";
 import { OnboardingTab } from "@/components/clients/OnboardingTab";
 import { MockupTab } from "@/components/clients/MockupTab";
+import { SitemapTab } from "@/components/sitemap/SitemapTab";
 import type { Client, KnowledgeEntry, KnowledgeDocument, ClientMockup } from "@/lib/clients/types";
+import type { ClientSitemap } from "@/lib/clients/sitemap-types";
 import type { OnboardConfig, OnboardSubmission } from "@/lib/onboard/types";
 
 // ════════════════════════════════════════════════════════════
@@ -36,6 +38,7 @@ function ClientDetailContent({ id }: { id: string }) {
   const [onboardConfigs, setOnboardConfigs] = useState<OnboardConfig[]>([]);
   const [submissions, setSubmissions] = useState<OnboardSubmission[]>([]);
   const [mockup, setMockup] = useState<ClientMockup | null>(null);
+  const [sitemap, setSitemap] = useState<ClientSitemap | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
@@ -66,7 +69,7 @@ function ClientDetailContent({ id }: { id: string }) {
     setClient(clientData as Client);
 
     // Fetch related data in parallel
-    const [entriesResult, docResult, configsResult, mockupResult] = await Promise.all([
+    const [entriesResult, docResult, configsResult, mockupResult, sitemapResult] = await Promise.all([
       supabase
         .from("client_knowledge_entries")
         .select("*")
@@ -87,12 +90,18 @@ function ClientDetailContent({ id }: { id: string }) {
         .select("*")
         .eq("client_id", id)
         .maybeSingle(),
+      supabase
+        .from("client_sitemaps")
+        .select("*")
+        .eq("client_id", id)
+        .maybeSingle(),
     ]);
 
     setKnowledgeEntries((entriesResult.data as KnowledgeEntry[]) ?? []);
     setKnowledgeDoc((docResult.data as KnowledgeDocument) ?? null);
     setOnboardConfigs((configsResult.data as OnboardConfig[]) ?? []);
     setMockup((mockupResult.data as ClientMockup) ?? null);
+    setSitemap((sitemapResult.data as ClientSitemap) ?? null);
 
     // Fetch submissions for all onboard configs
     const configIds = (configsResult.data ?? []).map((c: OnboardConfig) => c.id);
@@ -165,6 +174,7 @@ function ClientDetailContent({ id }: { id: string }) {
           <Tab value="knowledge">Knowledge Base</Tab>
           <Tab value="onboarding">Onboarding</Tab>
           <Tab value="mockup">Mockup</Tab>
+          <Tab value="sitemap">Sitemap</Tab>
         </TabList>
 
         <TabPanel value="overview">
@@ -201,6 +211,15 @@ function ClientDetailContent({ id }: { id: string }) {
           <MockupTab
             clientId={id}
             mockup={mockup}
+            compiledDoc={knowledgeDoc}
+            onDataChanged={fetchData}
+          />
+        </TabPanel>
+
+        <TabPanel value="sitemap">
+          <SitemapTab
+            clientId={id}
+            sitemap={sitemap}
             compiledDoc={knowledgeDoc}
             onDataChanged={fetchData}
           />
