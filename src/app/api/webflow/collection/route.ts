@@ -50,14 +50,25 @@ export async function GET() {
     const schema = await schemaRes.json();
     const itemsData = await itemsRes.json();
 
-    // Extract field info
+    // Extract field info, including options for Option-type fields
     const fields = (schema.fields ?? []).map(
-      (f: { slug: string; displayName: string; type: string; validations?: Record<string, unknown> }) => ({
-        slug: f.slug,
-        displayName: f.displayName,
-        type: f.type,
-        validations: f.validations,
-      })
+      (f: { slug: string; displayName: string; type: string; validations?: Record<string, unknown> }) => {
+        const field: { slug: string; displayName: string; type: string; options?: string[] } = {
+          slug: f.slug,
+          displayName: f.displayName,
+          type: f.type,
+        };
+
+        // Extract available choices for Option fields
+        if (f.type === "Option" && f.validations) {
+          const meta = f.validations as { options?: Array<{ name: string }> };
+          if (Array.isArray(meta.options)) {
+            field.options = meta.options.map((o) => o.name);
+          }
+        }
+
+        return field;
+      }
     );
 
     // Extract item summaries (name + slug only)

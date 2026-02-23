@@ -16,6 +16,7 @@ interface CollectionField {
   slug: string;
   displayName: string;
   type: string;
+  options?: string[];
 }
 
 interface CollectionItem {
@@ -85,6 +86,22 @@ export function WebflowDebugModal({
     } finally {
       setCopyingScript(false);
     }
+  }
+
+  // ──────────────────────────────────────────────────
+  // COPY COLLECTION DATA
+  // ──────────────────────────────────────────────────
+
+  function handleCopyCollection() {
+    if (!collectionData) return;
+    const lines = collectionData.fields.map((f) => {
+      let line = `${f.slug}\t${f.displayName}\t${f.type}`;
+      if (f.options?.length) line += `\t[${f.options.join(", ")}]`;
+      return line;
+    });
+    const text = `Slug\tDisplay Name\tType\tOptions\n${lines.join("\n")}`;
+    navigator.clipboard.writeText(text);
+    addToast({ variant: "success", title: "Collection fields copied" });
   }
 
   // ──────────────────────────────────────────────────
@@ -254,21 +271,28 @@ export function WebflowDebugModal({
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-medium text-text-primary">Collection Inspector</h4>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleReadCollection}
-              disabled={loadingCollection}
-            >
-              {loadingCollection ? (
-                <>
-                  <Spinner size="sm" />
-                  Reading...
-                </>
-              ) : (
-                "Read Collection"
+            <div className="flex items-center gap-2">
+              {collectionData && (
+                <Button size="sm" variant="outline" onClick={handleCopyCollection}>
+                  Copy
+                </Button>
               )}
-            </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleReadCollection}
+                disabled={loadingCollection}
+              >
+                {loadingCollection ? (
+                  <>
+                    <Spinner size="sm" />
+                    Reading...
+                  </>
+                ) : (
+                  "Read Collection"
+                )}
+              </Button>
+            </div>
           </div>
 
           {collectionData && (
@@ -283,13 +307,14 @@ export function WebflowDebugModal({
                 <p className="text-xs font-medium text-text-dim mb-1">
                   Fields ({collectionData.fields.length})
                 </p>
-                <div className="max-h-40 overflow-y-auto bg-background border border-border rounded-lg p-2">
+                <div className="max-h-60 overflow-y-auto bg-background border border-border rounded-lg p-2">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="text-text-dim">
                         <th className="text-left pr-3 pb-1">Slug</th>
                         <th className="text-left pr-3 pb-1">Display Name</th>
-                        <th className="text-left pb-1">Type</th>
+                        <th className="text-left pr-3 pb-1">Type</th>
+                        <th className="text-left pb-1">Options</th>
                       </tr>
                     </thead>
                     <tbody className="text-text-muted">
@@ -297,7 +322,12 @@ export function WebflowDebugModal({
                         <tr key={f.slug}>
                           <td className="pr-3 py-0.5 font-mono">{f.slug}</td>
                           <td className="pr-3 py-0.5">{f.displayName}</td>
-                          <td className="py-0.5">{f.type}</td>
+                          <td className="pr-3 py-0.5">{f.type}</td>
+                          <td className="py-0.5">
+                            {f.options?.length ? (
+                              <span className="text-text-dim">{f.options.join(", ")}</span>
+                            ) : null}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
