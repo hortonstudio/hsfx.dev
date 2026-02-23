@@ -1,24 +1,21 @@
 import type { KnowledgeEntry } from "./types";
 
-const SYSTEM_PROMPT = `You are a business analyst compiling client information into a structured knowledge base document. Organize the following information into a clean, well-formatted markdown document with these sections (omit sections with no data):
+// Claude vision: images cost ~5,000 tokens each (varies by resolution, but this is a solid average)
+const IMAGE_TOKENS = 5000;
 
-# {Business Name} — Client Knowledge Base
+const IMAGE_FILE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "image/avif"];
 
-## Business Overview
-## Services / Products
-## Contact Information
-## Brand Identity (colors, logos, tone, style preferences)
-## Target Audience
-## Competitive Landscape
-## Client Preferences & Notes
-## Technical Requirements
-## Media Assets
-
-Be thorough but concise. Extract and organize all relevant details. Use bullet points for lists. Preserve specific details like exact color codes, phone numbers, addresses, etc.`;
+const SYSTEM_PROMPT_TOKENS = 450; // ~1,800 chars / 4
 
 // Simple token estimation: ~4 chars per token (commonly used heuristic)
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
+}
+
+function isImageEntry(entry: KnowledgeEntry): boolean {
+  if (entry.type === "screenshot") return true;
+  if (!entry.file_type) return false;
+  return IMAGE_FILE_TYPES.includes(entry.file_type);
 }
 
 export function estimateCompilationCost(
@@ -31,11 +28,11 @@ export function estimateCompilationCost(
   formattedInput: string;
   formattedOutput: string;
 } {
-  // Build the same message structure as the compile route
-  const entryTexts = entries.map((entry) => {
-    if (entry.type === "screenshot") {
-      return `[Type: ${entry.type}] [Screenshot uploaded: ${entry.title}]`;
-    }
+  const imageEntries = entries.filter(isImageEntry);
+  const textEntries = entries.filter((e) => !isImageEntry(e));
+
+  // Build the same text message structure as the compile route
+  const entryTexts = textEntries.map((entry) => {
     if (!entry.content) {
       return `[Type: ${entry.type}] [File: ${entry.title}]`;
     }
@@ -44,11 +41,13 @@ export function estimateCompilationCost(
 
   const userMessage = `Compile the following ${entries.length} knowledge entries into a structured knowledge base document for "${clientName}":\n\n${entryTexts.join("\n\n---\n\n")}`;
 
-  // Full prompt = system + user message
-  const fullPrompt = SYSTEM_PROMPT + "\n\n" + userMessage;
+  // Text tokens from system prompt + user message
+  const textTokens = SYSTEM_PROMPT_TOKENS + estimateTokens(userMessage);
 
-  // Estimate input tokens
-  const inputTokens = estimateTokens(fullPrompt);
+  // Image tokens: ~5,000 per image
+  const imageTokens = imageEntries.length * IMAGE_TOKENS;
+
+  const inputTokens = textTokens + imageTokens;
 
   // Estimate output tokens: roughly 60% of input for compilation tasks, capped at max_tokens (4096)
   const estimatedOutputTokens = Math.min(Math.ceil(inputTokens * 0.6), 4096);

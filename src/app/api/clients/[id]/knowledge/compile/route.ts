@@ -4,7 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const maxDuration = 60;
 
-const SYSTEM_PROMPT = `You are a business analyst compiling client information into a structured knowledge base document. Organize the following information into a clean, well-formatted markdown document with these sections (omit sections with no data):
+const SYSTEM_PROMPT = `You are a business analyst compiling client information into a structured knowledge base document. You will receive text entries and may also receive screenshots (website pages, social media profiles, etc).
+
+Organize everything into a clean, well-formatted markdown document with these sections (omit sections with no data):
 
 # {Business Name} — Client Knowledge Base
 
@@ -18,13 +20,29 @@ const SYSTEM_PROMPT = `You are a business analyst compiling client information i
 ## Technical Requirements
 ## Media Assets
 
-Be thorough but concise. Extract and organize all relevant details. Use bullet points for lists. Preserve specific details like exact color codes, phone numbers, addresses, etc.`;
+IMPORTANT RULES:
+1. PRIORITY NOTES: Entries marked as [PRIORITY NOTE] are from the designer/admin and represent specific client preferences, decisions, and direction. These OVERRIDE any conflicting information from other sources. Always include these in the "Client Preferences & Notes" section and let them influence all other sections.
+2. SCREENSHOTS: When you receive screenshots, analyze them thoroughly for:
+   - Brand colors (identify specific hex codes or describe colors precisely)
+   - Logo style and placement
+   - Typography and fonts used
+   - Layout and design style
+   - Business information visible (phone, email, address, hours)
+   - Social media content and branding
+   - Service offerings shown
+   - Any other business-relevant details
+   Screenshots are a PRIMARY source of visual branding information. Extract as much as possible.
+3. Be thorough but concise. Use bullet points for lists.
+4. Preserve specific details like exact color codes, phone numbers, addresses, etc.
+5. If notes say the client wants to change something (e.g., move away from a color), document BOTH the current state AND the desired change clearly.`;
 
 interface KnowledgeEntry {
   id: string;
   type: string;
   title: string;
   content: string | null;
+  file_url: string | null;
+  file_type: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
 }
@@ -36,6 +54,13 @@ interface KnowledgeDocument {
   last_compiled_at: string;
   entry_ids_included: string[];
   metadata: Record<string, unknown> | null;
+}
+
+function isImageFile(entry: KnowledgeEntry): boolean {
+  if (!entry.file_url) return false;
+  if (entry.type === "screenshot") return true;
+  const imageTypes = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "image/avif"];
+  return imageTypes.includes(entry.file_type ?? "");
 }
 
 export async function POST(
@@ -107,29 +132,15 @@ export async function POST(
 
   const typedDoc = existingDoc as KnowledgeDocument | null;
 
-  // Build user message for Claude
-  let userMessage: string;
+  // Determine which entries to process
+  let entriesToProcess = typedEntries;
+  let existingContent: string | null = null;
 
-  if (!typedDoc) {
-    // No existing doc — compile all entries from scratch
-    const entryTexts = typedEntries.map((entry) => {
-      if (entry.type === "screenshot") {
-        return `[Type: ${entry.type}] [Screenshot uploaded: ${entry.title}]`;
-      }
-      if (!entry.content) {
-        return `[Type: ${entry.type}] [File: ${entry.title}]`;
-      }
-      return `[Type: ${entry.type}] ${entry.title}\n${entry.content}`;
-    });
-
-    userMessage = `Compile the following ${typedEntries.length} knowledge entries into a structured knowledge base document for "${client.business_name || client.name}":\n\n${entryTexts.join("\n\n---\n\n")}`;
-  } else {
-    // Existing doc exists — only send new entries
+  if (typedDoc) {
     const includedIds = new Set(typedDoc.entry_ids_included ?? []);
     const newEntries = typedEntries.filter((e) => !includedIds.has(e.id));
 
     if (newEntries.length === 0) {
-      // No new entries — return existing document as-is
       return NextResponse.json({
         success: true,
         document: typedDoc.content,
@@ -138,17 +149,65 @@ export async function POST(
       });
     }
 
-    const newEntryTexts = newEntries.map((entry) => {
-      if (entry.type === "screenshot") {
-        return `[Type: ${entry.type}] [Screenshot uploaded: ${entry.title}]`;
-      }
-      if (!entry.content) {
-        return `[Type: ${entry.type}] [File: ${entry.title}]`;
-      }
-      return `[Type: ${entry.type}] ${entry.title}\n${entry.content}`;
-    });
+    entriesToProcess = newEntries;
+    existingContent = typedDoc.content;
+  }
 
-    userMessage = `Here is the existing knowledge base document:\n\n${typedDoc.content}\n\n---\n\nPlease merge/update the document with these ${newEntries.length} new entries:\n\n${newEntryTexts.join("\n\n---\n\n")}`;
+  // Separate entries: notes (priority) → text → images
+  const noteEntries = entriesToProcess.filter((e) => e.type === "meeting_notes");
+  const imageEntries = entriesToProcess.filter((e) => isImageFile(e));
+  const otherEntries = entriesToProcess.filter(
+    (e) => e.type !== "meeting_notes" && !isImageFile(e)
+  );
+
+  const businessName = client.business_name || `${client.first_name} ${client.last_name}`;
+
+  // Build multimodal content blocks
+  const contentBlocks: Anthropic.MessageCreateParams["messages"][0]["content"] = [];
+
+  // Text message — notes FIRST as priority
+  let textMessage = "";
+
+  if (existingContent) {
+    textMessage += `Here is the existing knowledge base document:\n\n${existingContent}\n\n---\n\nPlease merge/update the document with these ${entriesToProcess.length} new entries:\n\n`;
+  } else {
+    textMessage += `Compile the following ${entriesToProcess.length} knowledge entries into a structured knowledge base document for "${businessName}":\n\n`;
+  }
+
+  if (noteEntries.length > 0) {
+    textMessage += `=== PRIORITY: DESIGNER/ADMIN NOTES ===\nThese notes contain specific client preferences and direction that OVERRIDE other data.\n\n`;
+    for (const entry of noteEntries) {
+      textMessage += `[PRIORITY NOTE] ${entry.title || "Notes"}\n${entry.content ?? ""}\n\n---\n\n`;
+    }
+  }
+
+  for (const entry of otherEntries) {
+    if (!entry.content) {
+      textMessage += `[Type: ${entry.type}] [File: ${entry.title}]\n\n---\n\n`;
+    } else {
+      textMessage += `[Type: ${entry.type}] ${entry.title}\n${entry.content}\n\n---\n\n`;
+    }
+  }
+
+  if (imageEntries.length > 0) {
+    textMessage += `\n${imageEntries.length} screenshot(s) attached below. Analyze each for brand colors, logos, typography, layout, contact info, social media details, and service offerings.\n`;
+  }
+
+  contentBlocks.push({ type: "text", text: textMessage });
+
+  // Add screenshots as image content blocks so Claude can actually SEE them
+  for (const entry of imageEntries) {
+    if (!entry.file_url) continue;
+
+    contentBlocks.push({
+      type: "image",
+      source: { type: "url", url: entry.file_url },
+    } as Anthropic.ImageBlockParam);
+
+    contentBlocks.push({
+      type: "text",
+      text: `[Screenshot: "${entry.title}"]`,
+    });
   }
 
   // Call Claude API
@@ -160,7 +219,7 @@ export async function POST(
       model: "claude-haiku-4-5-20251001",
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
+      messages: [{ role: "user", content: contentBlocks }],
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -184,6 +243,8 @@ export async function POST(
 
   // Upsert into client_knowledge_documents
   const allEntryIds = typedEntries.map((e) => e.id);
+  const usage = response.usage;
+
   const { error: upsertError } = await supabase
     .from("client_knowledge_documents")
     .upsert(
@@ -195,6 +256,8 @@ export async function POST(
         metadata: {
           model: "claude-haiku-4-5-20251001",
           entry_count: typedEntries.length,
+          input_tokens: usage.input_tokens,
+          output_tokens: usage.output_tokens,
         },
       },
       { onConflict: "client_id" }
@@ -208,10 +271,13 @@ export async function POST(
     );
   }
 
-  // Log usage
-  const usage = response.usage;
+  // Calculate cost (Haiku 4.5: $0.80/MTok input, $4.00/MTok output)
+  const inputCost = (usage.input_tokens / 1_000_000) * 0.8;
+  const outputCost = (usage.output_tokens / 1_000_000) * 4.0;
+  const totalCost = inputCost + outputCost;
+
   console.log(
-    `[knowledge/compile] Client: ${id} | Entries: ${typedEntries.length} | Input: ${usage.input_tokens} | Output: ${usage.output_tokens} | Total: ${usage.input_tokens + usage.output_tokens} tokens`
+    `[knowledge/compile] Client: ${id} | Entries: ${typedEntries.length} (${imageEntries.length} images) | Input: ${usage.input_tokens} | Output: ${usage.output_tokens} | Cost: $${totalCost.toFixed(4)}`
   );
 
   return NextResponse.json({
@@ -221,6 +287,7 @@ export async function POST(
     usage: {
       input_tokens: usage.input_tokens,
       output_tokens: usage.output_tokens,
+      total_cost: `$${totalCost.toFixed(4)}`,
     },
   });
 }

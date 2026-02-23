@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Button, Badge, Spinner, useToast } from "@/components/ui";
+import { WebflowDebugModal } from "./WebflowDebugModal";
 import type { ClientMockup, KnowledgeDocument } from "@/lib/clients/types";
 
 interface MockupTabProps {
@@ -21,15 +22,19 @@ export function MockupTab({
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [generating, setGenerating] = useState(false);
-  const [pushingDemo, setPushingDemo] = useState(false);
+  const [pushing, setPushing] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [localMockup, setLocalMockup] = useState<ClientMockup | null>(mockup);
   const [configExpanded, setConfigExpanded] = useState(false);
+  const [debugModalOpen, setDebugModalOpen] = useState(false);
+  const [copyingPrompt, setCopyingPrompt] = useState(false);
 
   const displayMockup = localMockup ?? mockup;
+  const isDraft = displayMockup?.status === "draft";
+  const isActive = displayMockup?.status === "active";
 
   // ──────────────────────────────────────────────────
-  // GENERATE
+  // GENERATE (AI → save as draft, no WF push)
   // ──────────────────────────────────────────────────
 
   async function handleGenerate() {
@@ -47,7 +52,7 @@ export function MockupTab({
 
       const data = await res.json();
       setLocalMockup(data.mockup);
-      addToast({ variant: "success", title: "Homepage mockup generated" });
+      addToast({ variant: "success", title: "Config generated (draft)" });
       onDataChanged();
     } catch (err) {
       addToast({
@@ -61,11 +66,11 @@ export function MockupTab({
   }
 
   // ──────────────────────────────────────────────────
-  // PUSH DEMO DATA
+  // LOAD DEMO (save demo config as draft)
   // ──────────────────────────────────────────────────
 
-  async function handlePushDemo() {
-    setPushingDemo(true);
+  async function handleLoadDemo() {
+    setGenerating(true);
 
     try {
       const res = await fetch(`/api/clients/${clientId}/mockup/demo`, {
@@ -74,24 +79,82 @@ export function MockupTab({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to push demo data");
+        throw new Error(data.error || "Failed to load demo config");
       }
 
       const data = await res.json();
       setLocalMockup(data.mockup);
-      addToast({
-        variant: "success",
-        title: "Demo data pushed to Webflow",
-      });
+      addToast({ variant: "success", title: "Demo config loaded (draft)" });
       onDataChanged();
     } catch (err) {
       addToast({
         variant: "error",
-        title: "Demo push failed",
+        title: "Demo load failed",
         description: err instanceof Error ? err.message : "Unknown error",
       });
     } finally {
-      setPushingDemo(false);
+      setGenerating(false);
+    }
+  }
+
+  // ──────────────────────────────────────────────────
+  // PUSH TO WEBFLOW
+  // ──────────────────────────────────────────────────
+
+  async function handlePush() {
+    setPushing(true);
+
+    try {
+      const res = await fetch(`/api/clients/${clientId}/mockup/push`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Webflow push failed");
+      }
+
+      const data = await res.json();
+      setLocalMockup(data.mockup);
+      addToast({ variant: "success", title: "Pushed to Webflow" });
+      onDataChanged();
+    } catch (err) {
+      addToast({
+        variant: "error",
+        title: "Push failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setPushing(false);
+    }
+  }
+
+  // ──────────────────────────────────────────────────
+  // COPY PROMPT + KB
+  // ──────────────────────────────────────────────────
+
+  async function handleCopyPrompt() {
+    setCopyingPrompt(true);
+
+    try {
+      const res = await fetch(`/api/clients/${clientId}/mockup/prompt`);
+      if (!res.ok) throw new Error("Failed to fetch prompt");
+
+      const data = await res.json();
+      const fullText = `=== SYSTEM PROMPT ===\n${data.systemPrompt}\n\n=== KNOWLEDGE BASE ===\nClient: ${data.businessName}\n\n${data.knowledgeBase}\n\n=== AVAILABLE ICONS ===\n${data.iconList}\n\n=== INSTRUCTION ===\nGenerate the complete homepage mockup config JSON.`;
+
+      await navigator.clipboard.writeText(fullText);
+      addToast({ variant: "success", title: "Prompt + KB copied to clipboard" });
+    } catch (err) {
+      addToast({
+        variant: "error",
+        title: "Copy failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setCopyingPrompt(false);
     }
   }
 
@@ -106,7 +169,6 @@ export function MockupTab({
     setUploadingLogo(true);
 
     try {
-      // Step 1: Get signed upload URL
       const uploadRes = await fetch(`/api/clients/${clientId}/mockup/logo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -123,16 +185,13 @@ export function MockupTab({
 
       const { signedUrl } = await uploadRes.json();
 
-      // Step 2: Upload file
       const putRes = await fetch(signedUrl, {
         method: "PUT",
         headers: { "Content-Type": file.type },
         body: file,
       });
 
-      if (!putRes.ok) {
-        throw new Error("Failed to upload logo");
-      }
+      if (!putRes.ok) throw new Error("Failed to upload logo");
 
       addToast({ variant: "success", title: "Logo uploaded" });
       onDataChanged();
@@ -144,14 +203,12 @@ export function MockupTab({
       });
     } finally {
       setUploadingLogo(false);
-      if (logoInputRef.current) {
-        logoInputRef.current.value = "";
-      }
+      if (logoInputRef.current) logoInputRef.current.value = "";
     }
   }
 
   // ──────────────────────────────────────────────────
-  // NO COMPILED KB
+  // STATE 1: NO COMPILED KB
   // ──────────────────────────────────────────────────
 
   if (!compiledDoc?.content) {
@@ -176,43 +233,37 @@ export function MockupTab({
           </h3>
           <p className="text-sm text-text-muted">
             Compile the Knowledge Base first before generating a homepage mockup.
-            The AI uses the compiled document as context.
           </p>
         </div>
 
-        {/* Demo push still available without KB */}
-        <div className="bg-surface border border-dashed border-border rounded-xl p-4 text-center">
-          <p className="text-xs text-text-dim mb-3">
-            Or push demo data to test the Webflow integration without AI
-          </p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handlePushDemo}
-            disabled={pushingDemo}
-          >
-            {pushingDemo ? (
-              <>
-                <Spinner size="sm" />
-                Pushing Demo...
-              </>
-            ) : (
-              "Push Demo Data"
-            )}
+        <div className="flex items-center justify-center">
+          <Button size="sm" variant="outline" onClick={() => setDebugModalOpen(true)}>
+            <WrenchIcon />
+            Webflow Debug
           </Button>
         </div>
+
+        <WebflowDebugModal
+          open={debugModalOpen}
+          onClose={() => setDebugModalOpen(false)}
+          clientId={clientId}
+          mockup={displayMockup}
+          onPushComplete={() => {
+            setDebugModalOpen(false);
+            onDataChanged();
+          }}
+        />
       </div>
     );
   }
 
   // ──────────────────────────────────────────────────
-  // NO MOCKUP YET
+  // STATE 2: HAS KB, NO CONFIG
   // ──────────────────────────────────────────────────
 
   if (!displayMockup) {
     return (
       <div className="space-y-4">
-        {/* KB Ready indicator */}
         <div className="flex items-center gap-2 text-sm text-emerald-400">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -242,49 +293,51 @@ export function MockupTab({
             knowledge base — all sections, colors, and content.
           </p>
           <div className="flex items-center justify-center gap-3">
-            <Button onClick={handleGenerate} disabled={generating || pushingDemo}>
+            <Button onClick={handleGenerate} disabled={generating}>
               {generating ? (
                 <>
                   <Spinner size="sm" />
                   Generating...
                 </>
               ) : (
-                "Generate Homepage Mockup"
+                "Generate Config"
               )}
             </Button>
-            <Button
-              variant="outline"
-              onClick={handlePushDemo}
-              disabled={generating || pushingDemo}
-            >
-              {pushingDemo ? (
-                <>
-                  <Spinner size="sm" />
-                  Pushing...
-                </>
-              ) : (
-                "Push Demo Data"
-              )}
+            <Button variant="outline" onClick={handleLoadDemo} disabled={generating}>
+              Load Demo
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setDebugModalOpen(true)}>
+              <WrenchIcon />
+              Webflow Debug
             </Button>
           </div>
         </div>
 
-        {(generating || pushingDemo) && (
+        {generating && (
           <div className="bg-surface border border-border rounded-xl p-6 flex items-center justify-center gap-3">
             <Spinner size="md" />
             <p className="text-sm text-text-muted">
-              {generating
-                ? "Generating mockup with AI... This may take 15-30 seconds."
-                : "Pushing demo data to Webflow..."}
+              Generating mockup with AI... This may take 15-30 seconds.
             </p>
           </div>
         )}
+
+        <WebflowDebugModal
+          open={debugModalOpen}
+          onClose={() => setDebugModalOpen(false)}
+          clientId={clientId}
+          mockup={displayMockup}
+          onPushComplete={() => {
+            setDebugModalOpen(false);
+            onDataChanged();
+          }}
+        />
       </div>
     );
   }
 
   // ──────────────────────────────────────────────────
-  // MOCKUP EXISTS
+  // STATE 3 & 4: CONFIG EXISTS (DRAFT or ACTIVE)
   // ──────────────────────────────────────────────────
 
   const config = displayMockup.config;
@@ -292,59 +345,89 @@ export function MockupTab({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header + Status */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h3 className="text-sm font-medium text-text-primary">
-            Homepage Mockup
-          </h3>
-          <Badge
-            variant={displayMockup.status === "active" ? "success" : "default"}
-          >
+          <h3 className="text-sm font-medium text-text-primary">Homepage Mockup</h3>
+          <Badge variant={isActive ? "success" : "warning"}>
             {displayMockup.status}
           </Badge>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handlePushDemo}
-            disabled={generating || pushingDemo}
-          >
-            {pushingDemo ? (
-              <>
-                <Spinner size="sm" />
-                Pushing...
-              </>
-            ) : (
-              "Push Demo"
-            )}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleGenerate}
-            disabled={generating || pushingDemo}
-          >
-            {generating ? (
-              <>
-                <Spinner size="sm" />
-                Regenerating...
-              </>
-            ) : (
-              "Regenerate"
-            )}
-          </Button>
-        </div>
       </div>
 
-      {(generating || pushingDemo) && (
+      {/* Action Buttons */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Primary: Push to Webflow */}
+        <Button
+          size="sm"
+          variant={isDraft ? "primary" : "outline"}
+          onClick={handlePush}
+          disabled={pushing || generating}
+        >
+          {pushing ? (
+            <>
+              <Spinner size="sm" />
+              Pushing...
+            </>
+          ) : isDraft ? (
+            "Push to Webflow"
+          ) : (
+            "Re-push to Webflow"
+          )}
+        </Button>
+
+        {/* Regenerate */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleGenerate}
+          disabled={generating || pushing}
+        >
+          {generating ? (
+            <>
+              <Spinner size="sm" />
+              Generating...
+            </>
+          ) : (
+            "Regenerate"
+          )}
+        </Button>
+
+        {/* Copy Prompt + KB */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleCopyPrompt}
+          disabled={copyingPrompt}
+        >
+          {copyingPrompt ? (
+            <>
+              <Spinner size="sm" />
+              Copying...
+            </>
+          ) : (
+            <>
+              <ClipboardIcon />
+              Copy Prompt + KB
+            </>
+          )}
+        </Button>
+
+        {/* Webflow Debug */}
+        <Button size="sm" variant="outline" onClick={() => setDebugModalOpen(true)}>
+          <WrenchIcon />
+          Webflow Debug
+        </Button>
+      </div>
+
+      {/* Loading states */}
+      {(generating || pushing) && (
         <div className="bg-surface border border-border rounded-xl p-6 flex items-center justify-center gap-3">
           <Spinner size="md" />
           <p className="text-sm text-text-muted">
             {generating
-              ? "Regenerating mockup with AI... This may take 15-30 seconds."
-              : "Pushing demo data to Webflow..."}
+              ? "Generating mockup with AI... This may take 15-30 seconds."
+              : "Pushing to Webflow..."}
           </p>
         </div>
       )}
@@ -405,9 +488,7 @@ export function MockupTab({
                 "Upload Logo"
               )}
             </Button>
-            <p className="text-xs text-text-dim mt-1">
-              SVG, PNG, or JPG recommended
-            </p>
+            <p className="text-xs text-text-dim mt-1">SVG, PNG, or JPG recommended</p>
           </div>
           <input
             ref={logoInputRef}
@@ -439,7 +520,6 @@ export function MockupTab({
 
         {configExpanded && (
           <div className="border-t border-border p-4 space-y-4">
-            {/* Hero */}
             <ConfigSection title="Hero">
               <ConfigField label="Variant" value={config.hero_variant} />
               <ConfigField label="Tag" value={config.hero_tag} />
@@ -449,22 +529,15 @@ export function MockupTab({
               <ConfigField label="Button 2" value={config.hero_button_2_text || "(empty)"} />
             </ConfigSection>
 
-            {/* Navbar */}
             <ConfigSection title={`Navbar (${config.navbar_variant})`}>
               <ConfigField
                 label="Top Bar"
                 value={mj?.navbar?.top_bar?.show ? "Visible" : "Hidden"}
               />
               {mj?.navbar?.top_bar?.show && mj?.navbar?.top_bar?.map?.show && (
-                <ConfigField
-                  label="Map"
-                  value={mj.navbar.top_bar.map.text || "(empty)"}
-                />
+                <ConfigField label="Map" value={mj.navbar.top_bar.map.text || "(empty)"} />
               )}
-              <ConfigField
-                label="Phone"
-                value={mj?.config?.phone || "(empty)"}
-              />
+              <ConfigField label="Phone" value={mj?.config?.phone || "(empty)"} />
               <ConfigField label="CTA" value={mj?.navbar?.cta?.text || "(empty)"} />
               <ConfigField
                 label="Links"
@@ -476,37 +549,23 @@ export function MockupTab({
               />
             </ConfigSection>
 
-            {/* Services */}
             <ConfigSection title={`Services (${config.services_variant})`}>
               <ConfigField label="Tag" value={config.services_tag} />
               <ConfigField label="Heading" value={config.services_heading} />
-              <ConfigField
-                label="Cards"
-                value={`${mj?.services?.cards?.length ?? 0} cards`}
-              />
+              <ConfigField label="Cards" value={`${mj?.services?.cards?.length ?? 0} cards`} />
               {mj?.services?.cards?.map((card, i) => (
-                <ConfigField
-                  key={i}
-                  label={`Card ${i + 1}`}
-                  value={card.heading}
-                />
+                <ConfigField key={i} label={`Card ${i + 1}`} value={card.heading} />
               ))}
             </ConfigSection>
 
-            {/* Process */}
             <ConfigSection title={`Process (${config.process_variant})`}>
               <ConfigField label="Tag" value={config.process_tag} />
               <ConfigField label="Heading" value={config.process_heading} />
               {mj?.process?.steps?.map((step, i) => (
-                <ConfigField
-                  key={i}
-                  label={`Step ${i + 1}`}
-                  value={step.heading}
-                />
+                <ConfigField key={i} label={`Step ${i + 1}`} value={step.heading} />
               ))}
             </ConfigSection>
 
-            {/* About */}
             <ConfigSection title="About">
               <ConfigField label="Tag" value={config.about_tag} />
               <ConfigField label="Heading" value={config.about_heading} />
@@ -514,7 +573,6 @@ export function MockupTab({
               <ConfigField label="Button 2" value={config.about_button_2 || "(empty)"} />
             </ConfigSection>
 
-            {/* Stats/Benefits */}
             <ConfigSection title={config.stats_benefits_visibility}>
               {mj?.stats_benefits?.cards?.map((card, i) => (
                 <div key={i} className="flex items-start gap-3 py-1">
@@ -525,18 +583,13 @@ export function MockupTab({
                     />
                   )}
                   <div>
-                    <span className="text-xs font-medium text-text-primary">
-                      {card.heading}
-                    </span>
-                    <span className="text-xs text-text-muted ml-2">
-                      {card.paragraph}
-                    </span>
+                    <span className="text-xs font-medium text-text-primary">{card.heading}</span>
+                    <span className="text-xs text-text-muted ml-2">{card.paragraph}</span>
                   </div>
                 </div>
               ))}
             </ConfigSection>
 
-            {/* Testimonials */}
             <ConfigSection title="Testimonials">
               <ConfigField label="Tag" value={config.testimonials_tag} />
               <ConfigField label="Heading" value={config.testimonials_heading} />
@@ -546,17 +599,12 @@ export function MockupTab({
               />
             </ConfigSection>
 
-            {/* FAQ */}
             <ConfigSection title={`FAQ (${config.faq_variant})`}>
               <ConfigField label="Tag" value={config.faq_tag} />
               <ConfigField label="Heading" value={config.faq_heading} />
-              <ConfigField
-                label="Items"
-                value={`${mj?.faq?.items?.length ?? 0} questions`}
-              />
+              <ConfigField label="Items" value={`${mj?.faq?.items?.length ?? 0} questions`} />
             </ConfigSection>
 
-            {/* CTA */}
             <ConfigSection title="CTA">
               <ConfigField label="Tag" value={config.cta_tag} />
               <ConfigField label="Heading" value={config.cta_heading} />
@@ -564,17 +612,12 @@ export function MockupTab({
               <ConfigField label="Button 2" value={config.cta_button_2 || "(empty)"} />
             </ConfigSection>
 
-            {/* Contact */}
             <ConfigSection title={`Contact (${config.contact_variant})`}>
               <ConfigField label="Tag" value={config.contact_tag} />
               <ConfigField label="Heading" value={config.contact_heading} />
-              <ConfigField
-                label="Submit"
-                value={mj?.contact?.form?.submit_button || "(default)"}
-              />
+              <ConfigField label="Submit" value={mj?.contact?.form?.submit_button || "(default)"} />
             </ConfigSection>
 
-            {/* Footer */}
             <ConfigSection title={`Footer (${config.footer_variant})`}>
               <ConfigField label="Company" value={mj?.config?.company || "(empty)"} />
               <ConfigField label="Phone" value={mj?.config?.phone || "(empty)"} />
@@ -588,25 +631,20 @@ export function MockupTab({
                 )}
             </ConfigSection>
 
-            {/* CSS */}
             <ConfigSection title={`CSS (${config.css?.theme ?? "light"} theme)`}>
               <div className="flex items-center gap-2 py-1">
                 <div
                   className="w-4 h-4 rounded border border-border"
                   style={{ backgroundColor: config.css?.brand_1 }}
                 />
-                <span className="text-xs text-text-muted">
-                  Brand 1: {config.css?.brand_1}
-                </span>
+                <span className="text-xs text-text-muted">Brand 1: {config.css?.brand_1}</span>
               </div>
               <div className="flex items-center gap-2 py-1">
                 <div
                   className="w-4 h-4 rounded border border-border"
                   style={{ backgroundColor: config.css?.brand_2 }}
                 />
-                <span className="text-xs text-text-muted">
-                  Brand 2: {config.css?.brand_2}
-                </span>
+                <span className="text-xs text-text-muted">Brand 2: {config.css?.brand_2}</span>
               </div>
               <ConfigField label="Radius" value={config.css?.radius ?? "rounded"} />
             </ConfigSection>
@@ -616,7 +654,7 @@ export function MockupTab({
 
       {/* Timestamp */}
       <p className="text-xs text-text-dim text-right">
-        Last generated:{" "}
+        Last updated:{" "}
         {new Date(displayMockup.updated_at).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
@@ -625,6 +663,18 @@ export function MockupTab({
           minute: "2-digit",
         })}
       </p>
+
+      {/* Debug Modal */}
+      <WebflowDebugModal
+        open={debugModalOpen}
+        onClose={() => setDebugModalOpen(false)}
+        clientId={clientId}
+        mockup={displayMockup}
+        onPushComplete={() => {
+          setDebugModalOpen(false);
+          onDataChanged();
+        }}
+      />
     </div>
   );
 }
@@ -654,5 +704,29 @@ function ConfigField({ label, value }: { label: string; value: string }) {
       <span className="text-text-dim min-w-[80px]">{label}</span>
       <span className="text-text-muted">{value}</span>
     </div>
+  );
+}
+
+function WrenchIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M11.42 15.17l-5.67 5.66a2.12 2.12 0 01-3-3l5.66-5.67M18.36 8.64a4.24 4.24 0 01-6 6l-1.42-1.42a4.24 4.24 0 016-6l1.42 1.42z"
+      />
+    </svg>
+  );
+}
+
+function ClipboardIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+      />
+    </svg>
   );
 }

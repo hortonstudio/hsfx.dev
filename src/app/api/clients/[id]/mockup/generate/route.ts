@@ -2,12 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createCmsItem,
-  updateCmsItem,
-  publishCmsItem,
-} from "@/lib/webflow/index";
-import { buildCssStyleBlock } from "@/lib/clients/css-builder";
 import type { MockupConfig, MasterJSON } from "@/lib/clients/types";
 
 export const maxDuration = 60;
@@ -16,13 +10,6 @@ interface IconRow {
   name: string;
   group_name: string;
   svg_content: string;
-}
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
 }
 
 // Fallback system prompt if prompts table is unavailable
@@ -147,7 +134,7 @@ export async function POST(
     );
   }
 
-  // Fetch existing mockup (preserve logo_url on regenerate)
+  // Fetch existing mockup (preserve logo_url and WF IDs on regenerate)
   const { data: existingMockup } = await supabase
     .from("client_mockups")
     .select("*")
@@ -351,46 +338,17 @@ Generate the complete homepage mockup config JSON.`;
     );
   }
 
-  // Build CSS style block for Webflow Rich Text field
-  const cssStyleBlock = buildCssStyleBlock(mockupConfig.css);
-
-  // Webflow push (non-blocking on failure)
-  const slug = slugify(businessName);
-  let webflowItemId = existingMockup?.webflow_item_id ?? "";
-  let webflowUrl = existingMockup?.webflow_url ?? "";
-
-  const webflowFields = buildWebflowFields(mockupConfig, businessName, slug, cssStyleBlock);
-
-  try {
-    if (webflowItemId) {
-      await updateCmsItem(webflowItemId, webflowFields);
-    } else {
-      const item = await createCmsItem(webflowFields);
-      webflowItemId = item.id;
-    }
-    await publishCmsItem(webflowItemId);
-    const siteDomain = process.env.WEBFLOW_SITE_DOMAIN ?? "";
-    if (siteDomain) {
-      webflowUrl = `https://${siteDomain}/mockup/${slug}`;
-    }
-  } catch (err) {
-    console.error(
-      "Webflow publish failed (non-blocking):",
-      err instanceof Error ? err.message : err
-    );
-  }
-
-  // Upsert client_mockups row
+  // Save to DB as draft — Webflow push is a separate step
   const { data: mockupRow, error: upsertError } = await supabase
     .from("client_mockups")
     .upsert(
       {
         client_id: id,
-        webflow_item_id: webflowItemId,
-        webflow_url: webflowUrl,
+        webflow_item_id: existingMockup?.webflow_item_id ?? "",
+        webflow_url: existingMockup?.webflow_url ?? "",
         config: mockupConfig,
         logo_url: existingMockup?.logo_url ?? "",
-        status: "active",
+        status: "draft",
         updated_at: new Date().toISOString(),
       },
       { onConflict: "client_id" }
@@ -420,59 +378,4 @@ Generate the complete homepage mockup config JSON.`;
       output_tokens: usage.output_tokens,
     },
   });
-}
-
-// Build the full Webflow CMS field mapping
-function buildWebflowFields(
-  config: MockupConfig,
-  name: string,
-  slug: string,
-  cssStyleBlock: string
-): Record<string, unknown> {
-  return {
-    name,
-    slug,
-    "config-json": JSON.stringify(config.master_json),
-    "css-override": cssStyleBlock,
-    "navbar-variant": config.navbar_variant,
-    "footer-variant": config.footer_variant,
-    "hero-tag": config.hero_tag,
-    "hero-heading": config.hero_heading,
-    "hero-paragraph": config.hero_paragraph,
-    "hero-button-1-text": config.hero_button_1_text,
-    "hero-button-2-text": config.hero_button_2_text,
-    "hero-variant": config.hero_variant,
-    "services-variant": config.services_variant,
-    "services-tag": config.services_tag,
-    "services-heading": config.services_heading,
-    "services-paragraph": config.services_paragraph,
-    "services-button": config.services_button,
-    "process-variant": config.process_variant,
-    "process-tag": config.process_tag,
-    "process-heading": config.process_heading,
-    "process-paragraph": config.process_paragraph,
-    "process-button": config.process_button,
-    "about-tag": config.about_tag,
-    "about-heading": config.about_heading,
-    "about-subheading": config.about_subheading,
-    "about-button-1": config.about_button_1,
-    "about-button-2": config.about_button_2,
-    "statistics-benefits-visibility": config.stats_benefits_visibility,
-    "testimonials-tag": config.testimonials_tag,
-    "testimonials-heading": config.testimonials_heading,
-    "testimonials-paragraph": config.testimonials_paragraph,
-    "faq-variant": config.faq_variant,
-    "faq-tag": config.faq_tag,
-    "faq-heading": config.faq_heading,
-    "faq-paragraph": config.faq_paragraph,
-    "cta-tag": config.cta_tag,
-    "cta-heading": config.cta_heading,
-    "cta-paragraph": config.cta_paragraph,
-    "cta-button-1": config.cta_button_1,
-    "cta-button-2": config.cta_button_2,
-    "contact-variant": config.contact_variant,
-    "contact-tag": config.contact_tag,
-    "contact-heading": config.contact_heading,
-    "contact-paragraph": config.contact_paragraph,
-  };
 }

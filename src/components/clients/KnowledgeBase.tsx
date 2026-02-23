@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useMemo } from "react";
-import { Button, Input, Spinner, useToast } from "@/components/ui";
+import { Button, Input, Spinner, useToast, Modal } from "@/components/ui";
 import { KnowledgeEntryCard } from "./KnowledgeEntryCard";
 import { AddNotesModal } from "./AddNotesModal";
 import { CompiledDocViewer } from "./CompiledDocViewer";
@@ -19,6 +19,10 @@ interface KnowledgeBaseProps {
 
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "image/avif"];
 
+function isImageUrl(url: string): boolean {
+  return /\.(jpg|jpeg|png|gif|webp|svg|avif)(\?|$)/i.test(url);
+}
+
 export function KnowledgeBase({
   clientId,
   clientName,
@@ -32,6 +36,7 @@ export function KnowledgeBase({
 
   // Modal state
   const [notesOpen, setNotesOpen] = useState(false);
+  const [expandedEntry, setExpandedEntry] = useState<KnowledgeEntry | null>(null);
 
   // Scrape state
   const [scrapeUrl, setScrapeUrl] = useState("");
@@ -45,6 +50,11 @@ export function KnowledgeBase({
   // Compile state
   const [compiling, setCompiling] = useState(false);
   const [localCompiledDoc, setLocalCompiledDoc] = useState<KnowledgeDocument | null>(compiledDoc);
+  const [actualUsage, setActualUsage] = useState<{
+    input_tokens: number;
+    output_tokens: number;
+    total_cost: string;
+  } | null>(null);
 
   // ──────────────────────────────────────────────────
   // FILE UPLOAD (single file)
@@ -250,6 +260,7 @@ export function KnowledgeBase({
 
   async function handleCompile() {
     setCompiling(true);
+    setActualUsage(null);
 
     try {
       const res = await fetch(`/api/clients/${clientId}/knowledge/compile`, {
@@ -262,6 +273,15 @@ export function KnowledgeBase({
       }
 
       const data = await res.json();
+
+      // Capture actual usage from response
+      if (data.usage) {
+        setActualUsage({
+          input_tokens: data.usage.input_tokens,
+          output_tokens: data.usage.output_tokens,
+          total_cost: data.usage.total_cost,
+        });
+      }
 
       // Build a local doc object to display immediately
       setLocalCompiledDoc({
@@ -439,6 +459,7 @@ export function KnowledgeBase({
                 key={entry.id}
                 entry={entry}
                 onDelete={handleDelete}
+                onExpand={setExpandedEntry}
               />
             ))}
           </div>
@@ -454,12 +475,17 @@ export function KnowledgeBase({
             Compiled Knowledge Base
           </h3>
           <div className="flex items-center gap-3">
-            {costEstimate && (
+            {actualUsage ? (
               <div className="text-xs text-text-muted">
-                Est: {costEstimate.formattedInput} in + {costEstimate.formattedOutput} out ≈{" "}
+                Used: {formatTokens(actualUsage.input_tokens)} in + {formatTokens(actualUsage.output_tokens)} out ={" "}
+                <span className="font-medium text-accent">{actualUsage.total_cost}</span>
+              </div>
+            ) : costEstimate ? (
+              <div className="text-xs text-text-muted">
+                Est: {costEstimate.formattedInput} in + {costEstimate.formattedOutput} out ~{" "}
                 <span className="font-medium text-text-primary">{costEstimate.estimatedCost}</span>
               </div>
-            )}
+            ) : null}
             <Button
               size="sm"
               variant={displayDoc ? "outline" : "primary"}
@@ -514,6 +540,68 @@ export function KnowledgeBase({
           onDataChanged();
         }}
       />
+
+      {/* ──────────────────────────────────────────── */}
+      {/* ENTRY EXPAND MODAL                           */}
+      {/* ──────────────────────────────────────────── */}
+      <Modal
+        open={!!expandedEntry}
+        onClose={() => setExpandedEntry(null)}
+        title={expandedEntry?.title || "Entry Details"}
+        size="xl"
+      >
+        {expandedEntry && (
+          <div className="space-y-4 mt-2">
+            {/* Full-size image */}
+            {expandedEntry.file_url && isImageUrl(expandedEntry.file_url) && (
+              <div className="rounded-lg overflow-hidden border border-border bg-background">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={expandedEntry.file_url}
+                  alt={expandedEntry.title || "Uploaded image"}
+                  className="w-full h-auto max-h-[60vh] object-contain"
+                />
+              </div>
+            )}
+
+            {/* Full content text */}
+            {expandedEntry.content && (
+              <div className="bg-background border border-border rounded-lg p-4 max-h-[50vh] overflow-y-auto">
+                <pre className="whitespace-pre-wrap text-sm text-text-secondary leading-relaxed font-mono break-words">
+                  {expandedEntry.content}
+                </pre>
+              </div>
+            )}
+
+            {/* Non-image file link */}
+            {expandedEntry.file_url && !isImageUrl(expandedEntry.file_url) && (
+              <a
+                href={expandedEntry.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-accent hover:underline"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Open file
+              </a>
+            )}
+
+            {/* Metadata */}
+            <div className="flex items-center gap-3 text-xs text-text-dim pt-2 border-t border-border">
+              <span>Type: {expandedEntry.type}</span>
+              <span>Added: {new Date(expandedEntry.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+              {expandedEntry.file_type && <span>File: {expandedEntry.file_type}</span>}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
+}
+
+function formatTokens(tokens: number): string {
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`;
+  return tokens.toString();
 }

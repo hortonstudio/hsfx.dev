@@ -7,6 +7,7 @@ import type { KnowledgeEntry } from "@/lib/clients/types";
 interface KnowledgeEntryCardProps {
   entry: KnowledgeEntry;
   onDelete: (id: string) => void;
+  onExpand: (entry: KnowledgeEntry) => void;
 }
 
 const TYPE_CONFIG: Record<
@@ -25,7 +26,7 @@ function isImageUrl(url: string): boolean {
   return /\.(jpg|jpeg|png|gif|webp|svg|avif)(\?|$)/i.test(url);
 }
 
-export function KnowledgeEntryCard({ entry, onDelete }: KnowledgeEntryCardProps) {
+export function KnowledgeEntryCard({ entry, onDelete, onExpand }: KnowledgeEntryCardProps) {
   const [deleting, setDeleting] = useState(false);
 
   const config = TYPE_CONFIG[entry.type] ?? TYPE_CONFIG.other;
@@ -39,13 +40,20 @@ export function KnowledgeEntryCard({ entry, onDelete }: KnowledgeEntryCardProps)
     year: "numeric",
   });
 
-  async function handleDelete() {
+  async function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation();
     setDeleting(true);
     onDelete(entry.id);
   }
 
   return (
-    <div className="group bg-surface border border-border rounded-lg p-4 hover:border-border/80 transition-colors">
+    <div
+      className="group bg-surface border border-border rounded-lg p-4 hover:border-border/80 transition-colors cursor-pointer"
+      onClick={() => onExpand(entry)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onExpand(entry); }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">

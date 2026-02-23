@@ -1,24 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createCmsItem,
-  updateCmsItem,
-  publishCmsItem,
-} from "@/lib/webflow/index";
-import { buildCssStyleBlock } from "@/lib/clients/css-builder";
 import type { MockupConfig } from "@/lib/clients/types";
 
 export const maxDuration = 30;
 
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 // Hardcoded demo data — a realistic roofing company mockup
-// Matches the exact shape the AI generate route produces
 const DEMO_CONFIG: MockupConfig = {
   master_json: {
     config: {
@@ -150,26 +136,10 @@ const DEMO_CONFIG: MockupConfig = {
     },
     stats_benefits: {
       cards: [
-        {
-          icon_svg: "",
-          heading: "250+",
-          paragraph: "5-Star Reviews",
-        },
-        {
-          icon_svg: "",
-          heading: "12+",
-          paragraph: "Years in Business",
-        },
-        {
-          icon_svg: "",
-          heading: "20+",
-          paragraph: "Cities Served",
-        },
-        {
-          icon_svg: "",
-          heading: "1,000+",
-          paragraph: "Jobs Completed",
-        },
+        { icon_svg: "", heading: "250+", paragraph: "5-Star Reviews" },
+        { icon_svg: "", heading: "12+", paragraph: "Years in Business" },
+        { icon_svg: "", heading: "20+", paragraph: "Cities Served" },
+        { icon_svg: "", heading: "1,000+", paragraph: "Jobs Completed" },
       ],
     },
     testimonials: {
@@ -348,25 +318,14 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Fetch client (need name for slug)
-  const { data: client, error: clientError } = await supabase
-    .from("clients")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (clientError || !client) {
-    return NextResponse.json({ error: "Client not found" }, { status: 404 });
-  }
-
-  // Fetch existing mockup (to preserve webflow_item_id and logo_url)
+  // Fetch existing mockup to preserve logo_url and WF IDs
   const { data: existingMockup } = await supabase
     .from("client_mockups")
     .select("*")
     .eq("client_id", id)
     .maybeSingle();
 
-  // Use the demo config as-is, but preserve logo_url if one exists
+  // Preserve logo_url in the demo config
   const mockupConfig = { ...DEMO_CONFIG };
   const logoUrl = existingMockup?.logo_url ?? "";
   mockupConfig.master_json = {
@@ -377,95 +336,17 @@ export async function POST(
     },
   };
 
-  // Build CSS style block
-  const cssStyleBlock = buildCssStyleBlock(mockupConfig.css);
-
-  // Webflow push
-  const businessName =
-    client.business_name || `${client.first_name} ${client.last_name}`;
-  const slug = slugify(businessName);
-  let webflowItemId = existingMockup?.webflow_item_id ?? "";
-  let webflowUrl = existingMockup?.webflow_url ?? "";
-
-  const webflowFields: Record<string, unknown> = {
-    name: businessName,
-    slug,
-    "config-json": JSON.stringify(mockupConfig.master_json),
-    "css-override": cssStyleBlock,
-    "navbar-variant": mockupConfig.navbar_variant,
-    "footer-variant": mockupConfig.footer_variant,
-    "hero-tag": mockupConfig.hero_tag,
-    "hero-heading": mockupConfig.hero_heading,
-    "hero-paragraph": mockupConfig.hero_paragraph,
-    "hero-button-1-text": mockupConfig.hero_button_1_text,
-    "hero-button-2-text": mockupConfig.hero_button_2_text,
-    "hero-variant": mockupConfig.hero_variant,
-    "services-variant": mockupConfig.services_variant,
-    "services-tag": mockupConfig.services_tag,
-    "services-heading": mockupConfig.services_heading,
-    "services-paragraph": mockupConfig.services_paragraph,
-    "services-button": mockupConfig.services_button,
-    "process-variant": mockupConfig.process_variant,
-    "process-tag": mockupConfig.process_tag,
-    "process-heading": mockupConfig.process_heading,
-    "process-paragraph": mockupConfig.process_paragraph,
-    "process-button": mockupConfig.process_button,
-    "about-tag": mockupConfig.about_tag,
-    "about-heading": mockupConfig.about_heading,
-    "about-subheading": mockupConfig.about_subheading,
-    "about-button-1": mockupConfig.about_button_1,
-    "about-button-2": mockupConfig.about_button_2,
-    "statistics-benefits-visibility": mockupConfig.stats_benefits_visibility,
-    "testimonials-tag": mockupConfig.testimonials_tag,
-    "testimonials-heading": mockupConfig.testimonials_heading,
-    "testimonials-paragraph": mockupConfig.testimonials_paragraph,
-    "faq-variant": mockupConfig.faq_variant,
-    "faq-tag": mockupConfig.faq_tag,
-    "faq-heading": mockupConfig.faq_heading,
-    "faq-paragraph": mockupConfig.faq_paragraph,
-    "cta-tag": mockupConfig.cta_tag,
-    "cta-heading": mockupConfig.cta_heading,
-    "cta-paragraph": mockupConfig.cta_paragraph,
-    "cta-button-1": mockupConfig.cta_button_1,
-    "cta-button-2": mockupConfig.cta_button_2,
-    "contact-variant": mockupConfig.contact_variant,
-    "contact-tag": mockupConfig.contact_tag,
-    "contact-heading": mockupConfig.contact_heading,
-    "contact-paragraph": mockupConfig.contact_paragraph,
-  };
-
-  try {
-    if (webflowItemId) {
-      await updateCmsItem(webflowItemId, webflowFields);
-    } else {
-      const item = await createCmsItem(webflowFields);
-      webflowItemId = item.id;
-    }
-    await publishCmsItem(webflowItemId);
-    const siteDomain = process.env.WEBFLOW_SITE_DOMAIN ?? "";
-    if (siteDomain) {
-      webflowUrl = `https://${siteDomain}/mockup/${slug}`;
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("Webflow push failed:", msg);
-    return NextResponse.json(
-      { error: `Webflow push failed: ${msg}` },
-      { status: 502 }
-    );
-  }
-
-  // Upsert client_mockups row
+  // Save to DB as draft — Webflow push is a separate step
   const { data: mockupRow, error: upsertError } = await supabase
     .from("client_mockups")
     .upsert(
       {
         client_id: id,
-        webflow_item_id: webflowItemId,
-        webflow_url: webflowUrl,
+        webflow_item_id: existingMockup?.webflow_item_id ?? "",
+        webflow_url: existingMockup?.webflow_url ?? "",
         config: mockupConfig,
         logo_url: logoUrl,
-        status: "active",
+        status: "draft",
         updated_at: new Date().toISOString(),
       },
       { onConflict: "client_id" }

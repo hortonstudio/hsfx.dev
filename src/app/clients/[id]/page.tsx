@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -38,9 +38,14 @@ function ClientDetailContent({ id }: { id: string }) {
   const [mockup, setMockup] = useState<ClientMockup | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("overview");
+  const initialLoadDone = useRef(false);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    // Only show loading spinner on initial load, not on refetch
+    if (!initialLoadDone.current) {
+      setLoading(true);
+    }
     setError(null);
 
     const supabase = createClient();
@@ -104,6 +109,7 @@ function ClientDetailContent({ id }: { id: string }) {
     }
 
     setLoading(false);
+    initialLoadDone.current = true;
   }, [id]);
 
   useEffect(() => {
@@ -153,7 +159,7 @@ function ClientDetailContent({ id }: { id: string }) {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabList>
           <Tab value="overview">Overview</Tab>
           <Tab value="knowledge">Knowledge Base</Tab>
