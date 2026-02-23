@@ -4,6 +4,7 @@ import { Instrument_Serif } from "next/font/google";
 import { Suspense } from "react";
 import { LenisProvider } from "@/lib/lenis-provider";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
+import { ToastProvider } from "@/components/ui/Toast";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { brand, messages } from "@/config";
 import "./globals.css";
@@ -71,9 +72,11 @@ export default function RootLayout({
         <ThemeProvider>
           <Suspense fallback={null}>
             <AuthProvider>
-              <LenisProvider>
-                <div className="dot-grid min-h-screen">{children}</div>
-              </LenisProvider>
+              <ToastProvider>
+                <LenisProvider>
+                  <div className="dot-grid min-h-screen">{children}</div>
+                </LenisProvider>
+              </ToastProvider>
             </AuthProvider>
           </Suspense>
         </ThemeProvider>

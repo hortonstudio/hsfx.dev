@@ -388,7 +388,7 @@ export function GenerateOnboardModal({
               value={clientEmail}
               onChange={(e) => setClientEmail(e.target.value)}
               placeholder="client@example.com"
-              className="w-full px-3 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary placeholder-text-dim focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-text-primary placeholder-text-dim focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
             />
           </div>
           <div>
