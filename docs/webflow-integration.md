@@ -113,14 +113,32 @@ These exist in MockupConfig but are NOT sent to Webflow:
 ```
 Dark theme adds additional variable overrides.
 
-## Population Script (scripts/mockup-populate.js)
-~684 lines of vanilla JS that runs on the Webflow mockup page. It:
+## Population Script (Supabase: `prompts` → `mockup-populate-script`)
+Vanilla JS stored in the `prompts` table (`id: 'mockup-populate-script'`). Edit directly in Supabase — no rebuild needed. It:
 1. Reads master JSON from `[data-hs-mockup="master-json"]` hidden div
 2. Populates all dynamic sections (navbar, footer, services, process, stats, testimonials, FAQ, contact)
 3. Uses a duplication engine: clone template element, populate each clone, remove template
 4. Depends on `window.hsfx.ready()` and `@hsfx/attr` library
 
-The `/api/webflow/script` endpoint serves this minified and wrapped in `<script>` tags.
+The `/api/webflow/script` endpoint reads from Supabase, minifies with terser, and wraps in `<script>` tags.
+
+### data-hs-mockup Attribute Reference
+Sections are found via `[data-hs-mockup]` attribute selectors (NOT by `id`).
+
+| Area | Attributes |
+|------|-----------|
+| **Navbar** | `navbar-top-bar`, `navbar-top-button-map`, `navbar-top-button-phone`, `navbar-primary-button`, `navbar-main-dropdown`, `navbar-dropdown-button`, `navbar-dropdown-item`, `navbar-cta-button`, `navbar-menu-button`, `navbar-menu-dropdown`, `navbar-menu-dropdown-item`, `navbar-menu-cta` |
+| **Footer** | `footer-minimal-main-list`, `footer-group`, `footer-link` |
+| **Services** | `services-three-grid` (section), `services-card-grid`, `services-sticky-list` (section), `services-card-list` |
+| **Process** | `process-list` (section), `process-card-list`, `process-grid` (section), `process-grid-card` |
+| **Stats** | `stat-card`, `benefit-card`, `statistics-section`, `benefits-section` |
+| **Testimonials** | `testimonial-marquee` (section), `testimonial-card` |
+| **FAQ** | `faq-center` (section), `faq-two-grid` (section), `accordion-item` |
+| **Contact** | `contact-two-grid` (section), `contact-center` (section), `form-input`, `form-text-area`, `form-checkbox`, `form-submit` |
+| **Global** | `master-json`, `logo`, `company`, `email`, `phone`, `address` |
+| **Shared** | `heading`, `paragraph`, `visual`, `icon-text`, `icon-slot`, `feature-item` |
+
+**CRITICAL:** Sections use `data-hs-mockup` for lookup, NOT `id`. For example, the three-grid services section has `id="services"` and `data-hs-mockup="services-three-grid"`. The script finds it via the mockup attribute.
 
 ## Push Flow
 ```

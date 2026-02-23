@@ -105,6 +105,18 @@ Generate and Push are separate operations. AI-generated configs are saved to DB 
 ### Icon Resolution
 The AI generates `icon_name` references (e.g., `"star"`, `"shield"`). The generate route resolves these to actual SVG content from the `icons` table. If a name doesn't match, the field is left empty.
 
+## Population Script (mockup-populate.js)
+
+### Section Finding
+Sections are found via `[data-hs-mockup]` attribute selectors, NOT by `id`. The HTML `id` attribute is reused across variants (e.g., both service sections have `id="services"`), so `getElementById` would only find the first one. Always use `mockup('section-name')`.
+
+### Navbar Attribute Names
+Desktop: `navbar-primary-button` (plain link), `navbar-main-dropdown` (dropdown wrapper), `navbar-dropdown-button` (trigger inside wrapper), `navbar-dropdown-item` (item), `navbar-cta-button`.
+Mobile: `navbar-menu-button`, `navbar-menu-dropdown`, `navbar-menu-dropdown-item`, `navbar-menu-cta`.
+
+### Defensive Element Guards
+The `isElement()` helper checks `typeof node.querySelector === 'function'` before passing a context to `$()` or `$$()`. This prevents `querySelectorAll is not a function` errors when null or non-Element values slip through.
+
 ## File Uploads
 
 ### Image Compression

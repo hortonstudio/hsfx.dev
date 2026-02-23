@@ -1,7 +1,6 @@
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { readFileSync } from "fs";
-import { join } from "path";
 import { minify } from "terser";
 
 export async function GET() {
@@ -16,8 +15,21 @@ export async function GET() {
   }
 
   try {
-    const scriptPath = join(process.cwd(), "scripts", "mockup-populate.js");
-    const source = readFileSync(scriptPath, "utf-8");
+    const adminClient = createAdminClient();
+    const { data: row } = await adminClient
+      .from("prompts")
+      .select("content")
+      .eq("id", "mockup-populate-script")
+      .single();
+
+    if (!row?.content) {
+      return NextResponse.json(
+        { error: "Script not found in prompts table (id: mockup-populate-script)" },
+        { status: 404 }
+      );
+    }
+
+    const source = row.content;
 
     const result = await minify(source, {
       compress: true,
