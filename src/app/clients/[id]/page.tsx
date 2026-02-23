@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { createClient } from "@/lib/supabase/client";
@@ -206,12 +207,8 @@ function ClientDetailContent({ id }: { id: string }) {
 // MAIN PAGE
 // ════════════════════════════════════════════════════════════
 
-export default function ClientDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
+export default function ClientDetailPage() {
+  const { id } = useParams<{ id: string }>();
 
   return (
     <ProtectedRoute>

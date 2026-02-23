@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { createClient } from "@/lib/supabase/client";
@@ -69,12 +70,8 @@ function PreviewContent({ slug }: { slug: string }) {
   );
 }
 
-export default function PreviewPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = use(params);
+export default function PreviewPage() {
+  const { slug } = useParams<{ slug: string }>();
 
   return (
     <ProtectedRoute>

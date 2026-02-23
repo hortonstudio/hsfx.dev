@@ -343,10 +343,10 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          {/* Client Onboarding Section */}
+          {/* Client Suite Section */}
           <section className="mb-12">
             <h2 className="text-xs font-medium text-text-dim uppercase tracking-widest mb-5">
-              Client Onboarding
+              Client Suite
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <DashboardCard
@@ -366,8 +366,8 @@ export default function DashboardPage() {
                     />
                   </svg>
                 }
-                title="Client Onboarding"
-                description="Typeform-style questionnaires for new client intake"
+                title="Client Suite"
+                description="Manage clients, knowledge base, onboarding, and mockups"
               />
             </div>
           </section>
