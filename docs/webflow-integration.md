@@ -47,25 +47,32 @@ All use `WEBFLOW_API_TOKEN` bearer auth and `WEBFLOW_COLLECTION_ID`.
 | `cta-button-2` | `cta_button_2` |
 | `contact-tag` | `contact_tag` |
 
-### RichText Fields
-| WF Field Slug | Config Property |
-|---------------|----------------|
-| `css-override` | Built by `buildCssStyleBlock()` |
-| `hero-heading` | `hero_heading` |
-| `hero-paragraph` | `hero_paragraph` |
-| `services-heading` | `services_heading` |
-| `services-paragraph` | `services_paragraph` |
-| `process-heading` | `process_heading` |
-| `process-paragraph` | `process_paragraph` |
-| `about-heading` | `about_heading` |
-| `about-subheading` | `about_subheading` |
-| `testimonials-heading` | `testimonials_heading` |
-| `faq-heading` | `faq_heading` |
-| `faq-paragraph` | `faq_paragraph` |
-| `cta-heading` | `cta_heading` |
-| `cta-paragraph` | `cta_paragraph` |
-| `contact-heading` | `contact_heading` |
-| `contact-paragraph` | `contact_paragraph` |
+### RichText Fields (auto-wrapped in HTML)
+Webflow RichText fields require proper HTML tags. `buildWebflowFields()` automatically wraps:
+- **Heading fields** (`*-heading`) in `<h2>` tags
+- **Paragraph/subheading fields** (`*-paragraph`, `about-subheading`) in `<p>` tags
+- If the value already contains HTML tags, it is passed through as-is
+
+Config values are stored as **plain text**. The AI prompt instructs Claude NOT to include HTML. The wrapping happens only at push time in `buildWebflowFields()`.
+
+| WF Field Slug | Config Property | HTML Wrap |
+|---------------|----------------|-----------|
+| `css-override` | Built by `buildCssStyleBlock()` | Already HTML |
+| `hero-heading` | `hero_heading` | `<h2>` |
+| `hero-paragraph` | `hero_paragraph` | `<p>` |
+| `services-heading` | `services_heading` | `<h2>` |
+| `services-paragraph` | `services_paragraph` | `<p>` |
+| `process-heading` | `process_heading` | `<h2>` |
+| `process-paragraph` | `process_paragraph` | `<p>` |
+| `about-heading` | `about_heading` | `<h2>` |
+| `about-subheading` | `about_subheading` | `<p>` |
+| `testimonials-heading` | `testimonials_heading` | `<h2>` |
+| `faq-heading` | `faq_heading` | `<h2>` |
+| `faq-paragraph` | `faq_paragraph` | `<p>` |
+| `cta-heading` | `cta_heading` | `<h2>` |
+| `cta-paragraph` | `cta_paragraph` | `<p>` |
+| `contact-heading` | `contact_heading` | `<h2>` |
+| `contact-paragraph` | `contact_paragraph` | `<p>` |
 
 ### Image Fields (conditional - only sent when value exists)
 | WF Field Slug | Config Property |

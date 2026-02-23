@@ -82,6 +82,9 @@ Note: Some values contain commas (e.g., `"Full, no top"`). These are valid Webfl
 2. `src/app/api/clients/[id]/mockup/generate/route.ts` - AI prompt instructions AND default fallback values
 3. `src/app/api/clients/[id]/mockup/demo/route.ts` - Demo config values
 
+### RichText Fields Need HTML Tags
+Webflow RichText fields render raw text without formatting if you don't wrap in HTML. `buildWebflowFields()` auto-wraps heading fields in `<h2>` and paragraph fields in `<p>`. Config values stay as plain text -- the wrapping happens at push time only. If a value already contains HTML tags, it passes through unchanged.
+
 ### Non-Existent Fields
 Sending fields that don't exist in the Webflow collection also causes validation errors. Fields in our MockupConfig that are NOT in Webflow:
 - `testimonials_tag` - internal only

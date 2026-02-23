@@ -57,6 +57,7 @@ Rules:
 - CSS: brand_1_text must contrast against brand_1 (WCAG AA). Same for brand_2.
 - Theme default: "light" unless client clearly prefers dark.
 - Do NOT fabricate contact info. Use what is in the KB or leave empty.
+- All heading/paragraph fields are plain text (auto-wrapped in <h2>/<p> at push time). Do NOT include HTML tags.
 - Return ONLY valid JSON, no markdown, no explanation.`;
 
 const DEFAULT_CONTACT_FORM = {
