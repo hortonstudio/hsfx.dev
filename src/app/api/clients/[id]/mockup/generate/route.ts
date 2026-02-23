@@ -7,43 +7,10 @@ import {
   updateCmsItem,
   publishCmsItem,
 } from "@/lib/webflow/index";
-import type { MockupConfig } from "@/lib/clients/types";
+import { buildCssStyleBlock } from "@/lib/clients/css-builder";
+import type { MockupConfig, MasterJSON } from "@/lib/clients/types";
 
 export const maxDuration = 60;
-
-const SYSTEM_PROMPT = `You are a web designer generating a homepage mockup configuration for a home service business website. You will receive a compiled knowledge base document about the client and must produce a complete JSON config.
-
-The JSON must include these top-level keys:
-
-- navbar (object): { logo: { src: "", alt: "Business Name" }, top_bar: { show: boolean, map: { show: boolean, text: string, href: "#service-area" }, phone: { show: boolean, text: string, href: "tel:..." } }, nav_links: array of { text, href } or { text, dropdown: [{ text, href }] }, cta: { text, href: "#contact" } }
-- navbar_variant (one of: "Full With Top", "Full Without Top", "Island With Top", "Island Without Top")
-- footer (object): { logo: { src: "", alt: "Business Name" }, company: string, contact: { phone, phone_href, email, email_href }, socials: { facebook, instagram, youtube, tiktok, x, linkedin, pinterest } (empty string to hide), footer_nav: [{ text, href }], footer_groups: [{ heading, links: [{ text, href }] }] }
-- footer_variant (one of: "Minimal", "Full")
-- hero_tag (short label above heading)
-- hero_heading (main headline)
-- hero_paragraph (supporting text)
-- hero_button_1_text (primary CTA, usually "Get a Free Quote")
-- hero_button_2_text (secondary CTA, can be empty string)
-- hero_variant (one of: "Full Height Left Align", "Auto Height Center Align", "Text and Image 2 Grid")
-- hero_image (leave as empty string "")
-- stats_benefits_visibility (one of: "Statistics", "Benefits")
-- stats_benefits_cards (array of exactly 4 objects with icon_name, heading, paragraph)
-
-Rules:
-- All nav/footer hrefs are anchor links (#about, #services, #contact, #global, #service-area, #areas)
-- CTA buttons always href to #contact
-- Logo src must be empty string "" (admin uploads separately)
-- hero_image must be empty string "" (admin sets separately)
-- For stats_benefits_cards, pick icon_name from the available icons list provided. Prefer "home-service" and "general" group icons first.
-- Use "Statistics" when the KB contains real numbers (years in business, jobs completed, reviews count, etc). Use "Benefits" when no real stats are available. NEVER fabricate statistics.
-- For navbar_variant: use "With Top" variants when phone/map info is available in the KB
-- For footer_variant: use "Full" for businesses with multiple service categories, "Minimal" for simpler businesses
-- For hero_variant: use "Full Height Left Align" for dramatic/impact niches, "Auto Height Center Align" for trust-focused, "Text and Image 2 Grid" for owner-operated
-- Do NOT fabricate contact info. Use what is in the KB or leave fields empty.
-- footer_nav is for the Minimal variant, footer_groups is for the Full variant. Populate both so either variant works.
-- footer_groups should have 2-4 groups. Typical order: Site, Services, Service Areas (optional), Contact.
-- Social media URLs: use what's in the KB, empty string "" for unknown platforms.
-- Return ONLY valid JSON, no markdown code blocks, no explanation text.`;
 
 interface IconRow {
   name: string;
@@ -58,12 +25,87 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+// Fallback system prompt if prompts table is unavailable
+const FALLBACK_PROMPT = `You are a web designer generating a homepage mockup for a home service business. Output ONLY valid JSON with two top-level keys: "master_json" and "wf_fields".
+
+master_json contains dynamic data populated by JS:
+- config: { logo: { src: "", alt: "" }, company, email, phone, address, socials: { facebook, instagram, youtube, tiktok, x, linkedin, pinterest } }
+- navbar: { top_bar: { show: bool, map: { show: bool, text, href } }, nav_links: [{ text, href } or { text, dropdown: [{ text, href }] }], cta: { text } }
+- footer: { footer_nav: [{ text, href }], footer_groups: [{ heading, links: [{ text, href }] }] }
+- services: { cards: [{ image_url?: "", heading, paragraph }] }
+- process: { steps: [{ heading, paragraph, features?: [string] }] }
+- stats_benefits: { cards: [{ icon_name, heading, paragraph }] } (always 4)
+- testimonials: { top_row: [{ review, name }], bottom_row: [{ review, name }] } (4 per row)
+- faq: { items: [{ question, answer }] }
+- contact: { form: { inputs: { name: { label, placeholder }, phone: { label, placeholder }, email: { label, placeholder }, address: { label, placeholder } }, textarea: { notes: { label, placeholder } }, checkbox_text, submit_button } }
+
+wf_fields contains CMS-bound values:
+- navbar_variant: "Full With Top" | "Full Without Top" | "Island With Top" | "Island Without Top"
+- footer_variant: "Minimal" | "Full"
+- hero_tag, hero_heading, hero_paragraph, hero_button_1_text, hero_button_2_text
+- hero_variant: "Full Height Left Align" | "Auto Height Center Align" | "Text and Image 2 Grid"
+- services_variant: "Three Grid" | "Sticky List"
+- services_tag, services_heading, services_paragraph, services_button
+- process_variant: "Sticky List" | "Card Grid"
+- process_tag, process_heading, process_paragraph, process_button
+- about_tag, about_heading, about_subheading, about_button_1, about_button_2
+- stats_benefits_visibility: "Statistics" | "Benefits"
+- testimonials_tag, testimonials_heading, testimonials_paragraph
+- faq_variant: "Center" | "Two Grid"
+- faq_tag, faq_heading, faq_paragraph
+- cta_tag, cta_heading, cta_paragraph, cta_button_1, cta_button_2
+- contact_variant: "Two Grid" | "Center"
+- contact_tag, contact_heading, contact_paragraph
+- css: { brand_1, brand_1_text, brand_2, brand_2_text, dark_900, dark_800, light_100, light_200, radius: "sharp"|"soft"|"rounded", theme: "light"|"dark" }
+
+Rules:
+- Logo src and hero_image must be "" (uploaded separately)
+- All CTA/button hrefs go to #contact
+- Nav/footer hrefs are anchors: #about, #services, #contact, #service-area, #areas
+- Services Three Grid → Process Sticky List (and vice versa)
+- Three Grid: 3 or 6 cards. Sticky List: 3-8 cards. Card Grid: always 3 steps.
+- Use "Statistics" only with real numbers from KB. Use "Benefits" otherwise. Never fabricate stats.
+- For stats_benefits cards, pick icon_name from the available icons list.
+- Testimonial reviews: 120-160 chars each, consistent length across all 8.
+- CSS: brand_1_text must contrast against brand_1 (WCAG AA). Same for brand_2.
+- Theme default: "light" unless client clearly prefers dark.
+- Do NOT fabricate contact info. Use what is in the KB or leave empty.
+- Return ONLY valid JSON, no markdown, no explanation.`;
+
+const DEFAULT_CONTACT_FORM = {
+  inputs: {
+    name: { label: "Name *", placeholder: "Full Name" },
+    phone: { label: "Phone *", placeholder: "000-000-0000" },
+    email: { label: "Email *", placeholder: "email@email.com" },
+    address: { label: "Service Address *", placeholder: "1001 Main St." },
+  },
+  textarea: {
+    notes: { label: "Notes", placeholder: "Tell us about your project..." },
+  },
+  checkbox_text: "",
+  submit_button: "Get a Free Estimate",
+};
+
+const DEFAULT_CSS = {
+  brand_1: "#2563eb",
+  brand_1_text: "#ffffff",
+  brand_2: "#f97316",
+  brand_2_text: "#ffffff",
+  dark_900: "#000007",
+  dark_800: "#141414",
+  light_100: "#fafbfc",
+  light_200: "#ebebeb",
+  radius: "rounded" as const,
+  theme: "light" as const,
+};
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   const supabase = await createClient();
+  const adminClient = createAdminClient();
 
   const {
     data: { user },
@@ -80,7 +122,7 @@ export async function POST(
     );
   }
 
-  // Fetch client record
+  // Fetch client
   const { data: client, error: clientError } = await supabase
     .from("clients")
     .select("*")
@@ -91,7 +133,7 @@ export async function POST(
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
   }
 
-  // Fetch compiled KB document
+  // Fetch compiled KB
   const { data: kbDoc } = await supabase
     .from("client_knowledge_documents")
     .select("*")
@@ -105,15 +147,29 @@ export async function POST(
     );
   }
 
-  // Fetch existing mockup (to preserve logo_url on regenerate)
+  // Fetch existing mockup (preserve logo_url on regenerate)
   const { data: existingMockup } = await supabase
     .from("client_mockups")
     .select("*")
     .eq("client_id", id)
     .maybeSingle();
 
+  // Fetch system prompt from prompts table (fallback to hardcoded)
+  let systemPrompt = FALLBACK_PROMPT;
+  try {
+    const { data: promptRow } = await adminClient
+      .from("prompts")
+      .select("content")
+      .eq("id", "mockup-generator")
+      .single();
+    if (promptRow?.content) {
+      systemPrompt = promptRow.content;
+    }
+  } catch {
+    // Table may not exist yet — use fallback
+  }
+
   // Fetch available icons
-  const adminClient = createAdminClient();
   const { data: icons } = await adminClient
     .from("icons")
     .select("name, group_name, svg_content")
@@ -122,21 +178,21 @@ export async function POST(
 
   const typedIcons = (icons ?? []) as IconRow[];
 
-  // Build icon names grouped by group_name
+  // Build icon list for prompt
   const iconsByGroup: Record<string, string[]> = {};
   for (const icon of typedIcons) {
-    if (!iconsByGroup[icon.group_name]) {
-      iconsByGroup[icon.group_name] = [];
-    }
+    if (!iconsByGroup[icon.group_name]) iconsByGroup[icon.group_name] = [];
     iconsByGroup[icon.group_name].push(icon.name);
   }
-
   const iconListText = Object.entries(iconsByGroup)
     .map(([group, names]) => `  ${group}: ${names.join(", ")}`)
     .join("\n");
 
   // Build user message
-  const userMessage = `Client: ${client.business_name || `${client.first_name} ${client.last_name}`}
+  const businessName =
+    client.business_name || `${client.first_name} ${client.last_name}`;
+
+  const userMessage = `Client: ${businessName}
 
 Knowledge Base:
 ${kbDoc.content}
@@ -146,15 +202,14 @@ ${iconListText}
 
 Generate the complete homepage mockup config JSON.`;
 
-  // Call Claude API
+  // Call Claude
   const anthropic = new Anthropic();
-
   let response;
   try {
     response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
+      max_tokens: 8192,
+      system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
     });
   } catch (err) {
@@ -166,7 +221,7 @@ Generate the complete homepage mockup config JSON.`;
     );
   }
 
-  // Extract text from response
+  // Extract text
   const textBlock = response.content.find((c) => c.type === "text");
   if (!textBlock || textBlock.type !== "text") {
     return NextResponse.json(
@@ -175,7 +230,7 @@ Generate the complete homepage mockup config JSON.`;
     );
   }
 
-  // Parse JSON (strip markdown code block wrappers if present)
+  // Parse JSON (strip markdown code fences if present)
   let rawText = textBlock.text.trim();
   if (rawText.startsWith("```")) {
     rawText = rawText.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
@@ -184,19 +239,17 @@ Generate the complete homepage mockup config JSON.`;
   let mockupConfig: MockupConfig;
   try {
     const parsed = JSON.parse(rawText);
+    const mj = parsed.master_json ?? parsed;
+    const wf = parsed.wf_fields ?? parsed;
 
-    // Resolve icon_name → icon_svg for stats/benefits cards
-    const cards = parsed.stats_benefits_cards ?? [];
-    const resolvedCards = cards.map(
+    // Resolve icon_name → icon_svg for stats/benefits
+    const rawCards = mj?.stats_benefits?.cards ?? [];
+    const resolvedCards = rawCards.map(
       (card: { icon_name?: string; heading: string; paragraph: string }) => {
-        const iconName = card.icon_name ?? "";
-        const matchedIcon = typedIcons.find((i) => i.name === iconName);
-        // Fall back to first general icon if no match
-        const fallbackIcon = typedIcons.find(
-          (i) => i.group_name === "general"
-        );
+        const matched = typedIcons.find((i) => i.name === (card.icon_name ?? ""));
+        const fallback = typedIcons.find((i) => i.group_name === "general");
         return {
-          icon_svg: matchedIcon?.svg_content ?? fallbackIcon?.svg_content ?? "",
+          icon_svg: matched?.svg_content ?? fallback?.svg_content ?? "",
           heading: card.heading,
           paragraph: card.paragraph,
         };
@@ -206,27 +259,88 @@ Generate the complete homepage mockup config JSON.`;
     // Preserve existing logo URL on regenerate
     const logoUrl = existingMockup?.logo_url ?? "";
 
-    mockupConfig = {
+    const fullMasterJson: MasterJSON = {
+      config: {
+        logo: { src: logoUrl, alt: mj.config?.logo?.alt ?? businessName },
+        company: mj.config?.company ?? businessName,
+        email: mj.config?.email ?? "",
+        phone: mj.config?.phone ?? "",
+        address: mj.config?.address ?? "",
+        socials: {
+          facebook: mj.config?.socials?.facebook ?? "",
+          instagram: mj.config?.socials?.instagram ?? "",
+          youtube: mj.config?.socials?.youtube ?? "",
+          tiktok: mj.config?.socials?.tiktok ?? "",
+          x: mj.config?.socials?.x ?? "",
+          linkedin: mj.config?.socials?.linkedin ?? "",
+          pinterest: mj.config?.socials?.pinterest ?? "",
+        },
+      },
       navbar: {
-        ...parsed.navbar,
-        logo: { src: logoUrl, alt: parsed.navbar?.logo?.alt ?? "" },
+        top_bar: mj.navbar?.top_bar ?? { show: false, map: { show: false, text: "", href: "#service-area" } },
+        nav_links: mj.navbar?.nav_links ?? [],
+        cta: mj.navbar?.cta ?? { text: "Get a Free Quote" },
       },
-      navbar_variant: parsed.navbar_variant ?? "Full Without Top",
       footer: {
-        ...parsed.footer,
-        logo: { src: logoUrl, alt: parsed.footer?.logo?.alt ?? "" },
+        footer_nav: mj.footer?.footer_nav ?? [],
+        footer_groups: mj.footer?.footer_groups ?? [],
       },
-      footer_variant: parsed.footer_variant ?? "Minimal",
-      hero_tag: parsed.hero_tag ?? "",
-      hero_heading: parsed.hero_heading ?? "",
-      hero_paragraph: parsed.hero_paragraph ?? "",
-      hero_button_1_text: parsed.hero_button_1_text ?? "Get a Free Quote",
-      hero_button_2_text: parsed.hero_button_2_text ?? "",
-      hero_variant: parsed.hero_variant ?? "Auto Height Center Align",
+      services: { cards: mj.services?.cards ?? [] },
+      process: { steps: mj.process?.steps ?? [] },
+      stats_benefits: { cards: resolvedCards },
+      testimonials: {
+        top_row: mj.testimonials?.top_row ?? [],
+        bottom_row: mj.testimonials?.bottom_row ?? [],
+      },
+      faq: { items: mj.faq?.items ?? [] },
+      contact: { form: mj.contact?.form ?? DEFAULT_CONTACT_FORM },
+    };
+
+    mockupConfig = {
+      master_json: fullMasterJson,
+      navbar_variant: wf.navbar_variant ?? "Full Without Top",
+      footer_variant: wf.footer_variant ?? "Minimal",
+      hero_tag: wf.hero_tag ?? "",
+      hero_heading: wf.hero_heading ?? "",
+      hero_paragraph: wf.hero_paragraph ?? "",
+      hero_button_1_text: wf.hero_button_1_text ?? "Get a Free Quote",
+      hero_button_2_text: wf.hero_button_2_text ?? "",
+      hero_variant: wf.hero_variant ?? "Auto Height Center Align",
       hero_image: "",
-      stats_benefits_visibility:
-        parsed.stats_benefits_visibility ?? "Benefits",
-      stats_benefits_cards: resolvedCards,
+      services_variant: wf.services_variant ?? "Three Grid",
+      services_tag: wf.services_tag ?? "",
+      services_heading: wf.services_heading ?? "",
+      services_paragraph: wf.services_paragraph ?? "",
+      services_button: wf.services_button ?? "",
+      process_variant: wf.process_variant ?? "Sticky List",
+      process_tag: wf.process_tag ?? "",
+      process_heading: wf.process_heading ?? "",
+      process_paragraph: wf.process_paragraph ?? "",
+      process_button: wf.process_button ?? "",
+      about_tag: wf.about_tag ?? "",
+      about_heading: wf.about_heading ?? "",
+      about_subheading: wf.about_subheading ?? "",
+      about_button_1: wf.about_button_1 ?? "",
+      about_button_2: wf.about_button_2 ?? "",
+      about_image: "",
+      stats_benefits_visibility: wf.stats_benefits_visibility ?? "Benefits",
+      testimonials_tag: wf.testimonials_tag ?? "",
+      testimonials_heading: wf.testimonials_heading ?? "",
+      testimonials_paragraph: wf.testimonials_paragraph ?? "",
+      faq_variant: wf.faq_variant ?? "Center",
+      faq_tag: wf.faq_tag ?? "",
+      faq_heading: wf.faq_heading ?? "",
+      faq_paragraph: wf.faq_paragraph ?? "",
+      cta_tag: wf.cta_tag ?? "",
+      cta_heading: wf.cta_heading ?? "",
+      cta_paragraph: wf.cta_paragraph ?? "",
+      cta_button_1: wf.cta_button_1 ?? "",
+      cta_button_2: wf.cta_button_2 ?? "",
+      contact_variant: wf.contact_variant ?? "Two Grid",
+      contact_tag: wf.contact_tag ?? "",
+      contact_heading: wf.contact_heading ?? "",
+      contact_paragraph: wf.contact_paragraph ?? "",
+      css: wf.css ?? DEFAULT_CSS,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -237,33 +351,15 @@ Generate the complete homepage mockup config JSON.`;
     );
   }
 
-  // Try Webflow integration (non-blocking on failure)
-  const slug = slugify(
-    client.business_name || `${client.first_name}-${client.last_name}`
-  );
+  // Build CSS style block for Webflow Rich Text field
+  const cssStyleBlock = buildCssStyleBlock(mockupConfig.css);
+
+  // Webflow push (non-blocking on failure)
+  const slug = slugify(businessName);
   let webflowItemId = existingMockup?.webflow_item_id ?? "";
   let webflowUrl = existingMockup?.webflow_url ?? "";
 
-  const webflowFields: Record<string, unknown> = {
-    name: client.business_name || `${client.first_name} ${client.last_name}`,
-    slug,
-    "navbar-config": JSON.stringify(mockupConfig.navbar),
-    "navbar-variant": mockupConfig.navbar_variant,
-    "footer-config": JSON.stringify(mockupConfig.footer),
-    "footer-variant": mockupConfig.footer_variant,
-    "hero-tag": mockupConfig.hero_tag,
-    "hero-heading": mockupConfig.hero_heading,
-    "hero-paragraph": mockupConfig.hero_paragraph,
-    "hero-button-1-text": mockupConfig.hero_button_1_text,
-    "hero-button-2-text": mockupConfig.hero_button_2_text,
-    "hero-variant": mockupConfig.hero_variant,
-    "hero-image": mockupConfig.hero_image,
-    "statistics-benefits-visibility":
-      mockupConfig.stats_benefits_visibility,
-    "statistics-benefits": JSON.stringify({
-      cards: mockupConfig.stats_benefits_cards,
-    }),
-  };
+  const webflowFields = buildWebflowFields(mockupConfig, businessName, slug, cssStyleBlock);
 
   try {
     if (webflowItemId) {
@@ -324,4 +420,59 @@ Generate the complete homepage mockup config JSON.`;
       output_tokens: usage.output_tokens,
     },
   });
+}
+
+// Build the full Webflow CMS field mapping
+function buildWebflowFields(
+  config: MockupConfig,
+  name: string,
+  slug: string,
+  cssStyleBlock: string
+): Record<string, unknown> {
+  return {
+    name,
+    slug,
+    "config-json": JSON.stringify(config.master_json),
+    "css-override": cssStyleBlock,
+    "navbar-variant": config.navbar_variant,
+    "footer-variant": config.footer_variant,
+    "hero-tag": config.hero_tag,
+    "hero-heading": config.hero_heading,
+    "hero-paragraph": config.hero_paragraph,
+    "hero-button-1-text": config.hero_button_1_text,
+    "hero-button-2-text": config.hero_button_2_text,
+    "hero-variant": config.hero_variant,
+    "services-variant": config.services_variant,
+    "services-tag": config.services_tag,
+    "services-heading": config.services_heading,
+    "services-paragraph": config.services_paragraph,
+    "services-button": config.services_button,
+    "process-variant": config.process_variant,
+    "process-tag": config.process_tag,
+    "process-heading": config.process_heading,
+    "process-paragraph": config.process_paragraph,
+    "process-button": config.process_button,
+    "about-tag": config.about_tag,
+    "about-heading": config.about_heading,
+    "about-subheading": config.about_subheading,
+    "about-button-1": config.about_button_1,
+    "about-button-2": config.about_button_2,
+    "statistics-benefits-visibility": config.stats_benefits_visibility,
+    "testimonials-tag": config.testimonials_tag,
+    "testimonials-heading": config.testimonials_heading,
+    "testimonials-paragraph": config.testimonials_paragraph,
+    "faq-variant": config.faq_variant,
+    "faq-tag": config.faq_tag,
+    "faq-heading": config.faq_heading,
+    "faq-paragraph": config.faq_paragraph,
+    "cta-tag": config.cta_tag,
+    "cta-heading": config.cta_heading,
+    "cta-paragraph": config.cta_paragraph,
+    "cta-button-1": config.cta_button_1,
+    "cta-button-2": config.cta_button_2,
+    "contact-variant": config.contact_variant,
+    "contact-tag": config.contact_tag,
+    "contact-heading": config.contact_heading,
+    "contact-paragraph": config.contact_paragraph,
+  };
 }

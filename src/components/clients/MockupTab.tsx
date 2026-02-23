@@ -21,6 +21,7 @@ export function MockupTab({
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [generating, setGenerating] = useState(false);
+  const [pushingDemo, setPushingDemo] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [localMockup, setLocalMockup] = useState<ClientMockup | null>(mockup);
   const [configExpanded, setConfigExpanded] = useState(false);
@@ -56,6 +57,41 @@ export function MockupTab({
       });
     } finally {
       setGenerating(false);
+    }
+  }
+
+  // ──────────────────────────────────────────────────
+  // PUSH DEMO DATA
+  // ──────────────────────────────────────────────────
+
+  async function handlePushDemo() {
+    setPushingDemo(true);
+
+    try {
+      const res = await fetch(`/api/clients/${clientId}/mockup/demo`, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to push demo data");
+      }
+
+      const data = await res.json();
+      setLocalMockup(data.mockup);
+      addToast({
+        variant: "success",
+        title: "Demo data pushed to Webflow",
+      });
+      onDataChanged();
+    } catch (err) {
+      addToast({
+        variant: "error",
+        title: "Demo push failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setPushingDemo(false);
     }
   }
 
@@ -120,27 +156,51 @@ export function MockupTab({
 
   if (!compiledDoc?.content) {
     return (
-      <div className="bg-surface border border-yellow-500/30 rounded-xl p-6 text-center">
-        <svg
-          className="w-10 h-10 text-yellow-500 mx-auto mb-3"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-          />
-        </svg>
-        <h3 className="text-base font-medium text-text-primary mb-1">
-          Knowledge Base Required
-        </h3>
-        <p className="text-sm text-text-muted">
-          Compile the Knowledge Base first before generating a homepage mockup.
-          The AI uses the compiled document as context.
-        </p>
+      <div className="space-y-4">
+        <div className="bg-surface border border-yellow-500/30 rounded-xl p-6 text-center">
+          <svg
+            className="w-10 h-10 text-yellow-500 mx-auto mb-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+            />
+          </svg>
+          <h3 className="text-base font-medium text-text-primary mb-1">
+            Knowledge Base Required
+          </h3>
+          <p className="text-sm text-text-muted">
+            Compile the Knowledge Base first before generating a homepage mockup.
+            The AI uses the compiled document as context.
+          </p>
+        </div>
+
+        {/* Demo push still available without KB */}
+        <div className="bg-surface border border-dashed border-border rounded-xl p-4 text-center">
+          <p className="text-xs text-text-dim mb-3">
+            Or push demo data to test the Webflow integration without AI
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handlePushDemo}
+            disabled={pushingDemo}
+          >
+            {pushingDemo ? (
+              <>
+                <Spinner size="sm" />
+                Pushing Demo...
+              </>
+            ) : (
+              "Push Demo Data"
+            )}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -179,25 +239,43 @@ export function MockupTab({
           </h3>
           <p className="text-sm text-text-muted mb-6 max-w-md mx-auto">
             AI will generate a full homepage configuration from the compiled
-            knowledge base — navbar, hero, stats/benefits, and footer.
+            knowledge base — all sections, colors, and content.
           </p>
-          <Button onClick={handleGenerate} disabled={generating}>
-            {generating ? (
-              <>
-                <Spinner size="sm" />
-                Generating...
-              </>
-            ) : (
-              "Generate Homepage Mockup"
-            )}
-          </Button>
+          <div className="flex items-center justify-center gap-3">
+            <Button onClick={handleGenerate} disabled={generating || pushingDemo}>
+              {generating ? (
+                <>
+                  <Spinner size="sm" />
+                  Generating...
+                </>
+              ) : (
+                "Generate Homepage Mockup"
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handlePushDemo}
+              disabled={generating || pushingDemo}
+            >
+              {pushingDemo ? (
+                <>
+                  <Spinner size="sm" />
+                  Pushing...
+                </>
+              ) : (
+                "Push Demo Data"
+              )}
+            </Button>
+          </div>
         </div>
 
-        {generating && (
+        {(generating || pushingDemo) && (
           <div className="bg-surface border border-border rounded-xl p-6 flex items-center justify-center gap-3">
             <Spinner size="md" />
             <p className="text-sm text-text-muted">
-              Generating mockup with AI... This may take 15-30 seconds.
+              {generating
+                ? "Generating mockup with AI... This may take 15-30 seconds."
+                : "Pushing demo data to Webflow..."}
             </p>
           </div>
         )}
@@ -210,6 +288,7 @@ export function MockupTab({
   // ──────────────────────────────────────────────────
 
   const config = displayMockup.config;
+  const mj = config.master_json;
 
   return (
     <div className="space-y-6">
@@ -225,28 +304,47 @@ export function MockupTab({
             {displayMockup.status}
           </Badge>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleGenerate}
-          disabled={generating}
-        >
-          {generating ? (
-            <>
-              <Spinner size="sm" />
-              Regenerating...
-            </>
-          ) : (
-            "Regenerate"
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handlePushDemo}
+            disabled={generating || pushingDemo}
+          >
+            {pushingDemo ? (
+              <>
+                <Spinner size="sm" />
+                Pushing...
+              </>
+            ) : (
+              "Push Demo"
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleGenerate}
+            disabled={generating || pushingDemo}
+          >
+            {generating ? (
+              <>
+                <Spinner size="sm" />
+                Regenerating...
+              </>
+            ) : (
+              "Regenerate"
+            )}
+          </Button>
+        </div>
       </div>
 
-      {generating && (
+      {(generating || pushingDemo) && (
         <div className="bg-surface border border-border rounded-xl p-6 flex items-center justify-center gap-3">
           <Spinner size="md" />
           <p className="text-sm text-text-muted">
-            Regenerating mockup with AI... This may take 15-30 seconds.
+            {generating
+              ? "Regenerating mockup with AI... This may take 15-30 seconds."
+              : "Pushing demo data to Webflow..."}
           </p>
         </div>
       )}
@@ -355,32 +453,70 @@ export function MockupTab({
             <ConfigSection title={`Navbar (${config.navbar_variant})`}>
               <ConfigField
                 label="Top Bar"
-                value={config.navbar.top_bar.show ? "Visible" : "Hidden"}
+                value={mj?.navbar?.top_bar?.show ? "Visible" : "Hidden"}
               />
-              {config.navbar.top_bar.show && (
-                <>
-                  <ConfigField
-                    label="Phone"
-                    value={config.navbar.top_bar.phone.text || "(empty)"}
-                  />
-                  <ConfigField
-                    label="Map"
-                    value={config.navbar.top_bar.map.text || "(empty)"}
-                  />
-                </>
+              {mj?.navbar?.top_bar?.show && mj?.navbar?.top_bar?.map?.show && (
+                <ConfigField
+                  label="Map"
+                  value={mj.navbar.top_bar.map.text || "(empty)"}
+                />
               )}
-              <ConfigField label="CTA" value={config.navbar.cta.text} />
+              <ConfigField
+                label="Phone"
+                value={mj?.config?.phone || "(empty)"}
+              />
+              <ConfigField label="CTA" value={mj?.navbar?.cta?.text || "(empty)"} />
               <ConfigField
                 label="Links"
-                value={config.navbar.nav_links
-                  .map((l) => ("dropdown" in l ? `${l.text} (dropdown)` : l.text))
-                  .join(", ")}
+                value={
+                  mj?.navbar?.nav_links
+                    ?.map((l) => ("dropdown" in l ? `${l.text} (dropdown)` : l.text))
+                    .join(", ") || "(none)"
+                }
               />
             </ConfigSection>
 
+            {/* Services */}
+            <ConfigSection title={`Services (${config.services_variant})`}>
+              <ConfigField label="Tag" value={config.services_tag} />
+              <ConfigField label="Heading" value={config.services_heading} />
+              <ConfigField
+                label="Cards"
+                value={`${mj?.services?.cards?.length ?? 0} cards`}
+              />
+              {mj?.services?.cards?.map((card, i) => (
+                <ConfigField
+                  key={i}
+                  label={`Card ${i + 1}`}
+                  value={card.heading}
+                />
+              ))}
+            </ConfigSection>
+
+            {/* Process */}
+            <ConfigSection title={`Process (${config.process_variant})`}>
+              <ConfigField label="Tag" value={config.process_tag} />
+              <ConfigField label="Heading" value={config.process_heading} />
+              {mj?.process?.steps?.map((step, i) => (
+                <ConfigField
+                  key={i}
+                  label={`Step ${i + 1}`}
+                  value={step.heading}
+                />
+              ))}
+            </ConfigSection>
+
+            {/* About */}
+            <ConfigSection title="About">
+              <ConfigField label="Tag" value={config.about_tag} />
+              <ConfigField label="Heading" value={config.about_heading} />
+              <ConfigField label="Button 1" value={config.about_button_1 || "(empty)"} />
+              <ConfigField label="Button 2" value={config.about_button_2 || "(empty)"} />
+            </ConfigSection>
+
             {/* Stats/Benefits */}
-            <ConfigSection title={`${config.stats_benefits_visibility}`}>
-              {config.stats_benefits_cards.map((card, i) => (
+            <ConfigSection title={config.stats_benefits_visibility}>
+              {mj?.stats_benefits?.cards?.map((card, i) => (
                 <div key={i} className="flex items-start gap-3 py-1">
                   {card.icon_svg && (
                     <div
@@ -400,17 +536,79 @@ export function MockupTab({
               ))}
             </ConfigSection>
 
+            {/* Testimonials */}
+            <ConfigSection title="Testimonials">
+              <ConfigField label="Tag" value={config.testimonials_tag} />
+              <ConfigField label="Heading" value={config.testimonials_heading} />
+              <ConfigField
+                label="Reviews"
+                value={`${(mj?.testimonials?.top_row?.length ?? 0) + (mj?.testimonials?.bottom_row?.length ?? 0)} total`}
+              />
+            </ConfigSection>
+
+            {/* FAQ */}
+            <ConfigSection title={`FAQ (${config.faq_variant})`}>
+              <ConfigField label="Tag" value={config.faq_tag} />
+              <ConfigField label="Heading" value={config.faq_heading} />
+              <ConfigField
+                label="Items"
+                value={`${mj?.faq?.items?.length ?? 0} questions`}
+              />
+            </ConfigSection>
+
+            {/* CTA */}
+            <ConfigSection title="CTA">
+              <ConfigField label="Tag" value={config.cta_tag} />
+              <ConfigField label="Heading" value={config.cta_heading} />
+              <ConfigField label="Button 1" value={config.cta_button_1 || "(empty)"} />
+              <ConfigField label="Button 2" value={config.cta_button_2 || "(empty)"} />
+            </ConfigSection>
+
+            {/* Contact */}
+            <ConfigSection title={`Contact (${config.contact_variant})`}>
+              <ConfigField label="Tag" value={config.contact_tag} />
+              <ConfigField label="Heading" value={config.contact_heading} />
+              <ConfigField
+                label="Submit"
+                value={mj?.contact?.form?.submit_button || "(default)"}
+              />
+            </ConfigSection>
+
             {/* Footer */}
             <ConfigSection title={`Footer (${config.footer_variant})`}>
-              <ConfigField label="Company" value={config.footer.company} />
-              <ConfigField label="Phone" value={config.footer.contact.phone || "(empty)"} />
-              <ConfigField label="Email" value={config.footer.contact.email || "(empty)"} />
-              {config.footer_variant === "Full" && config.footer.footer_groups.length > 0 && (
-                <ConfigField
-                  label="Groups"
-                  value={config.footer.footer_groups.map((g) => g.heading).join(", ")}
+              <ConfigField label="Company" value={mj?.config?.company || "(empty)"} />
+              <ConfigField label="Phone" value={mj?.config?.phone || "(empty)"} />
+              <ConfigField label="Email" value={mj?.config?.email || "(empty)"} />
+              {config.footer_variant === "Full" &&
+                (mj?.footer?.footer_groups?.length ?? 0) > 0 && (
+                  <ConfigField
+                    label="Groups"
+                    value={mj.footer.footer_groups.map((g) => g.heading).join(", ")}
+                  />
+                )}
+            </ConfigSection>
+
+            {/* CSS */}
+            <ConfigSection title={`CSS (${config.css?.theme ?? "light"} theme)`}>
+              <div className="flex items-center gap-2 py-1">
+                <div
+                  className="w-4 h-4 rounded border border-border"
+                  style={{ backgroundColor: config.css?.brand_1 }}
                 />
-              )}
+                <span className="text-xs text-text-muted">
+                  Brand 1: {config.css?.brand_1}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 py-1">
+                <div
+                  className="w-4 h-4 rounded border border-border"
+                  style={{ backgroundColor: config.css?.brand_2 }}
+                />
+                <span className="text-xs text-text-muted">
+                  Brand 2: {config.css?.brand_2}
+                </span>
+              </div>
+              <ConfigField label="Radius" value={config.css?.radius ?? "rounded"} />
             </ConfigSection>
           </div>
         )}
