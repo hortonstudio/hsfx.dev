@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (event === "SIGNED_IN") {
         // Don't redirect if already on a protected route
         const currentPath = window.location.pathname;
-        const protectedPrefixes = ["/dashboard", "/docs", "/styleguide", "/tools", "/clients", "/client", "/onboard"];
+        const protectedPrefixes = ["/dashboard", "/docs", "/styleguide", "/tools", "/clients", "/client", "/onboard", "/sitemap"];
         const isOnProtectedRoute = protectedPrefixes.some(
           (prefix) => currentPath === prefix || currentPath.startsWith(`${prefix}/`)
         );
