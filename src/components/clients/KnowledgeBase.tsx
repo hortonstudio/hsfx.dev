@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button, Input, Spinner, useToast } from "@/components/ui";
 import { KnowledgeEntryCard } from "./KnowledgeEntryCard";
 import { AddNotesModal } from "./AddNotesModal";
@@ -24,6 +24,7 @@ export function KnowledgeBase({
 }: KnowledgeBaseProps) {
   const { addToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
 
   // Modal state
   const [notesOpen, setNotesOpen] = useState(false);
@@ -34,82 +35,145 @@ export function KnowledgeBase({
 
   // Upload state
   const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadQueue, setUploadQueue] = useState(0);
 
   // Compile state
   const [compiling, setCompiling] = useState(false);
   const [localCompiledDoc, setLocalCompiledDoc] = useState<KnowledgeDocument | null>(compiledDoc);
 
   // ──────────────────────────────────────────────────
-  // FILE UPLOAD
+  // FILE UPLOAD (single file)
   // ──────────────────────────────────────────────────
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadFile = useCallback(async (file: File) => {
+    // Step 1: Get signed upload URL
+    const uploadRes = await fetch(`/api/clients/${clientId}/knowledge/upload`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        contentType: file.type,
+      }),
+    });
+
+    if (!uploadRes.ok) {
+      const data = await uploadRes.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to get upload URL");
+    }
+
+    const { signedUrl, publicUrl } = await uploadRes.json();
+
+    // Step 2: Upload file to signed URL
+    const putRes = await fetch(signedUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+
+    if (!putRes.ok) {
+      throw new Error("Failed to upload file");
+    }
+
+    // Step 3: Create knowledge entry
+    const isImage = IMAGE_TYPES.includes(file.type);
+    const entryRes = await fetch(`/api/clients/${clientId}/knowledge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: isImage ? "screenshot" : "file",
+        title: file.name,
+        file_url: publicUrl,
+        file_type: file.type,
+      }),
+    });
+
+    if (!entryRes.ok) {
+      const data = await entryRes.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to create entry");
+    }
+  }, [clientId]);
+
+  async function handleFiles(files: File[]) {
+    if (files.length === 0) return;
 
     setUploading(true);
+    setUploadQueue(files.length);
 
-    try {
-      // Step 1: Get signed upload URL
-      const uploadRes = await fetch(`/api/clients/${clientId}/knowledge/upload`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type,
-        }),
-      });
+    let successCount = 0;
+    let failCount = 0;
 
-      if (!uploadRes.ok) {
-        const data = await uploadRes.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to get upload URL");
+    for (const file of files) {
+      try {
+        await uploadFile(file);
+        successCount++;
+      } catch (err) {
+        failCount++;
+        console.error(`Failed to upload ${file.name}:`, err);
       }
+      setUploadQueue((prev) => prev - 1);
+    }
 
-      const { signedUrl, publicUrl } = await uploadRes.json();
-
-      // Step 2: Upload file to signed URL
-      const putRes = await fetch(signedUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+    if (successCount > 0) {
+      addToast({
+        variant: "success",
+        title: `${successCount} file${successCount > 1 ? "s" : ""} uploaded`,
       });
-
-      if (!putRes.ok) {
-        throw new Error("Failed to upload file");
-      }
-
-      // Step 3: Create knowledge entry
-      const isImage = IMAGE_TYPES.includes(file.type);
-      const entryRes = await fetch(`/api/clients/${clientId}/knowledge`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: isImage ? "screenshot" : "file",
-          title: file.name,
-          file_url: publicUrl,
-          file_type: file.type,
-        }),
-      });
-
-      if (!entryRes.ok) {
-        const data = await entryRes.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to create entry");
-      }
-
-      addToast({ variant: "success", title: "File uploaded successfully" });
       onDataChanged();
-    } catch (err) {
+    }
+    if (failCount > 0) {
       addToast({
         variant: "error",
-        title: "Upload failed",
-        description: err instanceof Error ? err.message : "Unknown error",
+        title: `${failCount} file${failCount > 1 ? "s" : ""} failed to upload`,
       });
-    } finally {
-      setUploading(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+    }
+
+    setUploading(false);
+    setUploadQueue(0);
+  }
+
+  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    handleFiles(files);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  // ──────────────────────────────────────────────────
+  // DRAG & DROP
+  // ──────────────────────────────────────────────────
+
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFiles(files);
     }
   }
 
@@ -221,7 +285,28 @@ export function KnowledgeBase({
   const displayDoc = localCompiledDoc ?? compiledDoc;
 
   return (
-    <div className="space-y-6">
+    <div
+      className="space-y-6 relative"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* ──────────────────────────────────────────── */}
+      {/* DRAG OVERLAY                                */}
+      {/* ──────────────────────────────────────────── */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 bg-accent/5 border-2 border-dashed border-accent rounded-xl flex items-center justify-center backdrop-blur-[2px]">
+          <div className="text-center">
+            <svg className="w-10 h-10 text-accent mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <p className="text-sm font-medium text-accent">Drop files to upload</p>
+            <p className="text-xs text-text-muted mt-1">Images, PDFs, documents</p>
+          </div>
+        </div>
+      )}
+
       {/* ──────────────────────────────────────────── */}
       {/* INPUT SECTION                               */}
       {/* ──────────────────────────────────────────── */}
@@ -248,24 +333,30 @@ export function KnowledgeBase({
             disabled={uploading}
           >
             {uploading ? (
-              <Spinner size="sm" />
+              <>
+                <Spinner size="sm" />
+                {uploadQueue > 0 ? `Uploading (${uploadQueue} left)...` : "Uploading..."}
+              </>
             ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                />
-              </svg>
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                  />
+                </svg>
+                Upload File
+              </>
             )}
-            Upload File
           </Button>
 
           <input
             ref={fileInputRef}
             type="file"
             className="hidden"
-            onChange={handleFileUpload}
+            multiple
+            onChange={handleFileInput}
             accept="image/*,.pdf,.doc,.docx,.txt,.md"
           />
         </div>
