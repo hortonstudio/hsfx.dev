@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Button, Badge, Spinner, useToast } from "@/components/ui";
+import { Button, Badge, Spinner, Modal, useToast } from "@/components/ui";
 import { WebflowDebugModal } from "./WebflowDebugModal";
 import type { ClientMockup, KnowledgeDocument } from "@/lib/clients/types";
 
@@ -28,6 +28,9 @@ export function MockupTab({
   const [configExpanded, setConfigExpanded] = useState(false);
   const [debugModalOpen, setDebugModalOpen] = useState(false);
   const [copyingPrompt, setCopyingPrompt] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importJson, setImportJson] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const displayMockup = localMockup ?? mockup;
   const isDraft = displayMockup?.status === "draft";
@@ -159,6 +162,49 @@ export function MockupTab({
   }
 
   // ──────────────────────────────────────────────────
+  // IMPORT CONFIG (paste JSON)
+  // ──────────────────────────────────────────────────
+
+  async function handleImport() {
+    setImporting(true);
+
+    try {
+      let parsed;
+      try {
+        parsed = JSON.parse(importJson);
+      } catch {
+        throw new Error("Invalid JSON — check your syntax and try again.");
+      }
+
+      const res = await fetch(`/api/clients/${clientId}/mockup/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config: parsed }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Import failed");
+      }
+
+      const data = await res.json();
+      setLocalMockup(data.mockup);
+      setImportOpen(false);
+      setImportJson("");
+      addToast({ variant: "success", title: "Config imported (draft)" });
+      onDataChanged();
+    } catch (err) {
+      addToast({
+        variant: "error",
+        title: "Import failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  // ──────────────────────────────────────────────────
   // LOGO UPLOAD
   // ──────────────────────────────────────────────────
 
@@ -206,6 +252,58 @@ export function MockupTab({
       if (logoInputRef.current) logoInputRef.current.value = "";
     }
   }
+
+  // ──────────────────────────────────────────────────
+  // IMPORT MODAL (shared across states)
+  // ──────────────────────────────────────────────────
+
+  const importModal = (
+    <Modal
+      open={importOpen}
+      onClose={() => {
+        setImportOpen(false);
+        setImportJson("");
+      }}
+      title="Import Mockup Config"
+      size="lg"
+    >
+      <div className="space-y-4">
+        <textarea
+          value={importJson}
+          onChange={(e) => setImportJson(e.target.value)}
+          placeholder="Paste your MockupConfig JSON here..."
+          className="w-full min-h-[400px] rounded-lg border border-border bg-background p-3 text-sm text-text-primary font-mono placeholder:text-text-dim focus:outline-none focus:ring-2 focus:ring-accent/50 resize-y"
+          spellCheck={false}
+        />
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setImportOpen(false);
+              setImportJson("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleImport}
+            disabled={importing || !importJson.trim()}
+          >
+            {importing ? (
+              <>
+                <Spinner size="sm" />
+                Importing...
+              </>
+            ) : (
+              "Import"
+            )}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
 
   // ──────────────────────────────────────────────────
   // STATE 1: NO COMPILED KB
@@ -306,6 +404,9 @@ export function MockupTab({
             <Button variant="outline" onClick={handleLoadDemo} disabled={generating}>
               Load Demo
             </Button>
+            <Button variant="outline" onClick={() => setImportOpen(true)} disabled={generating}>
+              Import Config
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setDebugModalOpen(true)}>
               <WrenchIcon />
               Webflow Debug
@@ -332,6 +433,8 @@ export function MockupTab({
             onDataChanged();
           }}
         />
+
+        {importModal}
       </div>
     );
   }
@@ -391,6 +494,16 @@ export function MockupTab({
           ) : (
             "Regenerate"
           )}
+        </Button>
+
+        {/* Import Config */}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setImportOpen(true)}
+          disabled={generating || pushing}
+        >
+          Import Config
         </Button>
 
         {/* Copy Prompt + KB */}
@@ -675,6 +788,9 @@ export function MockupTab({
           onDataChanged();
         }}
       />
+
+      {/* Import Modal */}
+      {importModal}
     </div>
   );
 }

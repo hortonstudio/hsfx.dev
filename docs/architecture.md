@@ -5,7 +5,7 @@
 - **Database:** Supabase (PostgreSQL + Auth + Storage)
 - **Styling:** Tailwind CSS 3.4, CSS custom properties for design tokens
 - **Animation:** Framer Motion (UI), GSAP (tools), Lenis (smooth scroll)
-- **AI:** Anthropic Claude (claude-haiku-4-5-20251001) via @anthropic-ai/sdk
+- **AI:** Anthropic Claude (claude-sonnet-4-5-20250929) via @anthropic-ai/sdk
 - **CMS:** Webflow CMS API v2
 - **UI Primitives:** Radix UI (@radix-ui/react-dialog, tabs, checkbox, radio, select, dropdown-menu, tooltip, switch)
 

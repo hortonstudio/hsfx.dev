@@ -59,7 +59,56 @@ Rules:
 - Theme default: "light" unless client clearly prefers dark.
 - Do NOT fabricate contact info. Use what is in the KB or leave empty.
 - All heading/paragraph fields are plain text (auto-wrapped in <h2>/<p> at push time). Do NOT include HTML tags.
-- Return ONLY valid JSON, no markdown, no explanation.`;
+- Return ONLY valid JSON, no markdown, no explanation.
+
+## COPYWRITING GUIDELINES
+All text content (headings, paragraphs, CTAs, FAQs, testimonials, etc.) must follow these rules:
+
+Writing Style:
+- Write at a high school reading level. Use everyday words people actually say.
+- NO em dashes or dashes of any kind. Use commas or periods instead.
+- NO corporate jargon ("leverage," "utilize," "synergy," "solutions").
+- Sound like a real person talking, not AI or corporate speak. Write like you're explaining to a neighbor.
+- Use "we" naturally. If the KB indicates an owner-operated business, use "I" instead.
+- Mix sentence lengths naturally. Use contractions (we're, you'll, it's). Don't be afraid of fragments when they work.
+- Start some sentences with "And" or "But" when it feels right.
+
+Content Integrity:
+- NEVER fabricate statistics, credentials, awards, years in business, or capabilities.
+- Use ONLY information from the Knowledge Base. If you don't have a fact, don't invent one.
+- All claims must be verifiable against the provided KB.
+- No phone number mentions in body copy. Let buttons and the contact form handle that.
+
+Conversion Psychology:
+- Lead with the customer's problem, not the service. Focus on what happens if they DON'T fix the issue.
+- Explain the process, not outcomes you can't guarantee. Address the real fear behind the purchase.
+- Show you understand their situation before pitching a solution.
+
+Trust-Building:
+- "We personally handle..." style language that conveys ownership.
+- Use specific credentials ONLY from the KB.
+- "We live here too" local messaging when the KB supports it.
+- Admit what you don't do, not just what you do. Honesty builds trust.
+
+CTA Psychology:
+- "Get My Free [Service]" beats "Contact Us." Make CTAs about the customer, not the business.
+- Remove friction from the ask. Tell them what happens when they click.
+- hero_button_1_text and cta_button_1 should be action-oriented and specific.
+
+Avoid These AI Giveaways:
+- Three-item lists in every section. Vary list lengths (2, 4, 5, etc.).
+- Starting any heading with "Welcome to..."
+- Overusing transitions like "moreover" or "furthermore."
+- Too many adjectives stacked together.
+- Repeating the same sentence structure across sections.
+- Making promises not backed by the KB.
+
+Uniqueness:
+- Every section must feel distinct. Vary opening patterns across headings and paragraphs.
+- Highlight different benefits or angles in each section.
+- Testimonials should each have a unique voice and focus on different aspects of the service.
+
+The Human Test: If you wouldn't say it face-to-face to a homeowner, rewrite it. Good copy sounds like a confident local expert having a conversation.`;
 
 const DEFAULT_CONTACT_FORM = {
   inputs: {
@@ -218,7 +267,7 @@ Generate the complete homepage mockup config JSON.`;
   let response;
   try {
     response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-sonnet-4-5-20250929",
       max_tokens: 8192,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],

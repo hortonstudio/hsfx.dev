@@ -308,6 +308,59 @@ export function KnowledgeBase({
     }
   }
 
+  // ──────────────────────────────────────────────────
+  // EXPORT ALL ENTRIES
+  // ──────────────────────────────────────────────────
+
+  function handleExportEntries() {
+    const sections = entries.map((entry) => {
+      const parts = [`## [${entry.type}] ${entry.title}`];
+      if (entry.content) parts.push(entry.content);
+      if (entry.file_url) parts.push(`File: ${entry.file_url}`);
+      return parts.join("\n");
+    });
+
+    const markdown = `# Knowledge Base Entries — ${clientName}\n\nExported: ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}\nEntries: ${entries.length}\n\n---\n\n${sections.join("\n\n---\n\n")}\n`;
+
+    const blob = new Blob([markdown], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = window.document.createElement("a");
+    a.href = url;
+    a.download = `${clientName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-entries.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addToast({ variant: "success", title: "Entries exported" });
+  }
+
+  // ──────────────────────────────────────────────────
+  // COPY AI PROMPT
+  // ──────────────────────────────────────────────────
+
+  const [copyingPrompt, setCopyingPrompt] = useState(false);
+
+  async function handleCopyAIPrompt() {
+    setCopyingPrompt(true);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/knowledge/prompt`);
+      if (!res.ok) throw new Error("Failed to fetch prompt");
+
+      const { systemPrompt, entriesText, businessName } = await res.json();
+
+      const fullPrompt = `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== CLIENT ===\n${businessName}\n\n${entriesText}\n\n=== INSTRUCTION ===\nCompile the above knowledge entries into a structured knowledge base document for "${businessName}".`;
+
+      await navigator.clipboard.writeText(fullPrompt);
+      addToast({ variant: "success", title: "AI prompt copied to clipboard" });
+    } catch (err) {
+      addToast({
+        variant: "error",
+        title: "Failed to copy prompt",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setCopyingPrompt(false);
+    }
+  }
+
   // Use local doc if we just compiled, otherwise use prop
   const displayDoc = localCompiledDoc ?? compiledDoc;
 
@@ -475,6 +528,37 @@ export function KnowledgeBase({
             Compiled Knowledge Base
           </h3>
           <div className="flex items-center gap-3">
+            {entries.length > 0 && (
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleExportEntries}
+                  title="Download all raw entries as markdown"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Export
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleCopyAIPrompt}
+                  disabled={copyingPrompt}
+                  title="Copy system prompt + entries for external AI chat"
+                >
+                  {copyingPrompt ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                  )}
+                  Copy AI Prompt
+                </Button>
+              </>
+            )}
             {actualUsage ? (
               <div className="text-xs text-text-muted">
                 Used: {formatTokens(actualUsage.input_tokens)} in + {formatTokens(actualUsage.output_tokens)} out ={" "}
@@ -516,7 +600,7 @@ export function KnowledgeBase({
         )}
 
         {!compiling && displayDoc && (
-          <CompiledDocViewer document={displayDoc} />
+          <CompiledDocViewer document={displayDoc} clientId={clientId} onSaved={onDataChanged} />
         )}
 
         {!compiling && !displayDoc && entries.length > 0 && (

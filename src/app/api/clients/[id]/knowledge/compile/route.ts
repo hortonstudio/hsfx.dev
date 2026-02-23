@@ -216,8 +216,8 @@ export async function POST(
   let response;
   try {
     response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 4096,
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: 8192,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: contentBlocks }],
     });
@@ -254,7 +254,7 @@ export async function POST(
         last_compiled_at: new Date().toISOString(),
         entry_ids_included: allEntryIds,
         metadata: {
-          model: "claude-haiku-4-5-20251001",
+          model: "claude-sonnet-4-5-20250929",
           entry_count: typedEntries.length,
           input_tokens: usage.input_tokens,
           output_tokens: usage.output_tokens,
@@ -271,9 +271,9 @@ export async function POST(
     );
   }
 
-  // Calculate cost (Haiku 4.5: $0.80/MTok input, $4.00/MTok output)
-  const inputCost = (usage.input_tokens / 1_000_000) * 0.8;
-  const outputCost = (usage.output_tokens / 1_000_000) * 4.0;
+  // Calculate cost (Sonnet 4.5: $3.00/MTok input, $15.00/MTok output)
+  const inputCost = (usage.input_tokens / 1_000_000) * 3.0;
+  const outputCost = (usage.output_tokens / 1_000_000) * 15.0;
   const totalCost = inputCost + outputCost;
 
   console.log(
@@ -290,4 +290,52 @@ export async function POST(
       total_cost: `$${totalCost.toFixed(4)}`,
     },
   });
+}
+
+// PATCH /api/clients/[id]/knowledge/compile — manual override of compiled doc
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let body: { content: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (!body.content?.trim()) {
+    return NextResponse.json({ error: "Content is required" }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from("client_knowledge_documents")
+    .upsert(
+      {
+        client_id: id,
+        content: body.content.trim(),
+        last_compiled_at: new Date().toISOString(),
+        metadata: { source: "manual" },
+      },
+      { onConflict: "client_id" }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, document: data });
 }

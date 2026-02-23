@@ -52,9 +52,9 @@ export function estimateCompilationCost(
   // Estimate output tokens: roughly 60% of input for compilation tasks, capped at max_tokens (4096)
   const estimatedOutputTokens = Math.min(Math.ceil(inputTokens * 0.6), 4096);
 
-  // Claude Haiku 4.5 pricing: $0.80/MTok input, $4.00/MTok output
-  const inputCost = (inputTokens / 1_000_000) * 0.8;
-  const outputCost = (estimatedOutputTokens / 1_000_000) * 4.0;
+  // Claude Sonnet 4.5 pricing: $3.00/MTok input, $15.00/MTok output
+  const inputCost = (inputTokens / 1_000_000) * 3.0;
+  const outputCost = (estimatedOutputTokens / 1_000_000) * 15.0;
   const totalCost = inputCost + outputCost;
 
   return {

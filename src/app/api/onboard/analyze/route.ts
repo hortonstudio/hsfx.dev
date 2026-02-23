@@ -228,13 +228,13 @@ Using the scraped data above${notes ? " and the designer's notes" : ""}, generat
   // Build system prompt with niche addendum
   const systemPrompt = buildSystemPrompt(promptData.value, niche ?? "other");
 
-  // Call Claude Haiku 4.5
+  // Call Claude Sonnet 4.5
   const anthropic = new Anthropic();
 
   let response;
   try {
     response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-sonnet-4-5-20250929",
       max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }],
