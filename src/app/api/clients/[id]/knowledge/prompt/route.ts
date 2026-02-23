@@ -66,10 +66,15 @@ Organize everything into a clean, well-formatted markdown document with these se
 
 IMPORTANT RULES:
 1. PRIORITY NOTES: Entries marked as [PRIORITY NOTE] are from the designer/admin and represent specific client preferences, decisions, and direction. These OVERRIDE any conflicting information from other sources. Always include these in the "Client Preferences & Notes" section and let them influence all other sections.
-2. SCREENSHOTS: When you receive screenshots, analyze them thoroughly for brand colors, logo style, typography, layout, business information, social media content, service offerings, and any other business-relevant details. Screenshots are a PRIMARY source of visual branding information. Extract as much as possible.
-3. Be thorough but concise. Use bullet points for lists.
-4. Preserve specific details like exact color codes, phone numbers, addresses, etc.
-5. If notes say the client wants to change something (e.g., move away from a color), document BOTH the current state AND the desired change clearly.`;
+2. SCREENSHOTS: When you receive screenshots, analyze them thoroughly for brand colors (identify specific hex codes or describe colors precisely), logo style and placement, typography and fonts used, layout and design style, business information visible (phone, email, address, hours), social media content and branding, service offerings shown, and any other business-relevant details. Screenshots are a PRIMARY source of visual branding information. Extract as much as possible.
+3. IMAGE SOURCE DIFFERENTIATION: Pay attention to the title/label of each screenshot to determine its source:
+   - WEBSITE screenshots: Highest priority source for brand identity. Extract primary brand color (hex code), whether the site uses a light or dark theme, typography choices, and overall design style.
+   - FACEBOOK/SOCIAL MEDIA screenshots: Secondary source. Useful for business info, service offerings, customer engagement style, and cover photo branding. Only use for brand colors if no website screenshots are available.
+   - If both website and Facebook screenshots exist, PRIORITIZE the website for brand colors, theme (light/dark), and design direction. Facebook may still provide additional business details not on the website.
+   - In the Brand Identity section, clearly note: "Primary Brand Color: #XXXXXX (from website)" and "Theme: light/dark (from website)" when available.
+4. Be thorough but concise. Use bullet points for lists.
+5. Preserve specific details like exact color codes, phone numbers, addresses, etc.
+6. If notes say the client wants to change something (e.g., move away from a color), document BOTH the current state AND the desired change clearly.`;
 
   // Format entries the same way the compile route does
   const noteEntries = typedEntries.filter((e) => e.type === "meeting_notes");

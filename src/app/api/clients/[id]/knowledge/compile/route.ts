@@ -32,9 +32,14 @@ IMPORTANT RULES:
    - Service offerings shown
    - Any other business-relevant details
    Screenshots are a PRIMARY source of visual branding information. Extract as much as possible.
-3. Be thorough but concise. Use bullet points for lists.
-4. Preserve specific details like exact color codes, phone numbers, addresses, etc.
-5. If notes say the client wants to change something (e.g., move away from a color), document BOTH the current state AND the desired change clearly.`;
+3. IMAGE SOURCE DIFFERENTIATION: Pay attention to the title/label of each screenshot to determine its source:
+   - WEBSITE screenshots: These are the highest priority source for brand identity. Extract the primary brand color (hex code), whether the site uses a light or dark theme, typography choices, and overall design style.
+   - FACEBOOK/SOCIAL MEDIA screenshots: Secondary source. Useful for business info, service offerings, customer engagement style, and cover photo branding. Only use for brand colors if no website screenshots are available.
+   - If both website and Facebook screenshots exist, PRIORITIZE the website for brand colors, theme (light/dark), and design direction. Facebook may still provide additional business details not on the website.
+   - In the Brand Identity section, clearly note: "Primary Brand Color: #XXXXXX (from website)" and "Theme: light/dark (from website)" when available.
+4. Be thorough but concise. Use bullet points for lists.
+5. Preserve specific details like exact color codes, phone numbers, addresses, etc.
+6. If notes say the client wants to change something (e.g., move away from a color), document BOTH the current state AND the desired change clearly.`;
 
 interface KnowledgeEntry {
   id: string;
