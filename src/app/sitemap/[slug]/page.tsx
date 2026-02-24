@@ -29,6 +29,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import type { ClientSitemap, SitemapPageData, SitemapPageType, SitemapComment } from "@/lib/clients/sitemap-types";
 import { PAGE_TYPE_CONFIG, collapseCollectionItems } from "@/lib/clients/sitemap-utils";
+import { autoLayout } from "@/lib/clients/sitemap-layout";
 import SitemapNodeComponent from "@/components/sitemap/SitemapNode";
 import { SitemapCommentPanel } from "@/components/sitemap/SitemapCommentPanel";
 import { Badge, Button } from "@/components/ui";
@@ -133,13 +134,15 @@ function PublicSitemapViewer() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [commentsOpen, selectedNodeId]);
 
-  // Collapse collection_items into parent collection template cards for canvas
-  const canvasData = useMemo(
-    () => sitemap
-      ? collapseCollectionItems(sitemap.sitemap_data.nodes, sitemap.sitemap_data.edges)
-      : { nodes: [], edges: [] },
-    [sitemap]
-  );
+  // Collapse collection_items into parent collection template cards, then re-layout
+  const canvasData = useMemo(() => {
+    if (!sitemap) return { nodes: [], edges: [] };
+    const collapsed = collapseCollectionItems(sitemap.sitemap_data.nodes, sitemap.sitemap_data.edges);
+    return {
+      nodes: autoLayout(collapsed.nodes, collapsed.edges),
+      edges: collapsed.edges,
+    };
+  }, [sitemap]);
 
   if (loading) {
     return (
