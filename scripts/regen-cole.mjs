@@ -202,7 +202,10 @@ ${kbDoc.content}
 ${proposalDoc ? `\nAdditional context — this is the proposal document showing exactly what pages and services have been agreed on with the client:\n${proposalDoc}` : ""}
 
 Generate the complete sitemap as a JSON array of page objects for Package 3.
-Include service pages for common plumbing services, service area pages, Gallery, About, FAQ, Testimonials, Contact, and Privacy Policy.`;
+- Services: individual collection_item pages for common plumbing services (drain cleaning, water heater, pipe repair, etc.)
+- Service Areas: up to 5-8 area pages for nearby cities
+- Gallery, FAQ, Testimonials, Blog: TEMPLATE-ONLY (just the parent page with estimatedItems, NO collection_item children)
+- Include About, Contact, Privacy Policy, Terms of Service`;
 
   console.log("  Calling Claude Sonnet 4.5...");
   const response = await anthropic.messages.create({

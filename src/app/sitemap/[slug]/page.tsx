@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import {
   ReactFlow,
   Background,
@@ -15,26 +16,24 @@ import {
   Map,
   MessageSquare,
   X,
-  Network,
-  List,
   House,
   FileText,
   Database,
   File,
   Settings,
   ExternalLink,
+  Pencil,
+  LayoutDashboard,
 } from "lucide-react";
 
+import { useAuth } from "@/contexts/AuthContext";
 import type { ClientSitemap, SitemapPageData, SitemapPageType, SitemapComment } from "@/lib/clients/sitemap-types";
 import { PAGE_TYPE_CONFIG, collapseCollectionItems } from "@/lib/clients/sitemap-utils";
 import SitemapNodeComponent from "@/components/sitemap/SitemapNode";
 import { SitemapCommentPanel } from "@/components/sitemap/SitemapCommentPanel";
-import { SitemapStructuralView } from "@/components/sitemap/SitemapStructuralView";
 import { Badge, Button } from "@/components/ui";
 
 const nodeTypes = { "sitemap-page": SitemapNodeComponent };
-
-type PublicView = "canvas" | "structure";
 
 const TYPE_ICONS: Record<SitemapPageType, React.ComponentType<{ className?: string }>> = {
   home: House,
@@ -47,13 +46,13 @@ const TYPE_ICONS: Record<SitemapPageType, React.ComponentType<{ className?: stri
 
 function PublicSitemapViewer() {
   const { slug } = useParams<{ slug: string }>();
-  const [sitemap, setSitemap] = useState<ClientSitemap | null>(null);
+  const { isAuthenticated } = useAuth();
+  const [sitemap, setSitemap] = useState<(ClientSitemap & { client_id?: string }) | null>(null);
   const [comments, setComments] = useState<SitemapComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
-  const [view, setView] = useState<PublicView>("canvas");
 
   // Fetch sitemap
   useEffect(() => {
@@ -160,6 +159,36 @@ function PublicSitemapViewer() {
 
   return (
     <div className="h-screen bg-background flex flex-col">
+      {/* Owner bar — visible only to authenticated agency users */}
+      {isAuthenticated && (
+        <div className="flex items-center justify-between px-5 h-9 border-b border-border bg-surface/95 backdrop-blur-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-accent" />
+            <span className="text-[11px] text-text-dim uppercase tracking-wider font-medium">
+              Agency View
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {sitemap.client_id && (
+              <Link
+                href={`/clients/${sitemap.client_id}`}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-text-muted hover:text-text-primary rounded-md hover:bg-background/60 transition-colors"
+              >
+                <Pencil className="w-3 h-3" />
+                Edit
+              </Link>
+            )}
+            <Link
+              href="/clients"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-text-muted hover:text-text-primary rounded-md hover:bg-background/60 transition-colors"
+            >
+              <LayoutDashboard className="w-3 h-3" />
+              Dashboard
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-surface/90 backdrop-blur-md">
         <div className="flex items-center gap-4">
@@ -190,34 +219,6 @@ function PublicSitemapViewer() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-background/50">
-            <button
-              type="button"
-              onClick={() => setView("canvas")}
-              className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors ${
-                view === "canvas"
-                  ? "bg-surface text-text-primary font-medium shadow-sm"
-                  : "text-text-dim hover:text-text-muted"
-              }`}
-            >
-              <Network className="w-3.5 h-3.5" />
-              Canvas
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("structure")}
-              className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors ${
-                view === "structure"
-                  ? "bg-surface text-text-primary font-medium shadow-sm"
-                  : "text-text-dim hover:text-text-muted"
-              }`}
-            >
-              <List className="w-3.5 h-3.5" />
-              Structure
-            </button>
-          </div>
-
           {sitemap.allow_comments && (
             <Button
               variant={commentsOpen ? "outline" : "ghost"}
@@ -241,54 +242,45 @@ function PublicSitemapViewer() {
 
       {/* Canvas + Panels */}
       <div className="flex-1 flex overflow-hidden">
-        {view === "structure" ? (
-          <SitemapStructuralView
-            nodes={sitemap.sitemap_data.nodes}
-            edges={sitemap.sitemap_data.edges}
-            selectedNodeId={selectedNodeId}
-            onNodeSelect={setSelectedNodeId}
-          />
-        ) : (
-          <div className="flex-1">
-            <ReactFlow
-              nodes={canvasData.nodes}
-              edges={canvasData.edges}
-              onNodeClick={onNodeClick}
-              onPaneClick={onPaneClick}
-              nodeTypes={nodeTypes}
-              defaultEdgeOptions={{
-                type: "bezier",
-                animated: false,
-                style: {
-                  stroke: "var(--color-border-hover)",
-                  strokeWidth: 1.5,
-                },
+        <div className="flex-1">
+          <ReactFlow
+            nodes={canvasData.nodes}
+            edges={canvasData.edges}
+            onNodeClick={onNodeClick}
+            onPaneClick={onPaneClick}
+            nodeTypes={nodeTypes}
+            defaultEdgeOptions={{
+              type: "bezier",
+              animated: false,
+              style: {
+                stroke: "var(--color-border-hover)",
+                strokeWidth: 1.5,
+              },
+            }}
+            fitView
+            fitViewOptions={{ padding: 0.3 }}
+            minZoom={0.2}
+            maxZoom={2}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={true}
+            proOptions={{ hideAttribution: false }}
+          >
+            <Background gap={24} size={0.8} color="var(--color-border)" />
+            <MiniMap
+              nodeColor={(node) => {
+                const data = node.data as SitemapPageData;
+                return data.color || (PAGE_TYPE_CONFIG[data.pageType]?.color ?? "#64748b");
               }}
-              fitView
-              fitViewOptions={{ padding: 0.2 }}
-              minZoom={0.1}
-              maxZoom={2}
-              nodesDraggable={false}
-              nodesConnectable={false}
-              elementsSelectable={true}
-              proOptions={{ hideAttribution: false }}
-            >
-              <Background gap={24} size={0.8} color="var(--color-border)" />
-              <MiniMap
-                nodeColor={(node) => {
-                  const data = node.data as SitemapPageData;
-                  return data.color || (PAGE_TYPE_CONFIG[data.pageType]?.color ?? "#64748b");
-                }}
-                maskColor="rgba(0,0,0,0.5)"
-                style={{
-                  backgroundColor: "var(--color-surface)",
-                  borderRadius: "12px",
-                  border: "1px solid var(--color-border)",
-                }}
-              />
-            </ReactFlow>
-          </div>
-        )}
+              maskColor="rgba(0,0,0,0.5)"
+              style={{
+                backgroundColor: "var(--color-surface)",
+                borderRadius: "12px",
+                border: "1px solid var(--color-border)",
+              }}
+            />
+          </ReactFlow>
+        </div>
 
         {/* Selected node detail panel */}
         <AnimatePresence>

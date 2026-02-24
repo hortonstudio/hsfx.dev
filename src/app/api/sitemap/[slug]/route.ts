@@ -11,7 +11,7 @@ export async function GET(
 
   const { data, error } = await adminClient
     .from("client_sitemaps")
-    .select("id, slug, title, package_tier, sitemap_data, is_public, allow_comments, status, created_at, updated_at")
+    .select("id, client_id, slug, title, package_tier, sitemap_data, is_public, allow_comments, status, created_at, updated_at")
     .eq("slug", slug)
     .eq("is_public", true)
     .single();

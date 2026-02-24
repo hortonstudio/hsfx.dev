@@ -163,7 +163,7 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
     setNodes((nds) =>
       nds.map((n) => ({ ...n, position: posMap.get(n.id) ?? n.position }))
     );
-    setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 50);
+    setTimeout(() => fitView({ padding: 0.3, duration: 300 }), 50);
     addToast({ variant: "success", title: "Layout applied" });
   }, [canvasData, setNodes, fitView, addToast]);
 
@@ -306,7 +306,7 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
         onSave={handleManualSave}
         onAutoLayout={handleAutoLayout}
         onAddPage={handleAddPage}
-        onFitView={() => fitView({ padding: 0.2, duration: 300 })}
+        onFitView={() => fitView({ padding: 0.3, duration: 300 })}
         onZoomIn={() => zoomIn({ duration: 200 })}
         onZoomOut={() => zoomOut({ duration: 200 })}
         onExport={handleExport}
@@ -356,8 +356,8 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
               }}
               connectionLineType={ConnectionLineType.Bezier}
               fitView
-              fitViewOptions={{ padding: 0.2 }}
-              minZoom={0.1}
+              fitViewOptions={{ padding: 0.3 }}
+              minZoom={0.2}
               maxZoom={2}
               proOptions={{ hideAttribution: false }}
             >

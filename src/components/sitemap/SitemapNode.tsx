@@ -302,15 +302,27 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
           </div>
         )}
 
-        {/* Collection info fallback (no items embedded yet) */}
-        {data.collectionName && !data.collectionItems && (
-          <div className="px-3.5 pb-2.5">
-            <div className="flex items-center gap-1.5 text-[10px] text-accent">
-              <Database className="w-3 h-3" />
-              <span>{data.collectionName}</span>
-              {data.estimatedItems != null && (
-                <span className="text-text-dim">({data.estimatedItems})</span>
+        {/* Collection template card (no items — template-only) */}
+        {isCollection && !data.collectionItems && (
+          <div className="px-3 pb-3">
+            <div
+              className="rounded-lg border border-dashed p-2.5"
+              style={{ borderColor: `${nodeColor}40` }}
+            >
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Layers className="w-3 h-3" style={{ color: nodeColor }} />
+                <span className="text-[10px] font-semibold text-text-muted">
+                  CMS Template
+                </span>
+              </div>
+              {data.collectionName && (
+                <p className="text-[9px] text-text-dim mb-1">{data.collectionName}</p>
               )}
+              <p className="text-[8px] text-text-dim/60">
+                {data.estimatedItems != null
+                  ? `~${data.estimatedItems} items planned`
+                  : "Items added after launch"}
+              </p>
             </div>
           </div>
         )}

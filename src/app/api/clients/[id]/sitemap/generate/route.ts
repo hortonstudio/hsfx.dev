@@ -70,9 +70,19 @@ Hero, Content, Services Overview, Services Grid, Service Details, Process Steps,
 - Home is the root. All top-level pages are children of Home.
 - Services MUST be a collection page with individual service collection_items as children.
 - If the business serves multiple areas, create a Service Areas collection with city/town collection_items.
-- Blog posts are collection_items under a Blog collection page.
-- Gallery/Portfolio items are collection_items under a Gallery collection.
 - collection_items MUST have a collectionName matching their parent collection's collectionName.
+
+## Template-Only Collections (NO collection_items generated)
+The following are TEMPLATE-ONLY. Generate ONLY the parent page with an estimatedItems count. Do NOT generate any collection_item children for these:
+- Gallery / Portfolio / Projects → collection page with estimatedItems. Sections: Hero, Gallery Grid, CTA
+- FAQ → static page. Sections: Hero, FAQ Accordion, CTA
+- Blog → collection page with estimatedItems (e.g. 5). Do NOT generate individual blog post items.
+- Testimonials → static page. Sections: Hero, Testimonial Grid, CTA
+
+## Itemized Collections (DO generate collection_items)
+Only these collections get individual collection_item children:
+- Services → one collection_item per actual service from the KB
+- Service Areas → one collection_item per service area from the KB
 
 ## Content Rules
 - NEVER fabricate services, locations, team members, or details not present in the knowledge base.
@@ -82,9 +92,10 @@ Hero, Content, Services Overview, Services Grid, Service Details, Process Steps,
 - For placeholder items (when KB lacks specifics), use generic but realistic names.
 
 ## Package Tier Guidelines
-- Package 1 (~8-12 pages): Home, About, 1 collection (Services, 3-4 items), Contact, Privacy Policy. Focus on core pages only.
-- Package 2 (~25-35 pages): Everything in Package 1 + Service Areas collection (5-10 area pages), Blog collection (3-5 posts), Gallery, FAQ, Testimonials.
-- Package 3 (~55-65 pages): Everything in Package 2 + extensive Service Areas (15-30+ cities), more blog posts (8-10), Portfolio/Projects collection, Resources page, Terms of Service. Maximum local SEO coverage.
+- Package 1 (~8-15 pages): Home, About, Services collection + 3-4 service items, Contact, Privacy Policy.
+- Package 2 (~15-25 pages): Everything in Package 1 + Service Areas collection (5-8 area items), Gallery template, FAQ, Blog template, Testimonials.
+- Package 3 (~25-40 pages): Everything in Package 2 + more area items (up to 15), more service items, Terms of Service.
+These counts are lower because template-only collections (Gallery, Blog, FAQ, Testimonials) do NOT generate individual items.
 
 Return ONLY the JSON array.`;
 

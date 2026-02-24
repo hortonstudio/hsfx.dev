@@ -10,11 +10,14 @@ Structure the sitemap for maximum local SEO impact:
 - Each service area page sections: Hero, Area Services, Testimonials, FAQ Accordion, Map, CTA
 - Services should be granular — separate pages for each trade specialty (e.g., "Roof Repair" and "Roof Replacement" as separate items, not just "Roofing").
 - Service item sections: Hero, Service Details, Before/After Gallery, Process Steps, Pricing Table, FAQ Accordion, Testimonials, CTA
-- Include a Gallery/Projects collection with individual project pages showing before/after work.
+- Service Areas: Generate AT MOST 5 service area pages for Package 1-2, AT MOST 10 for Package 3. Focus on the closest/most important cities from the KB.
+- Gallery/Projects: TEMPLATE-ONLY. Just the collection page with estimatedItems, no individual project items.
+- Blog: TEMPLATE-ONLY. Just the collection page with estimatedItems, no individual blog post items.
+- FAQ and Testimonials: TEMPLATE-ONLY static pages (not collections, no items).
 - About page should highlight: years in business, licensing, insurance, bonding, certifications.
 - Contact page should include emergency service info if applicable.
 - If the KB mentions financing, include a Financing static page.
-- Common collections: Services, Service Areas, Projects/Gallery, Blog
+- Common collections: Services, Service Areas (itemized); Gallery, Blog (template-only)
 `.trim(),
 
   medical: `
