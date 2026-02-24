@@ -13,11 +13,11 @@ interface LayoutConfig {
 
 const DEFAULT_CONFIG: LayoutConfig = {
   nodeWidth: 260,
-  nodeHeight: 240,
-  horizontalGap: 80,
-  verticalGap: 120,
-  maxChildrenPerRow: 4,
-  rowGap: 60,
+  nodeHeight: 140,
+  horizontalGap: 50,
+  verticalGap: 70,
+  maxChildrenPerRow: 5,
+  rowGap: 40,
 };
 
 /**

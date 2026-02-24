@@ -275,7 +275,9 @@ function PublicSitemapViewer() {
             fitViewOptions={{ padding: 0.3 }}
             minZoom={0.2}
             maxZoom={2}
-            nodesDraggable={false}
+            nodesDraggable={true}
+            snapToGrid={true}
+            snapGrid={[20, 20]}
             nodesConnectable={false}
             elementsSelectable={true}
             proOptions={{ hideAttribution: false }}

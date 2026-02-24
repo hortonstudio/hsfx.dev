@@ -359,6 +359,8 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
               fitViewOptions={{ padding: 0.3 }}
               minZoom={0.2}
               maxZoom={2}
+              snapToGrid={true}
+              snapGrid={[20, 20]}
               proOptions={{ hideAttribution: false }}
             >
               <Background gap={24} size={0.8} color="var(--color-border)" />
