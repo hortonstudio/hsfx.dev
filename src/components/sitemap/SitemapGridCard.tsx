@@ -61,7 +61,7 @@ export function SitemapGridCard({
   const isCollection = data.pageType === "collection";
   const hasActions = !readOnly && (onDelete || onDuplicate || onAddChild);
 
-  const visibleSections = data.sections?.slice(0, 5) ?? [];
+  const visibleSections = data.sections?.slice(0, 6) ?? [];
   const overflowCount = (data.sections?.length ?? 0) - visibleSections.length;
 
   return (
@@ -77,120 +77,124 @@ export function SitemapGridCard({
         }
       `}
     >
-      {/* Top accent bar */}
-      <div className="h-[3px]" style={{ backgroundColor: nodeColor }} />
+      {/* Left accent bar */}
+      <div className="flex">
+        <div className="w-[3px] flex-shrink-0 rounded-l-xl" style={{ backgroundColor: nodeColor }} />
 
-      {/* Header */}
-      <div className="px-3.5 pt-2.5 pb-2">
-        <div className="flex items-center justify-between mb-1">
-          <span
-            className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider"
-            style={{ color: nodeColor }}
-          >
-            <TypeIcon className="w-3 h-3" />
-            {typeConfig.label}
-          </span>
-          <div className="flex items-center gap-1">
-            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: statusColor }} />
-            <span className="text-[9px] text-text-dim capitalize">
-              {(data.status || "planned").replace("_", " ")}
+        <div className="flex-1 min-w-0 p-4">
+          {/* Header row */}
+          <div className="flex items-center justify-between mb-1.5">
+            <span
+              className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider"
+              style={{ color: nodeColor }}
+            >
+              <TypeIcon className="w-3.5 h-3.5" />
+              {typeConfig.label}
             </span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: statusColor }} />
+              <span className="text-[10px] text-text-muted font-medium capitalize">
+                {(data.status || "planned").replace("_", " ")}
+              </span>
+            </div>
           </div>
-        </div>
 
-        <h3 className="text-[13px] font-semibold text-text-primary leading-tight truncate">
-          {data.label}
-        </h3>
-        <p className="text-[10px] text-text-dim font-mono truncate mt-0.5">
-          {data.path}
-        </p>
-      </div>
+          {/* Title + path */}
+          <h3 className="text-sm font-semibold text-text-primary leading-snug truncate">
+            {data.label}
+          </h3>
+          <p className="text-[11px] text-text-muted font-mono truncate mt-0.5">
+            {data.path}
+          </p>
 
-      {/* Sections — compact stacked bars */}
-      {visibleSections.length > 0 && (
-        <div className="px-3.5 pb-2.5">
-          <div className="space-y-[3px]">
-            {visibleSections.map((section, i) => (
-              <div
-                key={`${section}-${i}`}
-                className="flex items-center gap-2 h-[18px] px-2 rounded"
-                style={{ backgroundColor: `${nodeColor}08` }}
-              >
-                <div
-                  className="w-[3px] h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: `${nodeColor}40` }}
-                />
-                <span className="text-[9px] text-text-dim leading-none truncate">
+          {/* Description */}
+          {data.description && (
+            <p className="text-[11px] text-text-muted/80 leading-relaxed mt-2 line-clamp-2">
+              {data.description}
+            </p>
+          )}
+
+          {/* Sections */}
+          {visibleSections.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {visibleSections.map((section, i) => (
+                <span
+                  key={`${section}-${i}`}
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] text-text-muted font-medium"
+                  style={{ backgroundColor: `${nodeColor}10` }}
+                >
+                  <div
+                    className="w-1 h-1 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: `${nodeColor}60` }}
+                  />
                   {section}
                 </span>
-              </div>
-            ))}
-            {overflowCount > 0 && (
-              <div className="flex items-center justify-center h-[16px]">
-                <span className="text-[8px] text-text-dim/50">
+              ))}
+              {overflowCount > 0 && (
+                <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] text-text-dim">
                   +{overflowCount} more
                 </span>
+              )}
+            </div>
+          )}
+
+          {/* Collection: CMS items */}
+          {isCollection && data.collectionItems && data.collectionItems.length > 0 && (
+            <div className="mt-3">
+              <div className="rounded-lg border border-border/40 bg-background/30 p-2.5">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Layers className="w-3.5 h-3.5" style={{ color: nodeColor }} />
+                  <span className="text-[10px] font-semibold text-text-muted">
+                    {data.collectionItems.length} {data.collectionItems.length === 1 ? "Item" : "Items"}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {data.collectionItems.slice(0, 8).map((item) => (
+                    <span
+                      key={item.path}
+                      className="inline-flex items-center px-2 py-0.5 rounded text-[9px] text-text-muted font-medium border border-border/30"
+                      style={{ backgroundColor: `${nodeColor}08` }}
+                    >
+                      {item.label}
+                    </span>
+                  ))}
+                  {data.collectionItems.length > 8 && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] text-text-dim bg-background/40">
+                      +{data.collectionItems.length - 8} more
+                    </span>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
 
-      {/* Collection: CMS items */}
-      {isCollection && data.collectionItems && data.collectionItems.length > 0 && (
-        <div className="px-3.5 pb-3">
-          <div className="rounded-lg border border-border/30 bg-background/20 p-2">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Layers className="w-3 h-3" style={{ color: nodeColor }} />
-              <span className="text-[9px] font-semibold text-text-muted">
-                {data.collectionItems.length} {data.collectionItems.length === 1 ? "Item" : "Items"}
-              </span>
+          {/* Collection: template-only */}
+          {isCollection && !data.collectionItems && (
+            <div className="mt-3">
+              <div
+                className="rounded-lg border border-dashed p-2.5"
+                style={{ borderColor: `${nodeColor}30` }}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5" style={{ color: nodeColor }} />
+                  <span className="text-[10px] font-semibold text-text-muted">
+                    CMS Template
+                  </span>
+                  {data.estimatedItems != null && (
+                    <span className="text-[10px] text-text-dim ml-auto">
+                      ~{data.estimatedItems} items
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-1">
-              {data.collectionItems.slice(0, 6).map((item) => (
-                <span
-                  key={item.path}
-                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] text-text-muted border border-border/20"
-                  style={{ backgroundColor: `${nodeColor}08` }}
-                >
-                  {item.label}
-                </span>
-              ))}
-              {data.collectionItems.length > 6 && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] text-text-dim bg-background/40">
-                  +{data.collectionItems.length - 6} more
-                </span>
-              )}
-            </div>
-          </div>
+          )}
         </div>
-      )}
-
-      {/* Collection: template-only (no items) */}
-      {isCollection && !data.collectionItems && (
-        <div className="px-3.5 pb-3">
-          <div
-            className="rounded-lg border border-dashed p-2"
-            style={{ borderColor: `${nodeColor}30` }}
-          >
-            <div className="flex items-center gap-1.5">
-              <Layers className="w-3 h-3" style={{ color: nodeColor }} />
-              <span className="text-[9px] font-semibold text-text-muted">
-                CMS Template
-              </span>
-              {data.estimatedItems != null && (
-                <span className="text-[8px] text-text-dim ml-auto">
-                  ~{data.estimatedItems} items
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* Comment indicator */}
       {data.commentCount != null && data.commentCount > 0 && (
-        <div className="absolute -top-2 -right-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-accent text-white text-[9px] font-bold shadow-glow-sm">
+        <div className="absolute top-2 right-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-accent text-white text-[9px] font-bold shadow-glow-sm">
           <MessageSquare className="w-2.5 h-2.5" />
           {data.commentCount}
         </div>
@@ -208,7 +212,7 @@ export function SitemapGridCard({
                 onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onAddChild(node.id); } }}
                 className="p-1 rounded-md text-text-dim hover:text-text-primary hover:bg-background/60 transition-colors"
               >
-                <Plus className="w-3 h-3" />
+                <Plus className="w-3.5 h-3.5" />
               </span>
             </Tooltip>
           )}
@@ -221,7 +225,7 @@ export function SitemapGridCard({
                 onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onDuplicate(node.id); } }}
                 className="p-1 rounded-md text-text-dim hover:text-text-primary hover:bg-background/60 transition-colors"
               >
-                <Copy className="w-3 h-3" />
+                <Copy className="w-3.5 h-3.5" />
               </span>
             </Tooltip>
           )}
@@ -234,7 +238,7 @@ export function SitemapGridCard({
                 onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onDelete(node.id); } }}
                 className="p-1 rounded-md text-text-dim hover:text-red-400 hover:bg-red-500/10 transition-colors"
               >
-                <Trash2 className="w-3 h-3" />
+                <Trash2 className="w-3.5 h-3.5" />
               </span>
             </Tooltip>
           )}
