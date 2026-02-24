@@ -15,7 +15,8 @@ import {
   Settings,
   ExternalLink,
   Pencil,
-  LayoutDashboard,
+  ChevronRight,
+  ArrowLeft,
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -150,12 +151,35 @@ function PublicSitemapViewer() {
       {/* Owner bar — visible only to authenticated agency users */}
       {isAuthenticated && (
         <div className="flex items-center justify-between px-5 h-9 border-b border-border bg-surface/95 backdrop-blur-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-            <span className="text-[11px] text-text-dim uppercase tracking-wider font-medium">
-              Agency View
-            </span>
-          </div>
+          <nav className="flex items-center gap-1.5 text-[11px]">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1 text-text-dim hover:text-text-primary transition-colors"
+            >
+              <ArrowLeft className="w-3 h-3" />
+              Dashboard
+            </Link>
+            <ChevronRight className="w-3 h-3 text-border" />
+            <Link
+              href="/clients"
+              className="text-text-dim hover:text-text-primary transition-colors"
+            >
+              Clients
+            </Link>
+            {sitemap.client_id && (
+              <>
+                <ChevronRight className="w-3 h-3 text-border" />
+                <Link
+                  href={`/clients/${sitemap.client_id}?tab=sitemap`}
+                  className="text-text-dim hover:text-text-primary transition-colors"
+                >
+                  Sitemap
+                </Link>
+              </>
+            )}
+            <ChevronRight className="w-3 h-3 text-border" />
+            <span className="text-text-muted font-medium">Live View</span>
+          </nav>
           <div className="flex items-center gap-1.5">
             {sitemap.client_id && (
               <Link
@@ -163,16 +187,9 @@ function PublicSitemapViewer() {
                 className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-text-muted hover:text-text-primary rounded-md hover:bg-background/60 transition-colors"
               >
                 <Pencil className="w-3 h-3" />
-                Edit
+                Open Editor
               </Link>
             )}
-            <Link
-              href="/clients"
-              className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-text-muted hover:text-text-primary rounded-md hover:bg-background/60 transition-colors"
-            >
-              <LayoutDashboard className="w-3 h-3" />
-              Dashboard
-            </Link>
           </div>
         </div>
       )}

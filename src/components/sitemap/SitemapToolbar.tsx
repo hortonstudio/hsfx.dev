@@ -1,11 +1,12 @@
 "use client";
 
 import {
+  ArrowLeft,
   Plus,
   Save,
   Share2,
   Download,
-  X,
+  Eye,
 } from "lucide-react";
 import { Button, Badge, Tooltip } from "@/components/ui";
 
@@ -20,6 +21,7 @@ interface SitemapToolbarProps {
   onClose: () => void;
   title: string;
   status: string;
+  shareSlug?: string | null;
 }
 
 export function SitemapToolbar({
@@ -33,6 +35,7 @@ export function SitemapToolbar({
   onClose,
   title,
   status,
+  shareSlug,
 }: SitemapToolbarProps) {
   const formatLastSaved = () => {
     if (!lastSaved) return null;
@@ -45,8 +48,14 @@ export function SitemapToolbar({
 
   return (
     <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface/90 backdrop-blur-md">
-      {/* Left: Title + Status */}
+      {/* Left: Back + Title + Status */}
       <div className="flex items-center gap-3">
+        <Tooltip content="Back" side="bottom">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+        </Tooltip>
+        <div className="w-px h-5 bg-border" />
         <h2 className="font-serif text-base font-medium text-text-primary tracking-tight">
           {title}
         </h2>
@@ -109,11 +118,17 @@ export function SitemapToolbar({
           </Button>
         </Tooltip>
 
-        <Tooltip content="Close" side="bottom">
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="w-4 h-4" />
-          </Button>
-        </Tooltip>
+        {shareSlug && (
+          <Tooltip content="View Live" side="bottom">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.open(`/sitemap/${shareSlug}`, "_blank")}
+            >
+              <Eye className="w-4 h-4" />
+            </Button>
+          </Tooltip>
+        )}
       </div>
     </div>
   );

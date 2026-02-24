@@ -267,6 +267,7 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
         }}
         title={sitemap.title}
         status={sitemap.status}
+        shareSlug={currentSitemap.is_public ? currentSitemap.slug : null}
       />
 
       <div className="flex-1 flex overflow-hidden">

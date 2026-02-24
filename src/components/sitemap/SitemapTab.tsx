@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { ExternalLink } from "lucide-react";
 import { Button, Badge, Spinner, useToast } from "@/components/ui";
 import type { ClientSitemap } from "@/lib/clients/sitemap-types";
 import type { KnowledgeDocument } from "@/lib/clients/types";
@@ -26,6 +27,27 @@ export function SitemapTab({
   const [creating, setCreating] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
+
+  // Push history entry when editor opens so browser Back closes it
+  const openEditor = useCallback(() => {
+    window.history.pushState({ sitemapEditor: true }, "");
+    setEditorOpen(true);
+  }, []);
+
+  const closeEditor = useCallback(() => {
+    setEditorOpen(false);
+    window.history.back();
+  }, []);
+
+  // Listen for popstate (browser Back) to close editor
+  useEffect(() => {
+    if (!editorOpen) return;
+    const handlePopState = () => {
+      setEditorOpen(false);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [editorOpen]);
 
   const displaySitemap = localSitemap ?? sitemap;
 
@@ -191,9 +213,21 @@ export function SitemapTab({
             </Badge>
           )}
         </div>
-        <Button onClick={() => setEditorOpen(true)}>
-          Open Editor
-        </Button>
+        <div className="flex items-center gap-2">
+          {displaySitemap.is_public && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(`/sitemap/${displaySitemap.slug}`, "_blank")}
+            >
+              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+              View Live
+            </Button>
+          )}
+          <Button onClick={openEditor}>
+            Open Editor
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -237,7 +271,7 @@ export function SitemapTab({
         <SitemapEditor
           sitemap={displaySitemap}
           clientId={clientId}
-          onClose={() => setEditorOpen(false)}
+          onClose={closeEditor}
           onSaved={(updated) => {
             setLocalSitemap(updated);
             onDataChanged();

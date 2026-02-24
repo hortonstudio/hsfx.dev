@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -44,6 +45,22 @@ function ClientDetailContent({ id }: { id: string }) {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
   const initialLoadDone = useRef(false);
+
+  // Sync tab changes to URL for back/forward navigation
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab);
+    window.history.pushState(null, "", `/clients/${id}?tab=${tab}`);
+  }, [id]);
+
+  // Listen for browser back/forward to update active tab
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      setActiveTab(params.get("tab") || "overview");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const fetchData = useCallback(async () => {
     // Only show loading spinner on initial load, not on refetch
@@ -150,17 +167,21 @@ function ClientDetailContent({ id }: { id: string }) {
 
   return (
     <>
-      {/* Header */}
+      {/* Breadcrumb + Header */}
       <div className="mb-8">
-        <Link
-          href="/clients"
-          className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors mb-4"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Clients
-        </Link>
+        <nav className="flex items-center gap-1.5 text-sm mb-4">
+          <Link href="/dashboard" className="text-text-dim hover:text-text-primary transition-colors">
+            Dashboard
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-border" />
+          <Link href="/clients" className="text-text-dim hover:text-text-primary transition-colors">
+            Clients
+          </Link>
+          <ChevronRight className="w-3.5 h-3.5 text-border" />
+          <span className="text-text-muted">
+            {client.business_name || `${client.first_name} ${client.last_name}`}
+          </span>
+        </nav>
 
         <h1 className="font-serif text-3xl md:text-4xl text-text-primary">
           {client.first_name} {client.last_name}
@@ -169,7 +190,7 @@ function ClientDetailContent({ id }: { id: string }) {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabList>
           <Tab value="overview">Overview</Tab>
           <Tab value="knowledge">Knowledge Base</Tab>
