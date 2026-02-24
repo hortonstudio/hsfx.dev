@@ -6,15 +6,18 @@ import {
   ReactFlow,
   Background,
   MiniMap,
-  Controls,
   ReactFlowProvider,
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { motion, AnimatePresence } from "framer-motion";
+import { Map, MessageSquare, X } from "lucide-react";
 
 import type { ClientSitemap, SitemapPageData, SitemapComment } from "@/lib/clients/sitemap-types";
+import { PAGE_TYPE_CONFIG } from "@/lib/clients/sitemap-utils";
 import SitemapNodeComponent from "@/components/sitemap/SitemapNode";
 import { SitemapCommentPanel } from "@/components/sitemap/SitemapCommentPanel";
+import { Badge, Button } from "@/components/ui";
 
 const nodeTypes = { "sitemap-page": SitemapNodeComponent };
 
@@ -82,18 +85,18 @@ function PublicSitemapViewer() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-white/20 border-t-white rounded-full" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-border border-t-accent rounded-full" />
       </div>
     );
   }
 
   if (error || !sitemap) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-serif text-white mb-2">{error || "Not Found"}</h1>
-          <p className="text-white/50 text-sm">This sitemap may be private or does not exist.</p>
+          <h1 className="text-2xl font-serif text-text-primary mb-2">{error || "Not Found"}</h1>
+          <p className="text-text-muted text-sm">This sitemap may be private or does not exist.</p>
         </div>
       </div>
     );
@@ -104,40 +107,45 @@ function PublicSitemapViewer() {
     : null;
 
   return (
-    <div className="h-screen bg-[#0a0a0a] flex flex-col text-white">
+    <div className="h-screen bg-background flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#111]">
-        <div className="flex items-center gap-3">
-          <h1 className="text-sm font-medium">{sitemap.title}</h1>
-          <span className="px-2 py-0.5 text-[10px] rounded-full border border-white/20 text-white/50">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-surface/90 backdrop-blur-md">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-accent/10 flex items-center justify-center">
+              <Map className="w-4 h-4 text-accent" />
+            </div>
+            <h1 className="font-serif text-base font-medium text-text-primary">
+              {sitemap.title}
+            </h1>
+          </div>
+          <Badge variant="default" size="sm">
             {sitemap.sitemap_data.nodes.length} pages
-          </span>
+          </Badge>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {sitemap.allow_comments && (
-            <button
-              type="button"
+            <Button
+              variant={commentsOpen ? "outline" : "ghost"}
+              size="sm"
               onClick={() => setCommentsOpen(!commentsOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-white/20 hover:bg-white/5 transition-colors"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
+              <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
               Comments
               {comments.length > 0 && (
-                <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-blue-500 text-white">
+                <Badge variant="info" size="sm" className="ml-1.5">
                   {comments.length}
-                </span>
+                </Badge>
               )}
-            </button>
+            </Button>
           )}
-          <span className="text-[10px] text-white/30">
-            Powered by HSFX
+          <span className="text-[11px] text-text-dim font-semibold tracking-wider uppercase">
+            HSFX
           </span>
         </div>
       </div>
 
-      {/* Canvas + Comments */}
+      {/* Canvas + Panels */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1">
           <ReactFlow
@@ -146,7 +154,14 @@ function PublicSitemapViewer() {
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
-            defaultEdgeOptions={{ type: "smoothstep", animated: false }}
+            defaultEdgeOptions={{
+              type: "bezier",
+              animated: false,
+              style: {
+                stroke: "var(--color-border-hover)",
+                strokeWidth: 1.5,
+              },
+            }}
             fitView
             fitViewOptions={{ padding: 0.2 }}
             minZoom={0.1}
@@ -156,84 +171,92 @@ function PublicSitemapViewer() {
             elementsSelectable={true}
             proOptions={{ hideAttribution: false }}
           >
-            <Background gap={20} size={1} color="rgba(255,255,255,0.05)" />
+            <Background gap={24} size={0.8} color="var(--color-border)" />
             <MiniMap
               nodeColor={(node) => {
                 const pageType = (node.data as SitemapPageData).pageType;
-                const colors: Record<string, string> = {
-                  home: "#3b82f6",
-                  static: "#6b7280",
-                  collection: "#10b981",
-                  collection_item: "#34d399",
-                  utility: "#f59e0b",
-                  external: "#8b5cf6",
-                };
-                return colors[pageType] ?? "#6b7280";
+                return PAGE_TYPE_CONFIG[pageType]?.color ?? "#64748b";
               }}
-              maskColor="rgba(0,0,0,0.7)"
-              style={{ backgroundColor: "#111" }}
+              maskColor="rgba(0,0,0,0.5)"
+              style={{
+                backgroundColor: "var(--color-surface)",
+                borderRadius: "12px",
+                border: "1px solid var(--color-border)",
+              }}
             />
-            <Controls showInteractive={false} />
           </ReactFlow>
         </div>
 
-        {/* Selected node detail popover */}
-        {selectedNode && (
-          <div className="w-72 border-l border-white/10 bg-[#111] p-4 overflow-y-auto">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium">{selectedNode.data.label}</h3>
-              <button
-                type="button"
-                onClick={() => setSelectedNodeId(null)}
-                className="text-white/40 hover:text-white"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-white/40">Path</span>
-                <p className="font-mono text-white/70">{selectedNode.data.path}</p>
-              </div>
-              <div>
-                <span className="text-white/40">Type</span>
-                <p className="text-white/70 capitalize">{selectedNode.data.pageType.replace("_", " ")}</p>
-              </div>
-              {selectedNode.data.description && (
-                <div>
-                  <span className="text-white/40">Description</span>
-                  <p className="text-white/70">{selectedNode.data.description}</p>
+        {/* Selected node detail panel */}
+        <AnimatePresence>
+          {selectedNode && (
+            <motion.div
+              initial={{ x: 20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 20, opacity: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="w-80 border-l border-border bg-surface/80 backdrop-blur-sm overflow-y-auto"
+              data-lenis-prevent
+            >
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-text-primary">{selectedNode.data.label}</h3>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedNodeId(null)}
+                    className="p-1 rounded-md text-text-dim hover:text-text-primary hover:bg-background/60 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              )}
-              {selectedNode.data.sections && selectedNode.data.sections.length > 0 && (
-                <div>
-                  <span className="text-white/40">Sections</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {selectedNode.data.sections.map((s) => (
-                      <span key={s} className="px-1.5 py-0.5 text-[10px] rounded bg-white/10 text-white/60">
-                        {s}
-                      </span>
-                    ))}
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <span className="text-text-dim">Path</span>
+                    <p className="font-mono text-text-muted mt-0.5">{selectedNode.data.path}</p>
                   </div>
+                  <div>
+                    <span className="text-text-dim">Type</span>
+                    <p className="text-text-muted capitalize mt-0.5">{selectedNode.data.pageType.replace("_", " ")}</p>
+                  </div>
+                  {selectedNode.data.description && (
+                    <div>
+                      <span className="text-text-dim">Description</span>
+                      <p className="text-text-muted mt-0.5 leading-relaxed">{selectedNode.data.description}</p>
+                    </div>
+                  )}
+                  {selectedNode.data.sections && selectedNode.data.sections.length > 0 && (
+                    <div>
+                      <span className="text-text-dim">Sections</span>
+                      <div className="space-y-1 mt-1.5">
+                        {selectedNode.data.sections.map((s) => (
+                          <div
+                            key={s}
+                            className="flex items-center gap-2 px-2 py-1 rounded-md bg-background/60"
+                          >
+                            <div className="w-0.5 h-3 rounded-full bg-border-hover flex-shrink-0" />
+                            <span className="text-[11px] text-text-muted leading-none">{s}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {selectedNode.data.seoTitle && (
+                    <div>
+                      <span className="text-text-dim">SEO Title</span>
+                      <p className="text-text-muted mt-0.5">{selectedNode.data.seoTitle}</p>
+                    </div>
+                  )}
+                  {selectedNode.data.seoDescription && (
+                    <div>
+                      <span className="text-text-dim">Meta Description</span>
+                      <p className="text-text-muted mt-0.5 leading-relaxed">{selectedNode.data.seoDescription}</p>
+                    </div>
+                  )}
                 </div>
-              )}
-              {selectedNode.data.seoTitle && (
-                <div>
-                  <span className="text-white/40">SEO Title</span>
-                  <p className="text-white/70">{selectedNode.data.seoTitle}</p>
-                </div>
-              )}
-              {selectedNode.data.seoDescription && (
-                <div>
-                  <span className="text-white/40">Meta Description</span>
-                  <p className="text-white/70">{selectedNode.data.seoDescription}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Comment panel */}
         {commentsOpen && sitemap.allow_comments && (

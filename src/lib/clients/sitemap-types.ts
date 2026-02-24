@@ -47,7 +47,7 @@ export type SitemapEdge = {
   id: string;
   source: string;
   target: string;
-  type?: "smoothstep" | "straight";
+  type?: "smoothstep" | "straight" | "bezier";
   animated?: boolean;
 };
 

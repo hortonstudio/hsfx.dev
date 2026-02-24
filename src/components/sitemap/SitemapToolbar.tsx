@@ -1,6 +1,20 @@
 "use client";
 
-import { Button } from "@/components/ui";
+import {
+  Plus,
+  LayoutGrid,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+  Save,
+  Share2,
+  X,
+  Network,
+  List,
+} from "lucide-react";
+import { Button, Badge, Tooltip } from "@/components/ui";
+
+export type SitemapView = "canvas" | "structure";
 
 interface SitemapToolbarProps {
   nodeCount: number;
@@ -16,6 +30,8 @@ interface SitemapToolbarProps {
   onClose: () => void;
   title: string;
   status: string;
+  view: SitemapView;
+  onViewChange: (view: SitemapView) => void;
 }
 
 export function SitemapToolbar({
@@ -32,6 +48,8 @@ export function SitemapToolbar({
   onClose,
   title,
   status,
+  view,
+  onViewChange,
 }: SitemapToolbarProps) {
   const formatLastSaved = () => {
     if (!lastSaved) return null;
@@ -43,83 +61,133 @@ export function SitemapToolbar({
   };
 
   return (
-    <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-background/95 backdrop-blur-sm">
-      {/* Left: Title + actions */}
-      <div className="flex items-center gap-2">
-        <h2 className="font-serif text-sm font-medium text-text-primary">{title}</h2>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface text-text-dim uppercase tracking-wider">
+    <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface/90 backdrop-blur-md">
+      {/* Left: Title + Status */}
+      <div className="flex items-center gap-3">
+        <h2 className="font-serif text-base font-medium text-text-primary tracking-tight">
+          {title}
+        </h2>
+        <Badge
+          variant={status === "active" ? "success" : "default"}
+          size="sm"
+          dot
+        >
           {status}
-        </span>
-
-        <div className="w-px h-4 bg-border mx-1" />
-
-        <Button variant="ghost" size="sm" onClick={onSave} disabled={saving}>
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-          </svg>
-        </Button>
-
-        <Button variant="ghost" size="sm" onClick={onAutoLayout} title="Auto Layout">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-          </svg>
-        </Button>
-
-        <Button variant="ghost" size="sm" onClick={onAddPage} title="Add Page">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-        </Button>
+        </Badge>
       </div>
 
-      {/* Center: Zoom */}
+      {/* Center: View Toggle + Action Groups */}
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={onZoomOut} title="Zoom Out">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
-          </svg>
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onFitView} title="Fit View">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-          </svg>
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onZoomIn} title="Zoom In">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-          </svg>
-        </Button>
+        {/* View toggle */}
+        <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-background/50">
+          <button
+            type="button"
+            onClick={() => onViewChange("canvas")}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors ${
+              view === "canvas"
+                ? "bg-surface text-text-primary font-medium shadow-sm"
+                : "text-text-dim hover:text-text-muted"
+            }`}
+          >
+            <Network className="w-3.5 h-3.5" />
+            Canvas
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewChange("structure")}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors ${
+              view === "structure"
+                ? "bg-surface text-text-primary font-medium shadow-sm"
+                : "text-text-dim hover:text-text-muted"
+            }`}
+          >
+            <List className="w-3.5 h-3.5" />
+            Structure
+          </button>
+        </div>
+
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Edit group */}
+        <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-background/50">
+          <Tooltip content="Add Page" side="bottom">
+            <Button variant="ghost" size="sm" onClick={onAddPage}>
+              <Plus className="w-4 h-4" />
+            </Button>
+          </Tooltip>
+          {view === "canvas" && (
+            <Tooltip content="Auto Layout" side="bottom">
+              <Button variant="ghost" size="sm" onClick={onAutoLayout}>
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+            </Tooltip>
+          )}
+        </div>
+
+        {view === "canvas" && (
+          <>
+            <div className="w-px h-5 bg-border mx-1" />
+
+            {/* Zoom group - only for canvas */}
+            <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-background/50">
+              <Tooltip content="Zoom Out" side="bottom">
+                <Button variant="ghost" size="sm" onClick={onZoomOut}>
+                  <ZoomOut className="w-4 h-4" />
+                </Button>
+              </Tooltip>
+              <Tooltip content="Fit View" side="bottom">
+                <Button variant="ghost" size="sm" onClick={onFitView}>
+                  <Maximize className="w-4 h-4" />
+                </Button>
+              </Tooltip>
+              <Tooltip content="Zoom In" side="bottom">
+                <Button variant="ghost" size="sm" onClick={onZoomIn}>
+                  <ZoomIn className="w-4 h-4" />
+                </Button>
+              </Tooltip>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Right: Status + Share + Close */}
-      <div className="flex items-center gap-2">
-        <div className="text-[11px] text-text-dim">
-          {nodeCount} pages
+      {/* Right: Save status + Share + Close */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 text-xs text-text-dim">
+          <span>{nodeCount} pages</span>
           {lastSaved && (
             <>
-              <span className="mx-1.5">·</span>
+              <span className="text-border">|</span>
               {saving ? (
-                <span className="text-yellow-500">Saving...</span>
+                <span className="flex items-center gap-1.5 text-yellow-500">
+                  <span className="w-3 h-3 border-2 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin" />
+                  Saving
+                </span>
               ) : (
-                <span>Saved {formatLastSaved()}</span>
+                <span className="text-text-muted">{formatLastSaved()}</span>
               )}
             </>
           )}
         </div>
 
-        <div className="w-px h-4 bg-border mx-1" />
+        <div className="w-px h-5 bg-border" />
 
-        <Button variant="ghost" size="sm" onClick={onShare} title="Share">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-          </svg>
-        </Button>
+        <Tooltip content="Save (Cmd+S)" side="bottom">
+          <Button variant="ghost" size="sm" onClick={onSave} disabled={saving}>
+            <Save className="w-4 h-4" />
+          </Button>
+        </Tooltip>
 
-        <Button variant="ghost" size="sm" onClick={onClose} title="Close Editor">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </Button>
+        <Tooltip content="Share" side="bottom">
+          <Button variant="ghost" size="sm" onClick={onShare}>
+            <Share2 className="w-4 h-4" />
+          </Button>
+        </Tooltip>
+
+        <Tooltip content="Close" side="bottom">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </Button>
+        </Tooltip>
       </div>
     </div>
   );

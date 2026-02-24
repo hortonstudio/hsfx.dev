@@ -2,103 +2,143 @@
 
 import { memo } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import type { SitemapPageData } from "@/lib/clients/sitemap-types";
+import {
+  House,
+  FileText,
+  Database,
+  File,
+  Settings,
+  ExternalLink,
+} from "lucide-react";
+import type { SitemapPageData, SitemapPageType, SitemapPageStatus } from "@/lib/clients/sitemap-types";
 import { PAGE_TYPE_CONFIG } from "@/lib/clients/sitemap-utils";
+import { Badge } from "@/components/ui";
 
-const STATUS_COLORS: Record<string, string> = {
-  planned: "#6b7280",
-  in_progress: "#f59e0b",
-  complete: "#10b981",
-  deferred: "#8b5cf6",
+const STATUS_MAP: Record<SitemapPageStatus, { variant: "default" | "success" | "warning" | "info"; label: string }> = {
+  planned: { variant: "default", label: "Planned" },
+  in_progress: { variant: "warning", label: "In Progress" },
+  complete: { variant: "success", label: "Complete" },
+  deferred: { variant: "info", label: "Deferred" },
 };
 
-function PageTypeIcon({ pageType }: { pageType: string }) {
-  const paths: Record<string, string> = {
-    home: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4",
-    static: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
-    collection: "M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7zm0 5h16M9 4v16",
-    collection_item: "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z",
-    utility: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
-    external: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14",
-  };
-
-  return (
-    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d={paths[pageType] || paths.static} />
-    </svg>
-  );
-}
+const TYPE_ICONS: Record<SitemapPageType, React.ComponentType<{ className?: string }>> = {
+  home: House,
+  static: FileText,
+  collection: Database,
+  collection_item: File,
+  utility: Settings,
+  external: ExternalLink,
+};
 
 type SitemapPageNode = Node<SitemapPageData, "sitemap-page">;
 
 function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
   const typeConfig = PAGE_TYPE_CONFIG[data.pageType] ?? PAGE_TYPE_CONFIG.static;
-  const statusColor = STATUS_COLORS[data.status] ?? STATUS_COLORS.planned;
+  const statusInfo = STATUS_MAP[data.status] ?? STATUS_MAP.planned;
+  const TypeIcon = TYPE_ICONS[data.pageType] ?? FileText;
 
   return (
     <>
-      <Handle type="target" position={Position.Top} className="!w-2 !h-2 !bg-border !border-border" />
+      <Handle
+        type="target"
+        position={Position.Top}
+        className="!w-2.5 !h-2.5 !bg-surface !border-2 !border-border !rounded-full !-top-[5px]"
+      />
 
       <div
         className={`
-          w-[260px] rounded-lg border bg-background shadow-sm transition-all
-          ${selected ? "border-accent ring-2 ring-accent/30" : "border-border hover:border-accent/40"}
+          w-[320px] rounded-xl border bg-surface/80 backdrop-blur-sm
+          transition-all duration-200 ease-out relative
+          ${selected
+            ? "border-accent shadow-glow-sm ring-1 ring-accent/20"
+            : "border-border hover:border-border-hover hover:shadow-md hover:-translate-y-0.5"
+          }
         `}
-        style={{ borderLeftWidth: 3, borderLeftColor: typeConfig.color }}
       >
+        {/* Top accent bar */}
+        <div
+          className="h-[2px] rounded-t-xl"
+          style={{ backgroundColor: `${typeConfig.color}99` }}
+        />
+
         {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-2">
-          <div style={{ color: typeConfig.color }}>
-            <PageTypeIcon pageType={data.pageType} />
+        <div className="px-4 pt-3 pb-2">
+          {/* Type + Status row */}
+          <div className="flex items-center justify-between mb-2">
+            <span
+              className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider"
+              style={{ color: typeConfig.color }}
+            >
+              <TypeIcon className="w-3 h-3" />
+              {typeConfig.label}
+            </span>
+            <Badge variant={statusInfo.variant} size="sm" dot>
+              {statusInfo.label}
+            </Badge>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-text-primary truncate">{data.label}</p>
-            <p className="text-[10px] text-text-dim font-mono truncate">{data.path}</p>
-          </div>
-          <div
-            className="w-2 h-2 rounded-full flex-shrink-0"
-            style={{ backgroundColor: statusColor }}
-            title={data.status}
-          />
+
+          {/* Page name */}
+          <h3 className="text-sm font-medium text-text-primary leading-tight mb-0.5 truncate">
+            {data.label}
+          </h3>
+
+          {/* Path */}
+          <p className="text-[11px] text-text-dim font-mono truncate">
+            {data.path}
+          </p>
         </div>
 
-        {/* Sections (compact) */}
+        {/* Sections — wireframe-style blocks */}
         {data.sections && data.sections.length > 0 && (
-          <div className="px-3 pb-2 flex flex-wrap gap-1">
-            {data.sections.slice(0, 4).map((section) => (
-              <span
-                key={section}
-                className="px-1.5 py-0.5 text-[9px] rounded bg-surface text-text-dim"
-              >
-                {section}
-              </span>
-            ))}
-            {data.sections.length > 4 && (
-              <span className="px-1.5 py-0.5 text-[9px] rounded bg-surface text-text-dim">
-                +{data.sections.length - 4}
-              </span>
-            )}
+          <div className="px-4 pb-3">
+            <div className="h-px bg-border mb-2" />
+            <div className="space-y-1">
+              {data.sections.slice(0, 5).map((section) => (
+                <div
+                  key={section}
+                  className="flex items-center gap-2 px-2 py-1 rounded-md bg-background/60"
+                >
+                  <div className="w-0.5 h-3 rounded-full bg-border-hover flex-shrink-0" />
+                  <span className="text-[11px] text-text-muted leading-none truncate">
+                    {section}
+                  </span>
+                </div>
+              ))}
+              {data.sections.length > 5 && (
+                <span className="text-[10px] text-text-dim pl-4">
+                  +{data.sections.length - 5} more
+                </span>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Collection badge */}
-        {data.collectionName && data.estimatedItems && (
-          <div className="px-3 pb-2">
-            <span className="text-[10px] text-accent">
-              {data.collectionName} ({data.estimatedItems} items)
-            </span>
+        {/* Collection info */}
+        {data.collectionName && (
+          <div className="px-4 pb-3">
+            <div className="flex items-center gap-1.5 text-[11px] text-accent">
+              <Database className="w-3 h-3" />
+              <span>{data.collectionName}</span>
+              {data.estimatedItems && (
+                <span className="text-text-dim">({data.estimatedItems})</span>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Comment count badge */}
+        {/* Comment count */}
         {data.commentCount && data.commentCount > 0 && (
-          <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-accent text-white text-[10px] flex items-center justify-center font-medium">
+          <div className="absolute -top-2.5 -right-2.5 flex items-center justify-center w-5 h-5 rounded-full bg-accent text-white text-[10px] font-semibold shadow-glow-sm">
             {data.commentCount}
           </div>
         )}
       </div>
 
-      <Handle type="source" position={Position.Bottom} className="!w-2 !h-2 !bg-border !border-border" />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className="!w-2.5 !h-2.5 !bg-surface !border-2 !border-border !rounded-full !-bottom-[5px]"
+      />
     </>
   );
 }

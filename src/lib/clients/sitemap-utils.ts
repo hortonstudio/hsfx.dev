@@ -44,7 +44,7 @@ export function createEdge(source: string, target: string): SitemapEdge {
     id: `edge-${source}-${target}`,
     source,
     target,
-    type: "smoothstep",
+    type: "bezier",
   };
 }
 
@@ -89,10 +89,10 @@ export const PAGE_TYPE_CONFIG: Record<
   SitemapPageType,
   { label: string; color: string; icon: string }
 > = {
-  home: { label: "Home", color: "#3b82f6", icon: "home" },
-  static: { label: "Static Page", color: "#6b7280", icon: "file" },
-  collection: { label: "Collection", color: "#10b981", icon: "database" },
-  collection_item: { label: "Collection Item", color: "#34d399", icon: "file-text" },
-  utility: { label: "Utility", color: "#f59e0b", icon: "settings" },
-  external: { label: "External", color: "#8b5cf6", icon: "external-link" },
+  home: { label: "Home", color: "#3b82f6", icon: "House" },
+  static: { label: "Static", color: "#64748b", icon: "FileText" },
+  collection: { label: "Collection", color: "#10b981", icon: "Database" },
+  collection_item: { label: "Item", color: "#34d399", icon: "File" },
+  utility: { label: "Utility", color: "#f59e0b", icon: "Settings" },
+  external: { label: "External", color: "#8b5cf6", icon: "ExternalLink" },
 };

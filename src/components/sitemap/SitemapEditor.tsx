@@ -5,7 +5,6 @@ import {
   ReactFlow,
   Background,
   MiniMap,
-  Controls,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -18,13 +17,14 @@ import "@xyflow/react/dist/style.css";
 
 import { useToast } from "@/components/ui";
 import type { ClientSitemap, SitemapData, SitemapPageData } from "@/lib/clients/sitemap-types";
-import { createNode, createEdge, generateNodeId } from "@/lib/clients/sitemap-utils";
+import { createNode, createEdge, generateNodeId, PAGE_TYPE_CONFIG } from "@/lib/clients/sitemap-utils";
 import { autoLayout } from "@/lib/clients/sitemap-layout";
 import SitemapNodeComponent from "./SitemapNode";
-import { SitemapToolbar } from "./SitemapToolbar";
+import { SitemapToolbar, type SitemapView } from "./SitemapToolbar";
 import { SitemapSidebar } from "./SitemapSidebar";
 import { SitemapShareModal } from "./SitemapShareModal";
 import { SitemapLegend } from "./SitemapLegend";
+import { SitemapStructuralView } from "./SitemapStructuralView";
 
 const nodeTypes = { "sitemap-page": SitemapNodeComponent };
 
@@ -47,6 +47,7 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
   const [lastSaved, setLastSaved] = useState<string | null>(sitemap.updated_at);
   const [shareOpen, setShareOpen] = useState(false);
   const [currentSitemap, setCurrentSitemap] = useState(sitemap);
+  const [view, setView] = useState<SitemapView>("canvas");
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef(false);
@@ -87,7 +88,6 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
     }
     pendingSaveRef.current = true;
     saveTimeoutRef.current = setTimeout(() => {
-      // Read latest state via setState callbacks
       setNodes((currentNodes) => {
         setEdges((currentEdges) => {
           saveToApi({
@@ -102,7 +102,6 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
     }, 3000);
   }, [saveToApi, setNodes, setEdges]);
 
-  // Trigger save on node/edge changes
   useEffect(() => {
     scheduleSave();
     return () => {
@@ -161,7 +160,6 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
     setNodes((nds) => [...nds, newNode]);
     setSelectedNodeId(newNode.id);
 
-    // If a node is selected, connect new node as child
     if (selectedNodeId) {
       const edge = createEdge(selectedNodeId, newNode.id);
       setEdges((eds) => [...eds, edge]);
@@ -205,7 +203,6 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
       };
       setNodes((nds) => [...nds, newNode]);
 
-      // Copy parent edges
       const parentEdge = edges.find((e) => e.target === nodeId);
       if (parentEdge) {
         setEdges((eds) => [...eds, createEdge(parentEdge.source, newId)]);
@@ -237,13 +234,11 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
   // ── Keyboard shortcuts ─────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Delete selected node
       if ((e.key === "Delete" || e.key === "Backspace") && selectedNodeId) {
         const target = e.target as HTMLElement;
         if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") return;
         handleDeleteNode(selectedNodeId);
       }
-      // Ctrl+S to save
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
         handleManualSave();
@@ -268,7 +263,6 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
         onZoomOut={() => zoomOut({ duration: 200 })}
         onShare={() => setShareOpen(true)}
         onClose={() => {
-          // Save before closing if there are pending changes
           if (pendingSaveRef.current) {
             handleManualSave();
           }
@@ -276,49 +270,63 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
         }}
         title={sitemap.title}
         status={sitemap.status}
+        view={view}
+        onViewChange={setView}
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Canvas */}
-        <div className="flex-1 relative">
-          <SitemapLegend />
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={onNodeClick}
-            onPaneClick={onPaneClick}
-            nodeTypes={nodeTypes}
-            defaultEdgeOptions={{ type: "smoothstep", animated: false }}
-            connectionLineType={ConnectionLineType.SmoothStep}
-            fitView
-            fitViewOptions={{ padding: 0.2 }}
-            minZoom={0.1}
-            maxZoom={2}
-            proOptions={{ hideAttribution: false }}
-          >
-            <Background gap={20} size={1} color="var(--color-border)" />
-            <MiniMap
-              nodeColor={(node) => {
-                const pageType = (node.data as SitemapPageData).pageType;
-                const colors: Record<string, string> = {
-                  home: "#3b82f6",
-                  static: "#6b7280",
-                  collection: "#10b981",
-                  collection_item: "#34d399",
-                  utility: "#f59e0b",
-                  external: "#8b5cf6",
-                };
-                return colors[pageType] ?? "#6b7280";
+        {view === "structure" ? (
+          <SitemapStructuralView
+            nodes={nodes as ClientSitemap["sitemap_data"]["nodes"]}
+            edges={edges as ClientSitemap["sitemap_data"]["edges"]}
+            selectedNodeId={selectedNodeId}
+            onNodeSelect={setSelectedNodeId}
+          />
+        ) : (
+          <div className="flex-1 relative">
+            <SitemapLegend />
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onNodeClick={onNodeClick}
+              onPaneClick={onPaneClick}
+              nodeTypes={nodeTypes}
+              defaultEdgeOptions={{
+                type: "bezier",
+                animated: false,
+                style: {
+                  stroke: "var(--color-border-hover)",
+                  strokeWidth: 1.5,
+                },
               }}
-              maskColor="rgba(0,0,0,0.6)"
-              style={{ backgroundColor: "var(--color-surface)" }}
-            />
-            <Controls showInteractive={false} />
-          </ReactFlow>
-        </div>
+              connectionLineType={ConnectionLineType.Bezier}
+              fitView
+              fitViewOptions={{ padding: 0.2 }}
+              minZoom={0.1}
+              maxZoom={2}
+              proOptions={{ hideAttribution: false }}
+            >
+              <Background gap={24} size={0.8} color="var(--color-border)" />
+              <MiniMap
+                nodeColor={(node) => {
+                  const pageType = (node.data as SitemapPageData).pageType;
+                  return PAGE_TYPE_CONFIG[pageType]?.color ?? "#64748b";
+                }}
+                maskColor="rgba(0,0,0,0.5)"
+                style={{
+                  backgroundColor: "var(--color-surface)",
+                  borderRadius: "12px",
+                  border: "1px solid var(--color-border)",
+                }}
+                pannable
+                zoomable
+              />
+            </ReactFlow>
+          </div>
+        )}
 
         {/* Sidebar */}
         {selectedNode && (
