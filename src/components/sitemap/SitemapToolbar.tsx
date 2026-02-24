@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Button, Badge, Tooltip } from "@/components/ui";
 
-export type SitemapView = "canvas" | "structure";
+export type SitemapView = "grid" | "canvas" | "structure";
 
 interface SitemapToolbarProps {
   nodeCount: number;
@@ -83,6 +83,18 @@ export function SitemapToolbar({
       <div className="flex items-center gap-1">
         {/* View toggle */}
         <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-background/50">
+          <button
+            type="button"
+            onClick={() => onViewChange("grid")}
+            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors ${
+              view === "grid"
+                ? "bg-surface text-text-primary font-medium shadow-sm"
+                : "text-text-dim hover:text-text-muted"
+            }`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            Grid
+          </button>
           <button
             type="button"
             onClick={() => onViewChange("canvas")}

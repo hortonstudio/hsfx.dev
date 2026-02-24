@@ -256,6 +256,53 @@ export function collapseCollectionItems(
   return { nodes: newNodes, edges: newEdges };
 }
 
+/** Group nodes into sections for the grid view */
+export interface SitemapSection {
+  id: "static" | "collections" | "utility";
+  label: string;
+  color: string;
+  nodes: SitemapNode[];
+}
+
+export function groupNodesIntoSections(
+  nodes: SitemapNode[],
+  edges: SitemapEdge[]
+): SitemapSection[] {
+  const { nodes: collapsed } = collapseCollectionItems(nodes, edges);
+
+  const staticNodes: SitemapNode[] = [];
+  const collectionNodes: SitemapNode[] = [];
+  const utilityNodes: SitemapNode[] = [];
+
+  for (const node of collapsed) {
+    const pt = node.data.pageType;
+    if (pt === "home" || pt === "static") {
+      staticNodes.push(node);
+    } else if (pt === "collection") {
+      collectionNodes.push(node);
+    } else if (pt === "utility" || pt === "external") {
+      utilityNodes.push(node);
+    }
+  }
+
+  // Home always first in static section
+  staticNodes.sort((a, b) =>
+    a.data.pageType === "home" ? -1 : b.data.pageType === "home" ? 1 : 0
+  );
+
+  const sections: SitemapSection[] = [];
+  if (staticNodes.length > 0) {
+    sections.push({ id: "static", label: "Static Pages", color: "#3b82f6", nodes: staticNodes });
+  }
+  if (collectionNodes.length > 0) {
+    sections.push({ id: "collections", label: "Collections", color: "#10b981", nodes: collectionNodes });
+  }
+  if (utilityNodes.length > 0) {
+    sections.push({ id: "utility", label: "Utility", color: "#f59e0b", nodes: utilityNodes });
+  }
+  return sections;
+}
+
 /** Page type display info */
 export const PAGE_TYPE_CONFIG: Record<
   SitemapPageType,

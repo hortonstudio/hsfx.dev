@@ -25,6 +25,7 @@ import { SitemapSidebar } from "./SitemapSidebar";
 import { SitemapShareModal } from "./SitemapShareModal";
 import { SitemapLegend } from "./SitemapLegend";
 import { SitemapStructuralView } from "./SitemapStructuralView";
+import { SitemapGridView } from "./SitemapGridView";
 
 const nodeTypes = { "sitemap-page": SitemapNodeComponent };
 
@@ -54,7 +55,7 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
   const [lastSaved, setLastSaved] = useState<string | null>(sitemap.updated_at);
   const [shareOpen, setShareOpen] = useState(false);
   const [currentSitemap, setCurrentSitemap] = useState(sitemap);
-  const [view, setView] = useState<SitemapView>("canvas");
+  const [view, setView] = useState<SitemapView>("grid");
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef(false);
@@ -325,7 +326,17 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {view === "structure" ? (
+        {view === "grid" ? (
+          <SitemapGridView
+            nodes={nodes as ClientSitemap["sitemap_data"]["nodes"]}
+            edges={edges as ClientSitemap["sitemap_data"]["edges"]}
+            selectedNodeId={selectedNodeId}
+            onNodeSelect={setSelectedNodeId}
+            onDeleteNode={handleDeleteNode}
+            onDuplicateNode={handleDuplicateNode}
+            onAddChild={handleAddChild}
+          />
+        ) : view === "structure" ? (
           <SitemapStructuralView
             nodes={nodes as ClientSitemap["sitemap_data"]["nodes"]}
             edges={edges as ClientSitemap["sitemap_data"]["edges"]}

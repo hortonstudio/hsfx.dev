@@ -1,16 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  ReactFlow,
-  Background,
-  MiniMap,
-  ReactFlowProvider,
-  type NodeMouseHandler,
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Map,
@@ -27,14 +19,11 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
-import type { ClientSitemap, SitemapPageData, SitemapPageType, SitemapComment } from "@/lib/clients/sitemap-types";
-import { PAGE_TYPE_CONFIG, collapseCollectionItems } from "@/lib/clients/sitemap-utils";
-import { autoLayout } from "@/lib/clients/sitemap-layout";
-import SitemapNodeComponent from "@/components/sitemap/SitemapNode";
+import type { ClientSitemap, SitemapPageType, SitemapComment } from "@/lib/clients/sitemap-types";
+import { PAGE_TYPE_CONFIG } from "@/lib/clients/sitemap-utils";
+import { SitemapGridView } from "@/components/sitemap/SitemapGridView";
 import { SitemapCommentPanel } from "@/components/sitemap/SitemapCommentPanel";
 import { Badge, Button } from "@/components/ui";
-
-const nodeTypes = { "sitemap-page": SitemapNodeComponent };
 
 const TYPE_ICONS: Record<SitemapPageType, React.ComponentType<{ className?: string }>> = {
   home: House,
@@ -65,7 +54,7 @@ function PublicSitemapViewer() {
           return;
         }
         const data = await res.json();
-        // Ensure all nodes have the custom type for React Flow rendering
+        // Normalize node data defaults
         if (data.sitemap_data?.nodes) {
           data.sitemap_data.nodes = data.sitemap_data.nodes.map((n: Record<string, unknown>) => ({
             ...n,
@@ -112,14 +101,6 @@ function PublicSitemapViewer() {
     return () => clearInterval(interval);
   }, [sitemap?.allow_comments, fetchComments]);
 
-  const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
-    setSelectedNodeId(node.id);
-  }, []);
-
-  const onPaneClick = useCallback(() => {
-    setSelectedNodeId(null);
-  }, []);
-
   // Escape key to close panels
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -133,16 +114,6 @@ function PublicSitemapViewer() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [commentsOpen, selectedNodeId]);
-
-  // Collapse collection_items into parent collection template cards, then re-layout
-  const canvasData = useMemo(() => {
-    if (!sitemap) return { nodes: [], edges: [] };
-    const collapsed = collapseCollectionItems(sitemap.sitemap_data.nodes, sitemap.sitemap_data.edges);
-    return {
-      nodes: autoLayout(collapsed.nodes, collapsed.edges),
-      edges: collapsed.edges,
-    };
-  }, [sitemap]);
 
   if (loading) {
     return (
@@ -257,49 +228,15 @@ function PublicSitemapViewer() {
         </div>
       </div>
 
-      {/* Canvas + Panels */}
+      {/* Grid + Panels */}
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1">
-          <ReactFlow
-            nodes={canvasData.nodes}
-            edges={canvasData.edges}
-            onNodeClick={onNodeClick}
-            onPaneClick={onPaneClick}
-            nodeTypes={nodeTypes}
-            defaultEdgeOptions={{
-              type: "bezier",
-              animated: false,
-              style: {
-                stroke: "var(--color-border-hover)",
-                strokeWidth: 1.5,
-              },
-            }}
-            fitView
-            fitViewOptions={{ padding: 0.3 }}
-            minZoom={0.2}
-            maxZoom={2}
-            nodesDraggable={true}
-            snapToGrid={true}
-            snapGrid={[20, 20]}
-            nodesConnectable={false}
-            elementsSelectable={true}
-            proOptions={{ hideAttribution: false }}
-          >
-            <Background gap={24} size={0.8} color="var(--color-border)" />
-            <MiniMap
-              nodeColor={(node) => {
-                const data = node.data as SitemapPageData;
-                return data.color || (PAGE_TYPE_CONFIG[data.pageType]?.color ?? "#64748b");
-              }}
-              maskColor="rgba(0,0,0,0.5)"
-              style={{
-                backgroundColor: "var(--color-surface)",
-                borderRadius: "12px",
-                border: "1px solid var(--color-border)",
-              }}
-            />
-          </ReactFlow>
-        </div>
+        <SitemapGridView
+          nodes={sitemap.sitemap_data.nodes}
+          edges={sitemap.sitemap_data.edges}
+          selectedNodeId={selectedNodeId}
+          onNodeSelect={setSelectedNodeId}
+          readOnly
+        />
 
         {/* Selected node detail panel */}
         <AnimatePresence>
@@ -430,9 +367,5 @@ function PublicSitemapViewer() {
 }
 
 export default function PublicSitemapPage() {
-  return (
-    <ReactFlowProvider>
-      <PublicSitemapViewer />
-    </ReactFlowProvider>
-  );
+  return <PublicSitemapViewer />;
 }
