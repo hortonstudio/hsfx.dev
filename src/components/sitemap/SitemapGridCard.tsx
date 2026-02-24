@@ -77,11 +77,10 @@ export function SitemapGridCard({
         }
       `}
     >
-      {/* Left accent bar */}
-      <div className="flex">
-        <div className="w-[3px] flex-shrink-0 rounded-l-xl" style={{ backgroundColor: nodeColor }} />
+      {/* Top accent bar */}
+      <div className="h-[3px]" style={{ backgroundColor: nodeColor }} />
 
-        <div className="flex-1 min-w-0 p-4">
+      <div className="p-4">
           {/* Header row */}
           <div className="flex items-center justify-between mb-1.5">
             <span
@@ -189,7 +188,6 @@ export function SitemapGridCard({
               </div>
             </div>
           )}
-        </div>
       </div>
 
       {/* Comment indicator */}
