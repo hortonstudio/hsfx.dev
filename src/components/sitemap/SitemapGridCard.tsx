@@ -15,6 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Tooltip } from "@/components/ui";
+import { SectionWireframeStack } from "./SectionWireframe";
 import type { SitemapPageData, SitemapPageType, SitemapPageStatus } from "@/lib/clients/sitemap-types";
 import type { SitemapNode } from "@/lib/clients/sitemap-types";
 import { PAGE_TYPE_CONFIG } from "@/lib/clients/sitemap-utils";
@@ -119,22 +120,9 @@ export function SitemapGridCard({
           </p>
         )}
 
-        {/* Sections — vertical list */}
+        {/* Section wireframes */}
         {data.sections && data.sections.length > 0 && (
-          <div className="mt-3 space-y-1">
-            {data.sections.map((section, i) => (
-              <div
-                key={`${section}-${i}`}
-                className="flex items-center gap-2"
-              >
-                <div
-                  className="w-0.5 h-3 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: `${nodeColor}60` }}
-                />
-                <span className="text-[10px] text-text-muted">{section}</span>
-              </div>
-            ))}
-          </div>
+          <SectionWireframeStack sections={data.sections} color={nodeColor} />
         )}
 
         {/* Collection: CMS items */}

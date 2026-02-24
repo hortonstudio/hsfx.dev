@@ -95,11 +95,7 @@ export function SitemapGridView({
     }
   }, []);
 
-  // Auto-dismiss hint after 4s
-  useEffect(() => {
-    const timer = setTimeout(() => setShowHint(false), 4000);
-    return () => clearTimeout(timer);
-  }, []);
+  // No auto-dismiss — hint stays until user interacts
 
   // Wheel: Cmd/Ctrl+scroll = zoom toward cursor, plain scroll = pan
   const handleWheel = useCallback(
@@ -317,24 +313,30 @@ export function SitemapGridView({
         </div>
       </div>
 
-      {/* First-use hint */}
+      {/* First-use hint — large centered overlay until user interacts */}
       <AnimatePresence>
         {showHint && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.3 }}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-5 py-3 rounded-xl bg-surface/95 backdrop-blur-sm border border-border shadow-lg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
           >
-            <div className="flex items-center gap-2 text-text-muted text-xs">
-              <Mouse className="w-4 h-4 text-text-dim" />
-              <span>Scroll or drag to navigate</span>
-            </div>
-            <div className="w-px h-4 bg-border" />
-            <div className="flex items-center gap-2 text-text-muted text-xs">
-              <Command className="w-3.5 h-3.5 text-text-dim" />
-              <span>+ Scroll to zoom</span>
+            <div className="flex flex-col items-center gap-5 text-text-dim/60">
+              <div className="flex items-center gap-8">
+                <div className="flex flex-col items-center gap-2">
+                  <Mouse className="w-8 h-8" />
+                  <span className="text-sm font-medium">Scroll or drag</span>
+                  <span className="text-xs">to navigate</span>
+                </div>
+                <div className="w-px h-16 bg-border/30" />
+                <div className="flex flex-col items-center gap-2">
+                  <Command className="w-8 h-8" />
+                  <span className="text-sm font-medium">Cmd + Scroll</span>
+                  <span className="text-xs">to zoom</span>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
