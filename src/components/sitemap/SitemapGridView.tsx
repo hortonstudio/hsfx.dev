@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mouse, ZoomIn } from "lucide-react";
+import { Mouse, Command } from "lucide-react";
 import { Badge } from "@/components/ui";
 import type { SitemapNode, SitemapEdge } from "@/lib/clients/sitemap-types";
 import { groupNodesIntoSections } from "@/lib/clients/sitemap-utils";
@@ -22,6 +22,10 @@ interface SitemapGridViewProps {
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 1.5;
 const DRAG_THRESHOLD = 5;
+const CONTENT_WIDTH = 1400;
+const CONTENT_HEIGHT = 2000;
+const PAN_MARGIN = 200;
+const DOT_GAP = 24;
 
 export function SitemapGridView({
   nodes,
@@ -48,19 +52,34 @@ export function SitemapGridView({
   const hasInteracted = useRef(false);
   const didDragRef = useRef(false);
   const initializedRef = useRef(false);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
 
   // Touch refs
   const touchStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
+
+  // Clamp pan so content stays in view
+  const clampPan = useCallback((p: { x: number; y: number }) => {
+    if (!containerRef.current) return p;
+    const { width: cw, height: ch } = containerRef.current.getBoundingClientRect();
+    const z = zoomRef.current;
+    const cWidth = CONTENT_WIDTH * z;
+    const cHeight = CONTENT_HEIGHT * z;
+    return {
+      x: Math.max(-(cWidth - PAN_MARGIN), Math.min(cw - PAN_MARGIN, p.x)),
+      y: Math.max(-(cHeight - PAN_MARGIN), Math.min(ch - PAN_MARGIN, p.y)),
+    };
+  }, []);
 
   // Center content on initial mount
   useEffect(() => {
     if (!containerRef.current || initializedRef.current) return;
     initializedRef.current = true;
     const { width } = containerRef.current.getBoundingClientRect();
-    const contentWidth = 1400 * zoom;
+    const contentWidth = CONTENT_WIDTH * zoom;
     const x = Math.max(20, (width - contentWidth) / 2);
-    setPan({ x, y: 30 });
+    setPan(clampPan({ x, y: 30 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -78,18 +97,23 @@ export function SitemapGridView({
     return () => clearTimeout(timer);
   }, []);
 
-  // Wheel zoom
+  // Wheel: Cmd/Ctrl+scroll = zoom, plain scroll = pan
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
       dismissHint();
-      const delta = e.deltaY > 0 ? -0.05 : 0.05;
-      setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z + delta)));
+
+      if (e.metaKey || e.ctrlKey) {
+        const delta = e.deltaY > 0 ? -0.05 : 0.05;
+        setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z + delta)));
+      } else {
+        setPan((p) => clampPan({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+      }
     },
-    [dismissHint]
+    [dismissHint, clampPan]
   );
 
-  // Mouse pan — works from anywhere (cards, background, etc.)
+  // Mouse pan — works from anywhere
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (e.button !== 0 && e.button !== 1) return;
@@ -109,9 +133,9 @@ export function SitemapGridView({
       if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
         didDragRef.current = true;
       }
-      setPan({ x: panStart.current.panX + dx, y: panStart.current.panY + dy });
+      setPan(clampPan({ x: panStart.current.panX + dx, y: panStart.current.panY + dy }));
     },
-    [isPanning]
+    [isPanning, clampPan]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -154,7 +178,7 @@ export function SitemapGridView({
       if (e.touches.length === 1 && touchStartRef.current) {
         const dx = e.touches[0].clientX - touchStartRef.current.x;
         const dy = e.touches[0].clientY - touchStartRef.current.y;
-        setPan({ x: touchStartRef.current.panX + dx, y: touchStartRef.current.panY + dy });
+        setPan(clampPan({ x: touchStartRef.current.panX + dx, y: touchStartRef.current.panY + dy }));
       } else if (e.touches.length === 2 && pinchStartRef.current) {
         const currentDistance = getTouchDistance(e.touches);
         const scale = currentDistance / pinchStartRef.current.distance;
@@ -162,7 +186,7 @@ export function SitemapGridView({
         setZoom(newZoom);
       }
     },
-    []
+    [clampPan]
   );
 
   const handleTouchEnd = useCallback(() => {
@@ -190,11 +214,19 @@ export function SitemapGridView({
     [onNodeSelect]
   );
 
+  const dotSize = DOT_GAP * zoom;
+
   return (
     <div
       ref={containerRef}
-      className={`flex-1 overflow-hidden bg-background relative touch-none select-none ${isPanning ? "cursor-grabbing" : "cursor-grab"}`}
+      className={`flex-1 overflow-hidden relative touch-none select-none ${isPanning ? "cursor-grabbing" : "cursor-grab"}`}
       data-lenis-prevent
+      style={{
+        backgroundColor: "var(--color-background)",
+        backgroundImage: "radial-gradient(circle, var(--color-border) 0.8px, transparent 0.8px)",
+        backgroundSize: `${dotSize}px ${dotSize}px`,
+        backgroundPosition: `${pan.x % dotSize}px ${pan.y % dotSize}px`,
+      }}
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -272,12 +304,12 @@ export function SitemapGridView({
           >
             <div className="flex items-center gap-2 text-text-muted text-xs">
               <Mouse className="w-4 h-4 text-text-dim" />
-              <span>Scroll to zoom</span>
+              <span>Scroll or drag to navigate</span>
             </div>
             <div className="w-px h-4 bg-border" />
             <div className="flex items-center gap-2 text-text-muted text-xs">
-              <ZoomIn className="w-4 h-4 text-text-dim" />
-              <span>Click &amp; drag to pan</span>
+              <Command className="w-3.5 h-3.5 text-text-dim" />
+              <span>+ Scroll to zoom</span>
             </div>
           </motion.div>
         )}
