@@ -21,6 +21,7 @@ interface SitemapGridViewProps {
 
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 1.5;
+const DRAG_THRESHOLD = 5;
 
 export function SitemapGridView({
   nodes,
@@ -45,10 +46,23 @@ export function SitemapGridView({
   const panStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const hasInteracted = useRef(false);
+  const didDragRef = useRef(false);
+  const initializedRef = useRef(false);
 
   // Touch refs
   const touchStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
+
+  // Center content on initial mount
+  useEffect(() => {
+    if (!containerRef.current || initializedRef.current) return;
+    initializedRef.current = true;
+    const { width } = containerRef.current.getBoundingClientRect();
+    const contentWidth = 1400 * zoom;
+    const x = Math.max(20, (width - contentWidth) / 2);
+    setPan({ x, y: 30 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Dismiss hint on first interaction
   const dismissHint = useCallback(() => {
@@ -75,31 +89,31 @@ export function SitemapGridView({
     [dismissHint]
   );
 
-  // Mouse pan start
+  // Mouse pan — works from anywhere (cards, background, etc.)
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      if (e.button === 1 || (e.target === e.currentTarget || (e.target as HTMLElement).dataset?.pannable === "true")) {
-        e.preventDefault();
-        setIsPanning(true);
-        dismissHint();
-        panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
-      }
+      if (e.button !== 0 && e.button !== 1) return;
+      setIsPanning(true);
+      didDragRef.current = false;
+      dismissHint();
+      panStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
     },
     [pan, dismissHint]
   );
 
-  // Mouse pan move
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (!isPanning) return;
       const dx = e.clientX - panStart.current.x;
       const dy = e.clientY - panStart.current.y;
+      if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+        didDragRef.current = true;
+      }
       setPan({ x: panStart.current.panX + dx, y: panStart.current.panY + dy });
     },
     [isPanning]
   );
 
-  // Mouse pan end
   const handleMouseUp = useCallback(() => {
     setIsPanning(false);
   }, []);
@@ -156,9 +170,19 @@ export function SitemapGridView({
     pinchStartRef.current = null;
   }, []);
 
-  // Background click to deselect
+  // Card click — suppressed if user dragged
+  const handleCardClick = useCallback(
+    (nodeId: string) => {
+      if (didDragRef.current) return;
+      onNodeSelect(selectedNodeId === nodeId ? null : nodeId);
+    },
+    [onNodeSelect, selectedNodeId]
+  );
+
+  // Background click to deselect (only if no drag)
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
+      if (didDragRef.current) return;
       if (e.target === e.currentTarget || (e.target as HTMLElement).dataset?.pannable === "true") {
         onNodeSelect(null);
       }
@@ -169,7 +193,7 @@ export function SitemapGridView({
   return (
     <div
       ref={containerRef}
-      className={`flex-1 overflow-hidden bg-background relative touch-none ${isPanning ? "cursor-grabbing" : "cursor-grab"}`}
+      className={`flex-1 overflow-hidden bg-background relative touch-none select-none ${isPanning ? "cursor-grabbing" : "cursor-grab"}`}
       data-lenis-prevent
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
@@ -210,16 +234,14 @@ export function SitemapGridView({
                 <div className="flex-1 h-px bg-border/30" />
               </div>
 
-              {/* Card grid */}
-              <div className="grid grid-cols-4 gap-4">
+              {/* Card grid — items-start so cards align to top, not stretch */}
+              <div className="grid grid-cols-4 gap-4 items-start">
                 {section.nodes.map((node) => (
                   <SitemapGridCard
                     key={node.id}
                     node={node}
                     selected={selectedNodeId === node.id}
-                    onClick={() =>
-                      onNodeSelect(selectedNodeId === node.id ? null : node.id)
-                    }
+                    onClick={() => handleCardClick(node.id)}
                     readOnly={readOnly}
                     onDelete={onDeleteNode}
                     onDuplicate={onDuplicateNode}
