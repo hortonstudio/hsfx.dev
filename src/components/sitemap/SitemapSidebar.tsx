@@ -41,6 +41,7 @@ export function SitemapSidebar({
   onClose,
 }: SitemapSidebarProps) {
   const typeConfig = PAGE_TYPE_CONFIG[data.pageType] ?? PAGE_TYPE_CONFIG.static;
+  const nodeColor = data.color || typeConfig.color;
 
   return (
     <div className="w-80 border-l border-border bg-surface/50 backdrop-blur-sm overflow-y-auto" data-lenis-prevent>
@@ -49,7 +50,7 @@ export function SitemapSidebar({
         <div className="flex items-center gap-2.5 min-w-0">
           <div
             className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-            style={{ backgroundColor: typeConfig.color }}
+            style={{ backgroundColor: nodeColor }}
           />
           <span className="text-sm font-medium text-text-primary truncate">{data.label}</span>
         </div>
@@ -117,6 +118,31 @@ export function SitemapSidebar({
               </select>
             </div>
           </div>
+
+          {/* Custom Color */}
+          <div>
+            <label className="block text-xs text-text-dim mb-1.5">
+              Custom Color <span className="text-text-dim/60">(overrides type color)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={data.color || typeConfig.color}
+                onChange={(e) => onUpdate(nodeId, { color: e.target.value })}
+                className="w-8 h-8 rounded-md border border-border cursor-pointer bg-transparent p-0.5"
+              />
+              <span className="text-[11px] text-text-dim font-mono">{data.color || typeConfig.color}</span>
+              {data.color && (
+                <button
+                  type="button"
+                  onClick={() => onUpdate(nodeId, { color: undefined })}
+                  className="text-[11px] text-text-dim hover:text-text-muted transition-colors ml-auto"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
         </section>
 
         {/* Content */}
@@ -136,23 +162,51 @@ export function SitemapSidebar({
             />
           </div>
 
+          {/* Tag-style section input */}
           <div>
-            <label className="block text-xs text-text-dim mb-1.5">
-              Sections <span className="text-text-dim/60">(comma-separated)</span>
-            </label>
-            <input
-              type="text"
-              value={(data.sections ?? []).join(", ")}
-              onChange={(e) => {
-                const sections = e.target.value
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean);
-                onUpdate(nodeId, { sections: sections.length > 0 ? sections : undefined });
-              }}
-              className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent/50 transition-colors"
-              placeholder="Hero, Content, CTA"
-            />
+            <label className="block text-xs text-text-dim mb-1.5">Sections</label>
+            <div className="flex flex-wrap gap-1 p-2 rounded-lg border border-border bg-background min-h-[38px] focus-within:border-accent/50 transition-colors">
+              {(data.sections ?? []).map((section, i) => (
+                <span
+                  key={`${section}-${i}`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface text-[11px] text-text-muted border border-border"
+                >
+                  {section}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = (data.sections ?? []).filter((_, idx) => idx !== i);
+                      onUpdate(nodeId, { sections: next.length > 0 ? next : undefined });
+                    }}
+                    className="text-text-dim hover:text-text-primary transition-colors"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </span>
+              ))}
+              <input
+                type="text"
+                placeholder={data.sections?.length ? "" : "Add section..."}
+                className="flex-1 min-w-[80px] bg-transparent text-sm text-text-primary outline-none placeholder:text-text-dim"
+                onKeyDown={(e) => {
+                  const input = e.currentTarget;
+                  if ((e.key === "Enter" || e.key === ",") && input.value.trim()) {
+                    e.preventDefault();
+                    const val = input.value.trim();
+                    const current = data.sections ?? [];
+                    if (!current.includes(val)) {
+                      onUpdate(nodeId, { sections: [...current, val] });
+                    }
+                    input.value = "";
+                  }
+                  if (e.key === "Backspace" && !input.value && data.sections?.length) {
+                    const next = data.sections.slice(0, -1);
+                    onUpdate(nodeId, { sections: next.length > 0 ? next : undefined });
+                  }
+                }}
+              />
+            </div>
+            <p className="text-[10px] text-text-dim mt-1">Press Enter or comma to add</p>
           </div>
         </section>
 

@@ -36,6 +36,7 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
   const typeConfig = PAGE_TYPE_CONFIG[data.pageType] ?? PAGE_TYPE_CONFIG.static;
   const statusInfo = STATUS_MAP[data.status] ?? STATUS_MAP.planned;
   const TypeIcon = TYPE_ICONS[data.pageType] ?? FileText;
+  const nodeColor = data.color || typeConfig.color;
 
   return (
     <>
@@ -58,7 +59,7 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
         {/* Top accent bar */}
         <div
           className="h-[2px] rounded-t-xl"
-          style={{ backgroundColor: `${typeConfig.color}99` }}
+          style={{ backgroundColor: `${nodeColor}99` }}
         />
 
         {/* Header */}
@@ -67,7 +68,7 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
           <div className="flex items-center justify-between mb-2">
             <span
               className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider"
-              style={{ color: typeConfig.color }}
+              style={{ color: nodeColor }}
             >
               <TypeIcon className="w-3 h-3" />
               {typeConfig.label}

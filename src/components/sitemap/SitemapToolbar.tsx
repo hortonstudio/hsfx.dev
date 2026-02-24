@@ -8,6 +8,7 @@ import {
   Maximize,
   Save,
   Share2,
+  Download,
   X,
   Network,
   List,
@@ -27,6 +28,7 @@ interface SitemapToolbarProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onShare: () => void;
+  onExport?: () => void;
   onClose: () => void;
   title: string;
   status: string;
@@ -45,6 +47,7 @@ export function SitemapToolbar({
   onZoomIn,
   onZoomOut,
   onShare,
+  onExport,
   onClose,
   title,
   status,
@@ -176,6 +179,14 @@ export function SitemapToolbar({
             <Save className="w-4 h-4" />
           </Button>
         </Tooltip>
+
+        {onExport && (
+          <Tooltip content="Export JSON" side="bottom">
+            <Button variant="ghost" size="sm" onClick={onExport}>
+              <Download className="w-4 h-4" />
+            </Button>
+          </Tooltip>
+        )}
 
         <Tooltip content="Share" side="bottom">
           <Button variant="ghost" size="sm" onClick={onShare}>

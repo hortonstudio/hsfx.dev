@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Sparkles, X, ChevronRight } from "lucide-react";
 import { Button, Badge, Spinner, useToast } from "@/components/ui";
 import { PACKAGE_INFO } from "@/lib/clients/sitemap-templates";
+import { NICHE_OPTIONS, type BusinessNiche } from "@/lib/onboard/niche-prompts";
 import type { ClientSitemap } from "@/lib/clients/sitemap-types";
 
 interface SitemapGenerateModalProps {
@@ -18,6 +20,7 @@ export function SitemapGenerateModal({
 }: SitemapGenerateModalProps) {
   const { addToast } = useToast();
   const [selectedTier, setSelectedTier] = useState<1 | 2 | 3>(2);
+  const [niche, setNiche] = useState<BusinessNiche>("other");
   const [customPrompt, setCustomPrompt] = useState("");
   const [importJson, setImportJson] = useState("");
   const [showImport, setShowImport] = useState(false);
@@ -31,6 +34,7 @@ export function SitemapGenerateModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           packageTier: selectedTier,
+          niche: niche !== "other" ? niche : undefined,
           customPrompt: customPrompt.trim() || undefined,
           importJson: importJson.trim() || undefined,
         }),
@@ -68,9 +72,7 @@ export function SitemapGenerateModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-            </svg>
+            <Sparkles className="w-5 h-5 text-accent" />
             <h2 className="font-serif text-lg text-text-primary">Generate Sitemap with AI</h2>
           </div>
           <button
@@ -79,9 +81,7 @@ export function SitemapGenerateModal({
             disabled={generating}
             className="p-1 text-text-dim hover:text-text-primary transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -119,6 +119,27 @@ export function SitemapGenerateModal({
             </div>
           </div>
 
+          {/* Industry / Niche */}
+          <div>
+            <label htmlFor="niche-select" className="block text-sm font-medium text-text-primary mb-1.5">
+              Industry
+            </label>
+            <select
+              id="niche-select"
+              value={niche}
+              onChange={(e) => setNiche(e.target.value as BusinessNiche)}
+              disabled={generating}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent/50"
+            >
+              {NICHE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-text-dim mt-1">
+              Tailors the sitemap structure for your industry.
+            </p>
+          </div>
+
           {/* Custom prompt */}
           <div>
             <label htmlFor="custom-prompt" className="block text-sm font-medium text-text-primary mb-1.5">
@@ -143,15 +164,9 @@ export function SitemapGenerateModal({
               disabled={generating}
               className="flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary transition-colors"
             >
-              <svg
+              <ChevronRight
                 className={`w-3.5 h-3.5 transition-transform ${showImport ? "rotate-90" : ""}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
+              />
               Import existing JSON structure
             </button>
 
@@ -176,7 +191,7 @@ export function SitemapGenerateModal({
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-border">
           <p className="text-xs text-text-dim">
-            Uses compiled Knowledge Base + Claude Haiku
+            Uses compiled Knowledge Base + Claude Sonnet
           </p>
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={onClose} disabled={generating}>
@@ -190,9 +205,7 @@ export function SitemapGenerateModal({
                 </>
               ) : (
                 <>
-                  <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                  </svg>
+                  <Sparkles className="w-4 h-4 mr-1.5" />
                   Generate
                 </>
               )}

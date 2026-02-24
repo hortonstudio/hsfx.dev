@@ -84,6 +84,77 @@ export function aiNodesToSitemapNodes(
   }));
 }
 
+const VALID_PAGE_TYPES = new Set<string>([
+  "home", "static", "collection", "collection_item", "utility", "external",
+]);
+
+/** Normalize a URL path: lowercase, leading slash, no trailing slash, no double slashes */
+function normalizePath(path: string): string {
+  let p = path.toLowerCase().trim();
+  if (!p.startsWith("/")) p = `/${p}`;
+  p = p.replace(/\/+/g, "/");
+  if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
+  return p;
+}
+
+/** Validate and clean AI-generated nodes before transforming to react-flow format */
+export function validateAndCleanAINodes(
+  nodes: AISitemapNode[],
+  businessName?: string
+): AISitemapNode[] {
+  // 1. Deduplicate by id
+  const seen = new Set<string>();
+  const deduped: AISitemapNode[] = [];
+  for (const node of nodes) {
+    if (!seen.has(node.id)) {
+      seen.add(node.id);
+      deduped.push(node);
+    }
+  }
+
+  // 2. Ensure exactly one home page
+  const homePages = deduped.filter((n) => n.pageType === "home");
+  if (homePages.length === 0 && deduped.length > 0) {
+    deduped[0].pageType = "home";
+    deduped[0].parentId = null;
+  } else if (homePages.length > 1) {
+    for (let i = 1; i < homePages.length; i++) {
+      homePages[i].pageType = "static";
+    }
+  }
+
+  const brand = businessName || "Our Company";
+
+  // 3. Clean each node
+  return deduped.map((node) => {
+    const pageType = VALID_PAGE_TYPES.has(node.pageType) ? node.pageType : "static";
+
+    // Validate parentId references
+    let parentId = node.parentId;
+    if (parentId && !seen.has(parentId)) {
+      parentId = pageType === "home" ? null : "home";
+    }
+    if (pageType === "home") {
+      parentId = null;
+    }
+
+    return {
+      ...node,
+      pageType: pageType as SitemapPageType,
+      parentId,
+      path: normalizePath(node.path),
+      sections: Array.from(new Set(node.sections ?? [])),
+      seoTitle: node.seoTitle || `${node.label} | ${brand}`,
+      seoDescription:
+        node.seoDescription ||
+        node.description?.slice(0, 160) ||
+        `Learn more about ${node.label}. Contact ${brand} today.`,
+      description:
+        node.description || `${node.label} page for ${brand}.`,
+    };
+  });
+}
+
 /** Page type display info */
 export const PAGE_TYPE_CONFIG: Record<
   SitemapPageType,

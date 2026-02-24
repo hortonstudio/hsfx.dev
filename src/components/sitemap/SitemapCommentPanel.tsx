@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui";
-import type { SitemapComment } from "@/lib/clients/sitemap-types";
+import type { SitemapComment, SitemapNode } from "@/lib/clients/sitemap-types";
 
 interface SitemapCommentPanelProps {
   slug: string;
@@ -11,6 +11,7 @@ interface SitemapCommentPanelProps {
   selectedNodeId: string | null;
   onCommentAdded: () => void;
   onClose: () => void;
+  nodes?: SitemapNode[];
 }
 
 export function SitemapCommentPanel({
@@ -19,11 +20,21 @@ export function SitemapCommentPanel({
   selectedNodeId,
   onCommentAdded,
   onClose,
+  nodes,
 }: SitemapCommentPanelProps) {
   const [filter, setFilter] = useState<"all" | "unresolved" | "node">("all");
   const [authorName, setAuthorName] = useState("");
   const [content, setContent] = useState("");
+
+  // Build node name lookup map
+  const nodeNameMap = new Map<string, string>();
+  if (nodes) {
+    for (const n of nodes) {
+      nodeNameMap.set(n.id, n.data.label);
+    }
+  }
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Load saved author name
   useEffect(() => {
@@ -48,6 +59,7 @@ export function SitemapCommentPanel({
     if (!authorName.trim() || !content.trim()) return;
 
     setSubmitting(true);
+    setError(null);
     localStorage.setItem("sitemap-comment-name", authorName.trim());
 
     try {
@@ -65,9 +77,11 @@ export function SitemapCommentPanel({
       if (res.ok) {
         setContent("");
         onCommentAdded();
+      } else {
+        setError("Failed to post comment. Please try again.");
       }
     } catch {
-      // silently fail
+      setError("Network error. Please check your connection.");
     } finally {
       setSubmitting(false);
     }
@@ -135,7 +149,7 @@ export function SitemapCommentPanel({
               <div className="flex items-center gap-1.5 mt-2">
                 {comment.node_id && (
                   <span className="inline-block px-1.5 py-0.5 text-[9px] rounded bg-accent/10 text-accent">
-                    Page: {comment.node_id}
+                    Page: {nodeNameMap.get(comment.node_id!) || comment.node_id}
                   </span>
                 )}
                 {comment.is_resolved && (
@@ -162,6 +176,9 @@ export function SitemapCommentPanel({
 
       {/* Add comment form */}
       <form onSubmit={handleSubmit} className="p-5 border-t border-border space-y-2.5">
+        {error && (
+          <p className="text-[11px] text-red-400 bg-red-500/10 px-3 py-1.5 rounded-md">{error}</p>
+        )}
         <input
           type="text"
           value={authorName}

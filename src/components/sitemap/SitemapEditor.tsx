@@ -37,7 +37,7 @@ interface SitemapEditorProps {
 
 function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEditorProps) {
   const { addToast } = useToast();
-  const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const { fitView, zoomIn, zoomOut, getViewport } = useReactFlow();
 
   const [nodes, setNodes, onNodesChange] = useNodesState(sitemap.sitemap_data.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(sitemap.sitemap_data.edges);
@@ -93,14 +93,14 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
           saveToApi({
             nodes: currentNodes as ClientSitemap["sitemap_data"]["nodes"],
             edges: currentEdges as ClientSitemap["sitemap_data"]["edges"],
-            viewport: { x: 0, y: 0, zoom: 1 },
+            viewport: getViewport(),
           });
           return currentEdges;
         });
         return currentNodes;
       });
     }, 3000);
-  }, [saveToApi, setNodes, setEdges]);
+  }, [saveToApi, setNodes, setEdges, getViewport]);
 
   useEffect(() => {
     scheduleSave();
@@ -116,9 +116,9 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
     saveToApi({
       nodes: nodes as ClientSitemap["sitemap_data"]["nodes"],
       edges: edges as ClientSitemap["sitemap_data"]["edges"],
-      viewport: { x: 0, y: 0, zoom: 1 },
+      viewport: getViewport(),
     });
-  }, [nodes, edges, saveToApi]);
+  }, [nodes, edges, saveToApi, getViewport]);
 
   // ── Node selection ─────────────────────────────────────
   const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
@@ -231,6 +231,38 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
     [nodes, setNodes, setEdges]
   );
 
+  // ── Export JSON ───────────────────────────────────────
+  const handleExport = useCallback(() => {
+    const data = {
+      nodes: nodes.map((n) => {
+        const parentEdge = edges.find((e) => e.target === n.id);
+        return {
+          id: n.id,
+          label: n.data.label,
+          path: (n.data as SitemapPageData).path,
+          pageType: (n.data as SitemapPageData).pageType,
+          parentId: parentEdge?.source ?? null,
+          status: (n.data as SitemapPageData).status,
+          description: (n.data as SitemapPageData).description,
+          sections: (n.data as SitemapPageData).sections,
+          seoTitle: (n.data as SitemapPageData).seoTitle,
+          seoDescription: (n.data as SitemapPageData).seoDescription,
+          collectionName: (n.data as SitemapPageData).collectionName,
+          estimatedItems: (n.data as SitemapPageData).estimatedItems,
+          color: (n.data as SitemapPageData).color,
+        };
+      }),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${sitemap.title.replace(/\s+/g, "-").toLowerCase()}-sitemap.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addToast({ variant: "success", title: "Sitemap exported" });
+  }, [nodes, edges, sitemap.title, addToast]);
+
   // ── Keyboard shortcuts ─────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -261,6 +293,7 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
         onFitView={() => fitView({ padding: 0.2, duration: 300 })}
         onZoomIn={() => zoomIn({ duration: 200 })}
         onZoomOut={() => zoomOut({ duration: 200 })}
+        onExport={handleExport}
         onShare={() => setShareOpen(true)}
         onClose={() => {
           if (pendingSaveRef.current) {
@@ -281,6 +314,9 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
             edges={edges as ClientSitemap["sitemap_data"]["edges"]}
             selectedNodeId={selectedNodeId}
             onNodeSelect={setSelectedNodeId}
+            onAddChild={handleAddChild}
+            onDuplicate={handleDuplicateNode}
+            onDelete={handleDeleteNode}
           />
         ) : (
           <div className="flex-1 relative">
@@ -312,8 +348,8 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
               <Background gap={24} size={0.8} color="var(--color-border)" />
               <MiniMap
                 nodeColor={(node) => {
-                  const pageType = (node.data as SitemapPageData).pageType;
-                  return PAGE_TYPE_CONFIG[pageType]?.color ?? "#64748b";
+                  const data = node.data as SitemapPageData;
+                  return data.color || (PAGE_TYPE_CONFIG[data.pageType]?.color ?? "#64748b");
                 }}
                 maskColor="rgba(0,0,0,0.5)"
                 style={{

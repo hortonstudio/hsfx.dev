@@ -3,48 +3,90 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import type { AISitemapNode } from "@/lib/clients/sitemap-types";
-import { aiNodesToSitemapNodes, buildEdgesFromParentIds, generateSlug } from "@/lib/clients/sitemap-utils";
+import { aiNodesToSitemapNodes, buildEdgesFromParentIds, generateSlug, validateAndCleanAINodes } from "@/lib/clients/sitemap-utils";
 import { autoLayout } from "@/lib/clients/sitemap-layout";
+import { buildSitemapPrompt } from "@/lib/clients/sitemap-niche-prompts";
 
 export const maxDuration = 60;
 
-const FALLBACK_PROMPT = `You are a web designer creating a sitemap structure for a home service business website. Output ONLY valid JSON — an array of page objects.
+const FALLBACK_PROMPT = `You are an expert web architect designing a professional sitemap for a business website. Output ONLY a valid JSON array of page objects. No markdown, no explanation, no wrapping object.
 
-Each page object has these fields:
-- id: unique kebab-case string (e.g. "home", "about", "service-roofing")
-- label: display name (e.g. "Home", "About Us", "Roofing")
-- path: URL path (e.g. "/", "/about", "/services/roofing")
-- pageType: one of "home" | "static" | "collection" | "collection_item" | "utility" | "external"
-- parentId: id of parent page (null for root/home page)
-- description: 1-2 sentence page purpose
-- sections: array of section names on the page (e.g. ["Hero", "Services Grid", "CTA"])
-- seoTitle: SEO-optimized page title (50-60 chars)
-- seoDescription: meta description (120-160 chars)
-- collectionName: (collection/collection_item only) name of the CMS collection
-- estimatedItems: (collection only) approximate number of items
+## Output Format
 
-Page type rules:
-- "home": exactly one, the root page (parentId: null)
-- "static": standalone pages like About, Contact, Gallery
-- "collection": list/index pages (Services, Blog, Areas) — these are parents for collection items
-- "collection_item": individual items within a collection (each service, blog post, area page)
-- "utility": legal/system pages (Privacy Policy, 404, Terms)
-- "external": links to external resources
+Each page object MUST have ALL of these fields:
+{
+  "id": "kebab-case-unique-id",
+  "label": "Display Name",
+  "path": "/url/path",
+  "pageType": "home|static|collection|collection_item|utility|external",
+  "parentId": "parent-id-or-null",
+  "description": "1-2 sentences explaining the page purpose and primary conversion goal.",
+  "sections": ["Hero", "Content", "CTA"],
+  "seoTitle": "SEO Title — Brand Name (50-60 chars)",
+  "seoDescription": "Compelling meta description with call-to-action. (120-160 chars)",
+  "collectionName": "Collection Name (collection/collection_item only, else omit)",
+  "estimatedItems": 10
+}
 
-Structure rules:
-- Always include: Home, About, Contact, Privacy Policy
-- Collection items must be children of their collection page
-- Services should be a collection with individual service items
-- Sections should be realistic page sections (Hero, CTA, Form, Grid, etc.)
-- Do NOT fabricate services, locations, or details not present in the knowledge base
-- Use the knowledge base to determine the actual services, areas, and business details
+## STRICT RULES — Every page MUST have:
+- description: 1-2 sentences. Never empty. Describe purpose AND conversion goal.
+- seoTitle: 50-60 characters. Include primary keyword + brand name. Never empty.
+- seoDescription: 120-160 characters. Include a call to action. Never empty.
+- sections: At least 2 sections from the catalog below. Never empty array.
 
-Package guidelines:
-- Package 1 ($600): 3-5 static + 3-6 collection pages (~8-12 total)
-- Package 2 ($1300): 7-10 static + 15-25 collection pages (~25-35 total). Include Service Areas, Blog.
-- Package 3 ($3000): 10-15 static + 40+ collection pages (~55-65 total). Include extensive Service Areas, Blog, Gallery, Testimonials collections.
+## Page Types
+- "home": EXACTLY ONE. The root page. parentId: null.
+- "static": Standalone pages (About, Contact, FAQ, Testimonials, Gallery).
+- "collection": Index/listing pages that are parents for collection_item pages. Examples: Services, Blog, Service Areas, Projects.
+- "collection_item": Individual items WITHIN a collection. parentId MUST be a collection page. Examples: each service, blog post, city page, project.
+- "utility": Legal/system pages (Privacy Policy, Terms, 404). Minimal sections.
+- "external": External links (rarely used). No sections needed.
 
-Return ONLY the JSON array. No markdown, no explanation, no wrapping object.`;
+## Path Rules
+- Always lowercase, kebab-case
+- Always start with /
+- No trailing slashes (except "/" for home)
+- No special characters
+- Collection items nest under parent: /services/roof-repair, /areas/dallas, /blog/spring-tips
+
+## Section Catalog — ONLY use sections from this list:
+Hero, Content, Services Overview, Services Grid, Service Details, Process Steps, Stats/Numbers, Testimonials, Testimonial Grid, FAQ Accordion, CTA, Contact Form, Map, Team Grid, Team Member, Story/History, Values, Credentials, Gallery Grid, Before/After Gallery, Blog Grid, Blog Content, Related Posts, Categories, Pricing Table, Pricing Cards, Feature List, Feature Grid, Comparison Table, Video, Image Banner, Logo Bar, Partners, Portfolio Grid, Case Study, Download/Resources, Newsletter Signup, Social Proof, Breadcrumbs, Sidebar, Search, Filters, Area Map, Area Services
+
+## Required Sections by Page Type:
+- Home: Hero + at least 3 of [Services Overview, Testimonials, Stats/Numbers, FAQ Accordion, CTA]
+- About: Hero + Story/History + at least 1 of [Team Grid, Values, Credentials, CTA]
+- Contact: Hero + Contact Form + at least 1 of [Map, Stats/Numbers, CTA]
+- Service (collection): Hero + Services Grid + CTA
+- Service Item (collection_item): Hero + Service Details + at least 2 of [Gallery Grid, Before/After Gallery, Process Steps, FAQ Accordion, Testimonials, Pricing Table, CTA]
+- Blog (collection): Hero + Blog Grid + CTA
+- Blog Post (collection_item): Hero + Blog Content + Related Posts + CTA
+- Service Area (collection_item): Hero + Area Services + at least 2 of [Testimonials, FAQ Accordion, Map, CTA]
+- Gallery/Portfolio (collection): Hero + Gallery Grid or Portfolio Grid
+- FAQ: Hero + FAQ Accordion + CTA
+- Testimonials: Hero + Testimonial Grid + CTA
+- Privacy/Terms (utility): Content
+
+## Hierarchy Rules
+- Home is the root. All top-level pages are children of Home.
+- Services MUST be a collection page with individual service collection_items as children.
+- If the business serves multiple areas, create a Service Areas collection with city/town collection_items.
+- Blog posts are collection_items under a Blog collection page.
+- Gallery/Portfolio items are collection_items under a Gallery collection.
+- collection_items MUST have a collectionName matching their parent collection's collectionName.
+
+## Content Rules
+- NEVER fabricate services, locations, team members, or details not present in the knowledge base.
+- Use the knowledge base to determine actual services, service areas, and business specifics.
+- If the KB mentions specific services, create a collection_item for each one.
+- If the KB mentions specific cities/areas, create a Service Area collection_item for each.
+- For placeholder items (when KB lacks specifics), use generic but realistic names.
+
+## Package Tier Guidelines
+- Package 1 (~8-12 pages): Home, About, 1 collection (Services, 3-4 items), Contact, Privacy Policy. Focus on core pages only.
+- Package 2 (~25-35 pages): Everything in Package 1 + Service Areas collection (5-10 area pages), Blog collection (3-5 posts), Gallery, FAQ, Testimonials.
+- Package 3 (~55-65 pages): Everything in Package 2 + extensive Service Areas (15-30+ cities), more blog posts (8-10), Portfolio/Projects collection, Resources page, Terms of Service. Maximum local SEO coverage.
+
+Return ONLY the JSON array.`;
 
 export async function POST(
   request: NextRequest,
@@ -70,14 +112,14 @@ export async function POST(
   }
 
   // Parse request body
-  let body: { packageTier: 1 | 2 | 3; customPrompt?: string; importJson?: string };
+  let body: { packageTier: 1 | 2 | 3; customPrompt?: string; importJson?: string; niche?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { packageTier, customPrompt, importJson } = body;
+  const { packageTier, customPrompt, importJson, niche } = body;
 
   if (![1, 2, 3].includes(packageTier)) {
     return NextResponse.json({ error: "Invalid package tier" }, { status: 400 });
@@ -121,6 +163,11 @@ export async function POST(
     }
   } catch {
     // Table may not exist yet — use fallback
+  }
+
+  // Apply niche-specific prompt addenda
+  if (niche) {
+    systemPrompt = buildSitemapPrompt(systemPrompt, niche);
   }
 
   // Build user message
@@ -200,9 +247,10 @@ ${kbDoc.content}`;
     );
   }
 
-  // Transform to react-flow format
-  const nodes = aiNodesToSitemapNodes(aiNodes);
-  const edges = buildEdgesFromParentIds(aiNodes);
+  // Validate and clean AI output, then transform to react-flow format
+  const cleanedNodes = validateAndCleanAINodes(aiNodes, businessName);
+  const nodes = aiNodesToSitemapNodes(cleanedNodes);
+  const edges = buildEdgesFromParentIds(cleanedNodes);
   const laidOutNodes = autoLayout(nodes, edges);
 
   const sitemapData = {
