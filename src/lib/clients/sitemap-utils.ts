@@ -155,6 +155,51 @@ export function validateAndCleanAINodes(
   });
 }
 
+/** Collapse collection_item nodes into their parent collection nodes for canvas display.
+ *  Items are embedded as `collectionItems` in the parent data, then removed from the node/edge arrays. */
+export function collapseCollectionItems(
+  nodes: SitemapNode[],
+  edges: SitemapEdge[]
+): { nodes: SitemapNode[]; edges: SitemapEdge[] } {
+  const collectionIds = new Set(
+    nodes.filter((n) => n.data.pageType === "collection").map((n) => n.id)
+  );
+
+  // Map parent → child items
+  const itemsByParent = new Map<string, Array<{ label: string; path: string }>>();
+  const itemNodeIds = new Set<string>();
+
+  for (const edge of edges) {
+    if (!collectionIds.has(edge.source)) continue;
+    const child = nodes.find((n) => n.id === edge.target);
+    if (child && child.data.pageType === "collection_item") {
+      const items = itemsByParent.get(edge.source) ?? [];
+      items.push({ label: child.data.label, path: child.data.path });
+      itemsByParent.set(edge.source, items);
+      itemNodeIds.add(child.id);
+    }
+  }
+
+  // Embed items into parent collection data, remove item nodes
+  const newNodes = nodes
+    .filter((n) => !itemNodeIds.has(n.id))
+    .map((n) => {
+      if (collectionIds.has(n.id) && itemsByParent.has(n.id)) {
+        return {
+          ...n,
+          data: { ...n.data, collectionItems: itemsByParent.get(n.id)! },
+        };
+      }
+      return n;
+    });
+
+  const newEdges = edges.filter(
+    (e) => !itemNodeIds.has(e.source) && !itemNodeIds.has(e.target)
+  );
+
+  return { nodes: newNodes, edges: newEdges };
+}
+
 /** Page type display info */
 export const PAGE_TYPE_CONFIG: Record<
   SitemapPageType,

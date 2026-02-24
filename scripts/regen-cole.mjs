@@ -164,11 +164,16 @@ async function regenerateSitemap() {
 
   if (!kbDoc?.content) throw new Error("No compiled KB found");
 
-  // Read proposal doc for additional context
-  const proposalDoc = readFileSync(
-    resolve(process.cwd(), "zdemo-info-drop/WHATIMPROPOSING.md"),
-    "utf8"
-  );
+  // Read proposal doc for additional context (optional)
+  let proposalDoc = "";
+  try {
+    proposalDoc = readFileSync(
+      resolve(process.cwd(), "zdemo-info-drop/WHATIMPROPOSING.md"),
+      "utf8"
+    );
+  } catch {
+    console.log("  No proposal doc found, skipping additional context");
+  }
 
   // Fetch system prompt
   let systemPrompt;
@@ -194,17 +199,15 @@ Package Tier: 3
 
 Knowledge Base:
 ${kbDoc.content}
-
-Additional context — this is the proposal document showing exactly what pages and services have been agreed on with the client:
-${proposalDoc}
+${proposalDoc ? `\nAdditional context — this is the proposal document showing exactly what pages and services have been agreed on with the client:\n${proposalDoc}` : ""}
 
 Generate the complete sitemap as a JSON array of page objects for Package 3.
-Make sure to include ALL 14 service pages listed in the proposal, ALL 5 service area pages (Carrollton, The Colony, Lewisville, Coppell, Grapevine), Gallery, About, FAQ, Testimonials, Contact, and Privacy Policy.`;
+Include service pages for common plumbing services, service area pages, Gallery, About, FAQ, Testimonials, Contact, and Privacy Policy.`;
 
   console.log("  Calling Claude Sonnet 4.5...");
   const response = await anthropic.messages.create({
     model: MODEL,
-    max_tokens: 8192,
+    max_tokens: 16384,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
   });
@@ -236,13 +239,13 @@ Make sure to include ALL 14 service pages listed in the proposal, ALL 5 service 
   // Transform nodes to react-flow format (simplified — matches aiNodesToSitemapNodes)
   const nodes = aiNodes.map((n, i) => ({
     id: n.id,
-    type: "sitemap",
+    type: "sitemap-page",
     position: { x: 0, y: i * 100 },
     data: {
       label: n.label,
       path: n.path,
-      pageType: n.pageType,
-      parentId: n.parentId,
+      pageType: n.pageType || "static",
+      status: "planned",
       description: n.description || "",
       sections: n.sections || [],
       seoTitle: n.seoTitle || "",
@@ -262,7 +265,7 @@ Make sure to include ALL 14 service pages listed in the proposal, ALL 5 service 
       type: "smoothstep",
     }));
 
-  // Simple auto-layout (hierarchy-based)
+  // Auto-layout with multi-row wrapping for large child sets
   const childrenMap = {};
   for (const n of aiNodes) {
     const parent = n.parentId || "__root__";
@@ -270,34 +273,78 @@ Make sure to include ALL 14 service pages listed in the proposal, ALL 5 service 
     childrenMap[parent].push(n.id);
   }
 
-  const NODE_W = 240;
-  const NODE_H = 80;
-  const GAP_X = 60;
+  const NODE_W = 280;
+  const NODE_H = 240;
+  const GAP_X = 80;
   const GAP_Y = 120;
+  const MAX_PER_ROW = 4;
+  const ROW_GAP = 60;
 
-  function layoutLevel(parentId, startX, y) {
-    const children = childrenMap[parentId] || [];
-    let totalWidth = children.length * (NODE_W + GAP_X) - GAP_X;
-    let x = startX - totalWidth / 2;
+  // Compute subtree widths
+  const subtreeW = {};
+  const subtreeH = {};
 
-    for (const childId of children) {
-      const node = nodes.find((n) => n.id === childId);
-      if (node) {
-        node.position = { x: x + NODE_W / 2, y };
-        const subChildren = childrenMap[childId] || [];
-        if (subChildren.length > 0) {
-          layoutLevel(childId, x + NODE_W / 2, y + NODE_H + GAP_Y);
-        }
-        x += NODE_W + GAP_X;
+  function computeSize(nodeId) {
+    const children = childrenMap[nodeId] || [];
+    if (children.length === 0) {
+      subtreeW[nodeId] = NODE_W;
+      subtreeH[nodeId] = NODE_H;
+      return;
+    }
+    children.forEach((c) => computeSize(c));
+
+    // Chunk children into rows
+    const rows = [];
+    for (let i = 0; i < children.length; i += MAX_PER_ROW) {
+      rows.push(children.slice(i, i + MAX_PER_ROW));
+    }
+
+    let maxRowW = 0;
+    let totalH = 0;
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r];
+      const rw = row.reduce((s, c) => s + (subtreeW[c] || NODE_W), 0) + (row.length - 1) * GAP_X;
+      maxRowW = Math.max(maxRowW, rw);
+      const rh = Math.max(...row.map((c) => subtreeH[c] || NODE_H));
+      totalH += rh;
+      if (r > 0) totalH += ROW_GAP;
+    }
+    subtreeW[nodeId] = Math.max(NODE_W, maxRowW);
+    subtreeH[nodeId] = NODE_H + GAP_Y + totalH;
+  }
+
+  function layoutSubtree(nodeId, x, y) {
+    const myW = subtreeW[nodeId] || NODE_W;
+    const node = nodes.find((n) => n.id === nodeId);
+    if (node) node.position = { x: x + myW / 2 - NODE_W / 2, y };
+
+    const children = childrenMap[nodeId] || [];
+    if (children.length === 0) return;
+
+    const rows = [];
+    for (let i = 0; i < children.length; i += MAX_PER_ROW) {
+      rows.push(children.slice(i, i + MAX_PER_ROW));
+    }
+
+    let rowY = y + NODE_H + GAP_Y;
+    for (const row of rows) {
+      const rowW = row.reduce((s, c) => s + (subtreeW[c] || NODE_W), 0) + (row.length - 1) * GAP_X;
+      let childX = x + (myW - rowW) / 2;
+      let rowMaxH = 0;
+      for (const childId of row) {
+        layoutSubtree(childId, childX, rowY);
+        childX += (subtreeW[childId] || NODE_W) + GAP_X;
+        rowMaxH = Math.max(rowMaxH, subtreeH[childId] || NODE_H);
       }
+      rowY += rowMaxH + ROW_GAP;
     }
   }
 
-  // Root node
+  // Layout from root
   const rootNode = nodes.find((n) => n.data.pageType === "home");
   if (rootNode) {
-    rootNode.position = { x: 600, y: 0 };
-    layoutLevel(rootNode.id, 600, NODE_H + GAP_Y);
+    computeSize(rootNode.id);
+    layoutSubtree(rootNode.id, 0, 0);
   }
 
   const sitemapData = {

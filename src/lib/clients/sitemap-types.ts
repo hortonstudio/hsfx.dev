@@ -30,6 +30,8 @@ export type SitemapPageData = {
   color?: string;
   notes?: string;
   commentCount?: number;
+  /** Embedded collection items — populated at render time for collection template cards */
+  collectionItems?: Array<{ label: string; path: string }>;
 };
 
 // ════════════════════════════════════════════════════════════

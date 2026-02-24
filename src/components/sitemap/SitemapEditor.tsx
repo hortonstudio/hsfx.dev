@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   ReactFlow,
   Background,
@@ -17,7 +17,7 @@ import "@xyflow/react/dist/style.css";
 
 import { useToast } from "@/components/ui";
 import type { ClientSitemap, SitemapData, SitemapPageData } from "@/lib/clients/sitemap-types";
-import { createNode, createEdge, generateNodeId, PAGE_TYPE_CONFIG } from "@/lib/clients/sitemap-utils";
+import { createNode, createEdge, generateNodeId, PAGE_TYPE_CONFIG, collapseCollectionItems } from "@/lib/clients/sitemap-utils";
 import { autoLayout } from "@/lib/clients/sitemap-layout";
 import SitemapNodeComponent from "./SitemapNode";
 import { SitemapToolbar, type SitemapView } from "./SitemapToolbar";
@@ -57,6 +57,16 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef(false);
+
+  // Collapse collection_item nodes into parent collection cards for canvas display
+  const canvasData = useMemo(
+    () =>
+      collapseCollectionItems(
+        nodes as ClientSitemap["sitemap_data"]["nodes"],
+        edges as ClientSitemap["sitemap_data"]["edges"]
+      ),
+    [nodes, edges]
+  );
 
   // ── Selected node data ────────────────────────────────
   const selectedNode = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) : null;
@@ -146,16 +156,16 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
     [setEdges]
   );
 
-  // ── Auto layout ────────────────────────────────────────
+  // ── Auto layout (uses collapsed nodes so collections are single cards) ──
   const handleAutoLayout = useCallback(() => {
-    const laidOut = autoLayout(
-      nodes as ClientSitemap["sitemap_data"]["nodes"],
-      edges as ClientSitemap["sitemap_data"]["edges"]
+    const laidOut = autoLayout(canvasData.nodes, canvasData.edges);
+    const posMap = new Map(laidOut.map((n) => [n.id, n.position]));
+    setNodes((nds) =>
+      nds.map((n) => ({ ...n, position: posMap.get(n.id) ?? n.position }))
     );
-    setNodes(laidOut);
     setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 50);
     addToast({ variant: "success", title: "Layout applied" });
-  }, [nodes, edges, setNodes, fitView, addToast]);
+  }, [canvasData, setNodes, fitView, addToast]);
 
   // ── Add page ───────────────────────────────────────────
   const handleAddPage = useCallback(() => {
@@ -328,8 +338,8 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
           <div className="flex-1 relative">
             <SitemapLegend />
             <ReactFlow
-              nodes={nodes}
-              edges={edges}
+              nodes={canvasData.nodes}
+              edges={canvasData.edges}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}

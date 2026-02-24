@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import {
   ReactFlow,
@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 
 import type { ClientSitemap, SitemapPageData, SitemapPageType, SitemapComment } from "@/lib/clients/sitemap-types";
-import { PAGE_TYPE_CONFIG } from "@/lib/clients/sitemap-utils";
+import { PAGE_TYPE_CONFIG, collapseCollectionItems } from "@/lib/clients/sitemap-utils";
 import SitemapNodeComponent from "@/components/sitemap/SitemapNode";
 import { SitemapCommentPanel } from "@/components/sitemap/SitemapCommentPanel";
 import { SitemapStructuralView } from "@/components/sitemap/SitemapStructuralView";
@@ -119,6 +119,14 @@ function PublicSitemapViewer() {
   const onPaneClick = useCallback(() => {
     setSelectedNodeId(null);
   }, []);
+
+  // Collapse collection_items into parent collection template cards for canvas
+  const canvasData = useMemo(
+    () => sitemap
+      ? collapseCollectionItems(sitemap.sitemap_data.nodes, sitemap.sitemap_data.edges)
+      : { nodes: [], edges: [] },
+    [sitemap]
+  );
 
   if (loading) {
     return (
@@ -243,8 +251,8 @@ function PublicSitemapViewer() {
         ) : (
           <div className="flex-1">
             <ReactFlow
-              nodes={sitemap.sitemap_data.nodes}
-              edges={sitemap.sitemap_data.edges}
+              nodes={canvasData.nodes}
+              edges={canvasData.edges}
               onNodeClick={onNodeClick}
               onPaneClick={onPaneClick}
               nodeTypes={nodeTypes}

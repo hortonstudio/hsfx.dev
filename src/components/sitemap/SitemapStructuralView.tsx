@@ -16,6 +16,7 @@ import {
   Plus,
   Copy,
   Trash2,
+  Layers,
 } from "lucide-react";
 import type { SitemapNode, SitemapEdge, SitemapPageData, SitemapPageType, SitemapPageStatus } from "@/lib/clients/sitemap-types";
 import { PAGE_TYPE_CONFIG } from "@/lib/clients/sitemap-utils";
@@ -36,6 +37,79 @@ const STATUS_MAP: Record<SitemapPageStatus, { variant: "default" | "success" | "
   complete: { variant: "success", label: "Complete" },
   deferred: { variant: "info", label: "Deferred" },
 };
+
+/** Section icon hint for structural view */
+function SectionIcon({ section, color }: { section: string; color: string }) {
+  const key = section.toLowerCase().split(/[\s,/]+/)[0];
+  const style = { backgroundColor: `${color}20`, borderColor: `${color}15` };
+
+  switch (key) {
+    case "hero":
+      return (
+        <div className="w-4 h-3 rounded-sm flex items-center justify-center" style={style}>
+          <div className="w-2 h-0.5 rounded-full" style={{ backgroundColor: `${color}50` }} />
+        </div>
+      );
+    case "services":
+    case "features":
+    case "team":
+    case "pricing":
+      return (
+        <div className="w-4 h-3 rounded-sm flex items-center justify-center gap-px" style={style}>
+          <div className="w-1 h-1.5 rounded-sm" style={{ backgroundColor: `${color}30` }} />
+          <div className="w-1 h-1.5 rounded-sm" style={{ backgroundColor: `${color}30` }} />
+          <div className="w-1 h-1.5 rounded-sm" style={{ backgroundColor: `${color}30` }} />
+        </div>
+      );
+    case "cta":
+    case "call":
+      return (
+        <div className="w-4 h-3 rounded-sm flex items-center justify-center" style={style}>
+          <div className="w-2.5 h-1 rounded-sm" style={{ backgroundColor: `${color}35` }} />
+        </div>
+      );
+    case "gallery":
+    case "portfolio":
+      return (
+        <div className="w-4 h-3 rounded-sm grid grid-cols-2 gap-px p-px" style={style}>
+          <div className="rounded-sm" style={{ backgroundColor: `${color}25` }} />
+          <div className="rounded-sm" style={{ backgroundColor: `${color}20` }} />
+          <div className="rounded-sm" style={{ backgroundColor: `${color}20` }} />
+          <div className="rounded-sm" style={{ backgroundColor: `${color}25` }} />
+        </div>
+      );
+    case "faq":
+    case "accordion":
+      return (
+        <div className="w-4 h-3 rounded-sm flex flex-col items-start justify-center gap-px px-0.5" style={style}>
+          <div className="w-full h-px" style={{ backgroundColor: `${color}30` }} />
+          <div className="w-3/4 h-px" style={{ backgroundColor: `${color}25` }} />
+          <div className="w-full h-px" style={{ backgroundColor: `${color}30` }} />
+        </div>
+      );
+    case "form":
+    case "contact":
+      return (
+        <div className="w-4 h-3 rounded-sm flex flex-col items-center justify-center gap-px" style={style}>
+          <div className="w-2.5 h-0.5 rounded-sm border" style={{ borderColor: `${color}25` }} />
+          <div className="w-1.5 h-0.5 rounded-sm" style={{ backgroundColor: `${color}30` }} />
+        </div>
+      );
+    case "testimonials":
+      return (
+        <div className="w-4 h-3 rounded-sm flex items-center justify-center gap-0.5" style={style}>
+          <div className="w-1 h-1 rounded-full" style={{ backgroundColor: `${color}30` }} />
+          <div className="w-1 h-1 rounded-full" style={{ backgroundColor: `${color}25` }} />
+        </div>
+      );
+    default:
+      return (
+        <div className="w-4 h-3 rounded-sm flex items-center justify-center" style={style}>
+          <div className="w-2 h-px" style={{ backgroundColor: `${color}30` }} />
+        </div>
+      );
+  }
+}
 
 interface TreeNode {
   node: SitemapNode;
@@ -128,7 +202,6 @@ function filterTree(
       .map((child) => filterSubtree(child))
       .filter((t): t is TreeNode => t !== null);
 
-    // Include this node if it matches OR has matching descendants
     if (nodeMatches(data) || filteredChildren.length > 0) {
       return { node: treeNode.node, children: filteredChildren };
     }
@@ -172,6 +245,16 @@ function TreeNodeCard({
   const hasChildren = children.length > 0;
   const hasActions = onAddChild || onDuplicate || onDelete;
 
+  // Check if this is a collection with collection_item children
+  const isCollection = data.pageType === "collection";
+  const collectionItemChildren = isCollection
+    ? children.filter((c) => (c.node.data as SitemapPageData).pageType === "collection_item")
+    : [];
+  const nonItemChildren = isCollection
+    ? children.filter((c) => (c.node.data as SitemapPageData).pageType !== "collection_item")
+    : children;
+  const hasCollectionItems = collectionItemChildren.length > 0;
+
   return (
     <div>
       {/* Card */}
@@ -197,7 +280,7 @@ function TreeNodeCard({
           type="button"
           onClick={() => onNodeSelect(isSelected ? null : node.id)}
           className={`
-            w-full text-left rounded-xl border transition-all duration-150 relative
+            w-full text-left rounded-xl border transition-all duration-150 relative overflow-hidden
             ${isSelected
               ? "border-accent shadow-glow-sm ring-1 ring-accent/20 bg-surface"
               : "border-border hover:border-border-hover hover:shadow-sm bg-surface/80"
@@ -206,14 +289,14 @@ function TreeNodeCard({
         >
           {/* Top accent */}
           <div
-            className="h-[2px] rounded-t-xl"
+            className="h-[2px]"
             style={{ backgroundColor: `${nodeColor}99` }}
           />
 
           <div className="px-4 py-3">
             {/* Top row: expand toggle + type + status */}
             <div className="flex items-center gap-2 mb-1.5">
-              {hasChildren ? (
+              {(hasChildren) ? (
                 <span
                   role="button"
                   tabIndex={0}
@@ -270,18 +353,47 @@ function TreeNodeCard({
                 </p>
               )}
 
+              {/* Sections — compact visual pills */}
               {data.sections && data.sections.length > 0 && (
-                <div className="mt-2 rounded-lg border border-border/50 overflow-hidden">
-                  {data.sections.map((section, i) => (
-                    <div
-                      key={section}
-                      className={`flex items-center px-2.5 py-1 ${
-                        i > 0 ? "border-t border-dashed border-border/30" : ""
-                      } ${i === 0 ? "bg-background/60" : "bg-background/30"}`}
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {data.sections.map((s) => (
+                    <span
+                      key={s}
+                      className="inline-flex items-center gap-1 pl-0.5 pr-2 py-0.5 rounded-md text-[9px] text-text-muted border border-border/30"
+                      style={{ backgroundColor: `${nodeColor}06` }}
                     >
-                      <span className="text-[10px] text-text-muted leading-none truncate">{section}</span>
-                    </div>
+                      <SectionIcon section={s} color={nodeColor} />
+                      {s}
+                    </span>
                   ))}
+                </div>
+              )}
+
+              {/* Collection items inline preview */}
+              {hasCollectionItems && (
+                <div className="mt-2.5 rounded-lg border border-border/30 bg-background/20 p-2.5">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Layers className="w-3 h-3" style={{ color: nodeColor }} />
+                    <span className="text-[10px] font-semibold text-text-muted">
+                      {collectionItemChildren.length} CMS {collectionItemChildren.length === 1 ? "Item" : "Items"}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {collectionItemChildren.slice(0, 8).map((child) => (
+                      <span
+                        key={child.node.id}
+                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] text-text-muted border border-border/20"
+                        style={{ backgroundColor: `${nodeColor}08` }}
+                      >
+                        {(child.node.data as SitemapPageData).label}
+                      </span>
+                    ))}
+                    {collectionItemChildren.length > 8 && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] text-text-dim bg-background/40">
+                        +{collectionItemChildren.length - 8} more
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -334,9 +446,9 @@ function TreeNodeCard({
         </button>
       </div>
 
-      {/* Children */}
+      {/* Children (non-collection-item children only for collections) */}
       <AnimatePresence>
-        {hasChildren && isExpanded && (
+        {(isCollection ? nonItemChildren.length > 0 : hasChildren) && isExpanded && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
@@ -349,7 +461,7 @@ function TreeNodeCard({
                 className="absolute top-0 bottom-4 w-px bg-border"
                 style={{ left: depth * 40 + 20 }}
               />
-              {children.map((child) => (
+              {(isCollection ? nonItemChildren : children).map((child) => (
                 <TreeNodeCard
                   key={child.node.id}
                   treeNode={child}
