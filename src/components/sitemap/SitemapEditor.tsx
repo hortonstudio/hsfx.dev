@@ -1,33 +1,14 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import {
-  ReactFlow,
-  Background,
-  MiniMap,
-  useNodesState,
-  useEdgesState,
-  useReactFlow,
-  ReactFlowProvider,
-  ConnectionLineType,
-  type Connection,
-  type NodeMouseHandler,
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 import { useToast } from "@/components/ui";
 import type { ClientSitemap, SitemapData, SitemapPageData } from "@/lib/clients/sitemap-types";
-import { createNode, createEdge, generateNodeId, PAGE_TYPE_CONFIG, collapseCollectionItems } from "@/lib/clients/sitemap-utils";
-import { autoLayout } from "@/lib/clients/sitemap-layout";
-import SitemapNodeComponent from "./SitemapNode";
-import { SitemapToolbar, type SitemapView } from "./SitemapToolbar";
+import { createNode, createEdge, generateNodeId } from "@/lib/clients/sitemap-utils";
+import { SitemapToolbar } from "./SitemapToolbar";
 import { SitemapSidebar } from "./SitemapSidebar";
 import { SitemapShareModal } from "./SitemapShareModal";
-import { SitemapLegend } from "./SitemapLegend";
-import { SitemapStructuralView } from "./SitemapStructuralView";
 import { SitemapGridView } from "./SitemapGridView";
-
-const nodeTypes = { "sitemap-page": SitemapNodeComponent };
 
 interface SitemapEditorProps {
   sitemap: ClientSitemap;
@@ -36,41 +17,28 @@ interface SitemapEditorProps {
   onSaved: (updated: ClientSitemap) => void;
 }
 
-function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEditorProps) {
+export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEditorProps) {
   const { addToast } = useToast();
-  const { fitView, zoomIn, zoomOut, getViewport } = useReactFlow();
 
-  // Normalize nodes and apply auto-layout with current constants
-  const normalizedNodes = sitemap.sitemap_data.nodes.map((n) => ({
+  // Normalize node data defaults
+  const initialNodes = sitemap.sitemap_data.nodes.map((n) => ({
     ...n,
     type: "sitemap-page" as const,
     data: { ...n.data, status: n.data.status || "planned", pageType: n.data.pageType || "static" },
   }));
-  const laidOutNodes = autoLayout(normalizedNodes, sitemap.sitemap_data.edges);
-  const [nodes, setNodes, onNodesChange] = useNodesState(laidOutNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(sitemap.sitemap_data.edges);
+
+  const [nodes, setNodes] = useState(initialNodes);
+  const [edges, setEdges] = useState(sitemap.sitemap_data.edges);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(sitemap.updated_at);
   const [shareOpen, setShareOpen] = useState(false);
   const [currentSitemap, setCurrentSitemap] = useState(sitemap);
-  const [view, setView] = useState<SitemapView>("grid");
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef(false);
 
-  // Collapse collection_item nodes into parent collection cards for canvas display
-  const canvasData = useMemo(
-    () =>
-      collapseCollectionItems(
-        nodes as ClientSitemap["sitemap_data"]["nodes"],
-        edges as ClientSitemap["sitemap_data"]["edges"]
-      ),
-    [nodes, edges]
-  );
-
-  // ── Selected node data ────────────────────────────────
   const selectedNode = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) : null;
 
   // ── Save to API ────────────────────────────────────────
@@ -111,14 +79,14 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
           saveToApi({
             nodes: currentNodes as ClientSitemap["sitemap_data"]["nodes"],
             edges: currentEdges as ClientSitemap["sitemap_data"]["edges"],
-            viewport: getViewport(),
+            viewport: { x: 0, y: 0, zoom: 1 },
           });
           return currentEdges;
         });
         return currentNodes;
       });
     }, 3000);
-  }, [saveToApi, setNodes, setEdges, getViewport]);
+  }, [saveToApi, setNodes, setEdges]);
 
   useEffect(() => {
     scheduleSave();
@@ -131,49 +99,24 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
   // ── Manual save ────────────────────────────────────────
   const handleManualSave = useCallback(() => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveToApi({
-      nodes: nodes as ClientSitemap["sitemap_data"]["nodes"],
-      edges: edges as ClientSitemap["sitemap_data"]["edges"],
-      viewport: getViewport(),
+    setNodes((currentNodes) => {
+      setEdges((currentEdges) => {
+        saveToApi({
+          nodes: currentNodes as ClientSitemap["sitemap_data"]["nodes"],
+          edges: currentEdges as ClientSitemap["sitemap_data"]["edges"],
+          viewport: { x: 0, y: 0, zoom: 1 },
+        });
+        return currentEdges;
+      });
+      return currentNodes;
     });
-  }, [nodes, edges, saveToApi, getViewport]);
-
-  // ── Node selection ─────────────────────────────────────
-  const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
-    setSelectedNodeId(node.id);
-  }, []);
-
-  const onPaneClick = useCallback(() => {
-    setSelectedNodeId(null);
-  }, []);
-
-  // ── Connect nodes ──────────────────────────────────────
-  const onConnect = useCallback(
-    (connection: Connection) => {
-      if (connection.source && connection.target) {
-        const newEdge = createEdge(connection.source, connection.target);
-        setEdges((eds) => [...eds, newEdge]);
-      }
-    },
-    [setEdges]
-  );
-
-  // ── Auto layout (uses collapsed nodes so collections are single cards) ──
-  const handleAutoLayout = useCallback(() => {
-    const laidOut = autoLayout(canvasData.nodes, canvasData.edges);
-    const posMap = new Map(laidOut.map((n) => [n.id, n.position]));
-    setNodes((nds) =>
-      nds.map((n) => ({ ...n, position: posMap.get(n.id) ?? n.position }))
-    );
-    setTimeout(() => fitView({ padding: 0.3, duration: 300 }), 50);
-    addToast({ variant: "success", title: "Layout applied" });
-  }, [canvasData, setNodes, fitView, addToast]);
+  }, [saveToApi, setNodes, setEdges]);
 
   // ── Add page ───────────────────────────────────────────
   const handleAddPage = useCallback(() => {
     const newNode = createNode(
       { label: "New Page", path: "/new-page" },
-      { x: Math.random() * 400, y: Math.random() * 400 }
+      { x: 0, y: 0 }
     );
     setNodes((nds) => [...nds, newNode]);
     setSelectedNodeId(newNode.id);
@@ -182,7 +125,7 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
       const edge = createEdge(selectedNodeId, newNode.id);
       setEdges((eds) => [...eds, edge]);
     }
-  }, [setNodes, setEdges, selectedNodeId]);
+  }, [selectedNodeId]);
 
   // ── Update node data ──────────────────────────────────
   const handleUpdateNode = useCallback(
@@ -193,7 +136,7 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
         )
       );
     },
-    [setNodes]
+    []
   );
 
   // ── Delete node ────────────────────────────────────────
@@ -203,50 +146,57 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
       if (selectedNodeId === nodeId) setSelectedNodeId(null);
     },
-    [setNodes, setEdges, selectedNodeId]
+    [selectedNodeId]
   );
 
   // ── Duplicate node ─────────────────────────────────────
   const handleDuplicateNode = useCallback(
     (nodeId: string) => {
-      const original = nodes.find((n) => n.id === nodeId);
-      if (!original) return;
+      setNodes((currentNodes) => {
+        const original = currentNodes.find((n) => n.id === nodeId);
+        if (!original) return currentNodes;
 
-      const newId = generateNodeId();
-      const newNode = {
-        ...original,
-        id: newId,
-        position: { x: original.position.x + 40, y: original.position.y + 40 },
-        data: { ...original.data, label: `${original.data.label} (copy)` },
-      };
-      setNodes((nds) => [...nds, newNode]);
+        const newId = generateNodeId();
+        const newNode = {
+          ...original,
+          id: newId,
+          position: { x: original.position.x + 40, y: original.position.y + 40 },
+          data: { ...original.data, label: `${original.data.label} (copy)` },
+        };
 
-      const parentEdge = edges.find((e) => e.target === nodeId);
-      if (parentEdge) {
-        setEdges((eds) => [...eds, createEdge(parentEdge.source, newId)]);
-      }
+        setEdges((currentEdges) => {
+          const parentEdge = currentEdges.find((e) => e.target === nodeId);
+          if (parentEdge) {
+            return [...currentEdges, createEdge(parentEdge.source, newId)];
+          }
+          return currentEdges;
+        });
 
-      setSelectedNodeId(newId);
+        setSelectedNodeId(newId);
+        return [...currentNodes, newNode];
+      });
     },
-    [nodes, edges, setNodes, setEdges]
+    []
   );
 
   // ── Add child ──────────────────────────────────────────
   const handleAddChild = useCallback(
     (parentId: string) => {
-      const parent = nodes.find((n) => n.id === parentId);
-      const newNode = createNode(
-        { label: "New Page", path: "/new-page" },
-        {
-          x: (parent?.position.x ?? 0) + 40,
-          y: (parent?.position.y ?? 0) + 180,
-        }
-      );
-      setNodes((nds) => [...nds, newNode]);
-      setEdges((eds) => [...eds, createEdge(parentId, newNode.id)]);
-      setSelectedNodeId(newNode.id);
+      setNodes((currentNodes) => {
+        const parent = currentNodes.find((n) => n.id === parentId);
+        const newNode = createNode(
+          { label: "New Page", path: "/new-page" },
+          {
+            x: (parent?.position.x ?? 0) + 40,
+            y: (parent?.position.y ?? 0) + 180,
+          }
+        );
+        setEdges((eds) => [...eds, createEdge(parentId, newNode.id)]);
+        setSelectedNodeId(newNode.id);
+        return [...currentNodes, newNode];
+      });
     },
-    [nodes, setNodes, setEdges]
+    []
   );
 
   // ── Export JSON ───────────────────────────────────────
@@ -306,11 +256,7 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
         lastSaved={lastSaved}
         saving={saving}
         onSave={handleManualSave}
-        onAutoLayout={handleAutoLayout}
         onAddPage={handleAddPage}
-        onFitView={() => fitView({ padding: 0.3, duration: 300 })}
-        onZoomIn={() => zoomIn({ duration: 200 })}
-        onZoomOut={() => zoomOut({ duration: 200 })}
         onExport={handleExport}
         onShare={() => setShareOpen(true)}
         onClose={() => {
@@ -321,78 +267,18 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
         }}
         title={sitemap.title}
         status={sitemap.status}
-        view={view}
-        onViewChange={setView}
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {view === "grid" ? (
-          <SitemapGridView
-            nodes={nodes as ClientSitemap["sitemap_data"]["nodes"]}
-            edges={edges as ClientSitemap["sitemap_data"]["edges"]}
-            selectedNodeId={selectedNodeId}
-            onNodeSelect={setSelectedNodeId}
-            onDeleteNode={handleDeleteNode}
-            onDuplicateNode={handleDuplicateNode}
-            onAddChild={handleAddChild}
-          />
-        ) : view === "structure" ? (
-          <SitemapStructuralView
-            nodes={nodes as ClientSitemap["sitemap_data"]["nodes"]}
-            edges={edges as ClientSitemap["sitemap_data"]["edges"]}
-            selectedNodeId={selectedNodeId}
-            onNodeSelect={setSelectedNodeId}
-            onAddChild={handleAddChild}
-            onDuplicate={handleDuplicateNode}
-            onDelete={handleDeleteNode}
-          />
-        ) : (
-          <div className="flex-1 relative">
-            <SitemapLegend />
-            <ReactFlow
-              nodes={canvasData.nodes}
-              edges={canvasData.edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              onNodeClick={onNodeClick}
-              onPaneClick={onPaneClick}
-              nodeTypes={nodeTypes}
-              defaultEdgeOptions={{
-                type: "bezier",
-                animated: false,
-                style: {
-                  stroke: "var(--color-border-hover)",
-                  strokeWidth: 1.5,
-                },
-              }}
-              connectionLineType={ConnectionLineType.Bezier}
-              fitView
-              fitViewOptions={{ padding: 0.3 }}
-              minZoom={0.2}
-              maxZoom={2}
-              snapToGrid={true}
-              snapGrid={[20, 20]}
-              proOptions={{ hideAttribution: false }}
-            >
-              <Background gap={24} size={0.8} color="var(--color-border)" />
-              <MiniMap
-                nodeColor={(node) => {
-                  const data = node.data as SitemapPageData;
-                  return data.color || (PAGE_TYPE_CONFIG[data.pageType]?.color ?? "#64748b");
-                }}
-                maskColor="rgba(0,0,0,0.5)"
-                style={{
-                  backgroundColor: "var(--color-surface)",
-                  borderRadius: "12px",
-                  border: "1px solid var(--color-border)",
-                }}
-                pannable
-                zoomable
-              />
-            </ReactFlow>
-          </div>
-        )}
+        <SitemapGridView
+          nodes={nodes as ClientSitemap["sitemap_data"]["nodes"]}
+          edges={edges as ClientSitemap["sitemap_data"]["edges"]}
+          selectedNodeId={selectedNodeId}
+          onNodeSelect={setSelectedNodeId}
+          onDeleteNode={handleDeleteNode}
+          onDuplicateNode={handleDuplicateNode}
+          onAddChild={handleAddChild}
+        />
 
         {/* Sidebar */}
         {selectedNode && (
@@ -421,13 +307,5 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
         />
       )}
     </div>
-  );
-}
-
-export function SitemapEditor(props: SitemapEditorProps) {
-  return (
-    <ReactFlowProvider>
-      <SitemapEditorInner {...props} />
-    </ReactFlowProvider>
   );
 }

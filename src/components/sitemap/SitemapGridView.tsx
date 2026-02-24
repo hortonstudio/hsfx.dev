@@ -46,6 +46,10 @@ export function SitemapGridView({
   const containerRef = useRef<HTMLDivElement>(null);
   const hasInteracted = useRef(false);
 
+  // Touch refs
+  const touchStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
+
   // Dismiss hint on first interaction
   const dismissHint = useCallback(() => {
     if (!hasInteracted.current) {
@@ -71,10 +75,9 @@ export function SitemapGridView({
     [dismissHint]
   );
 
-  // Pan start
+  // Mouse pan start
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      // Only pan on middle-click or when clicking background (not cards)
       if (e.button === 1 || (e.target === e.currentTarget || (e.target as HTMLElement).dataset?.pannable === "true")) {
         e.preventDefault();
         setIsPanning(true);
@@ -85,7 +88,7 @@ export function SitemapGridView({
     [pan, dismissHint]
   );
 
-  // Pan move
+  // Mouse pan move
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (!isPanning) return;
@@ -96,9 +99,61 @@ export function SitemapGridView({
     [isPanning]
   );
 
-  // Pan end
+  // Mouse pan end
   const handleMouseUp = useCallback(() => {
     setIsPanning(false);
+  }, []);
+
+  // Touch helpers
+  const getTouchDistance = (touches: React.TouchList) => {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  // Touch pan + pinch-to-zoom
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      dismissHint();
+      if (e.touches.length === 1) {
+        touchStartRef.current = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+          panX: pan.x,
+          panY: pan.y,
+        };
+        pinchStartRef.current = null;
+      } else if (e.touches.length === 2) {
+        touchStartRef.current = null;
+        pinchStartRef.current = {
+          distance: getTouchDistance(e.touches),
+          zoom,
+        };
+      }
+    },
+    [pan, zoom, dismissHint]
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && touchStartRef.current) {
+        const dx = e.touches[0].clientX - touchStartRef.current.x;
+        const dy = e.touches[0].clientY - touchStartRef.current.y;
+        setPan({ x: touchStartRef.current.panX + dx, y: touchStartRef.current.panY + dy });
+      } else if (e.touches.length === 2 && pinchStartRef.current) {
+        const currentDistance = getTouchDistance(e.touches);
+        const scale = currentDistance / pinchStartRef.current.distance;
+        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchStartRef.current.zoom * scale));
+        setZoom(newZoom);
+      }
+    },
+    []
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    touchStartRef.current = null;
+    pinchStartRef.current = null;
   }, []);
 
   // Background click to deselect
@@ -114,7 +169,7 @@ export function SitemapGridView({
   return (
     <div
       ref={containerRef}
-      className={`flex-1 overflow-hidden bg-background relative ${isPanning ? "cursor-grabbing" : "cursor-grab"}`}
+      className={`flex-1 overflow-hidden bg-background relative touch-none ${isPanning ? "cursor-grabbing" : "cursor-grab"}`}
       data-lenis-prevent
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
@@ -122,6 +177,9 @@ export function SitemapGridView({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onClick={handleClick}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
       {/* Zoomable/pannable content */}
       <div
@@ -137,11 +195,11 @@ export function SitemapGridView({
               {/* Section header */}
               <div className="flex items-center gap-4 mb-6">
                 <div
-                  className="h-0.5 w-12"
+                  className="h-px w-10 flex-shrink-0"
                   style={{ backgroundColor: section.color }}
                 />
                 <h3
-                  className="text-sm font-bold uppercase tracking-widest"
+                  className="text-sm font-bold uppercase tracking-widest flex-shrink-0"
                   style={{ color: section.color }}
                 >
                   {section.label}
@@ -152,7 +210,7 @@ export function SitemapGridView({
                 <div className="flex-1 h-px bg-border/30" />
               </div>
 
-              {/* Horizontal grid */}
+              {/* Card grid */}
               <div className="grid grid-cols-4 gap-4">
                 {section.nodes.map((node) => (
                   <SitemapGridCard

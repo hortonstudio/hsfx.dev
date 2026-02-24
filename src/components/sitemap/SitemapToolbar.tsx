@@ -2,38 +2,24 @@
 
 import {
   Plus,
-  LayoutGrid,
-  ZoomIn,
-  ZoomOut,
-  Maximize,
   Save,
   Share2,
   Download,
   X,
-  Network,
-  List,
 } from "lucide-react";
 import { Button, Badge, Tooltip } from "@/components/ui";
-
-export type SitemapView = "grid" | "canvas" | "structure";
 
 interface SitemapToolbarProps {
   nodeCount: number;
   lastSaved: string | null;
   saving: boolean;
   onSave: () => void;
-  onAutoLayout: () => void;
   onAddPage: () => void;
-  onFitView: () => void;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
   onShare: () => void;
   onExport?: () => void;
   onClose: () => void;
   title: string;
   status: string;
-  view: SitemapView;
-  onViewChange: (view: SitemapView) => void;
 }
 
 export function SitemapToolbar({
@@ -41,18 +27,12 @@ export function SitemapToolbar({
   lastSaved,
   saving,
   onSave,
-  onAutoLayout,
   onAddPage,
-  onFitView,
-  onZoomIn,
-  onZoomOut,
   onShare,
   onExport,
   onClose,
   title,
   status,
-  view,
-  onViewChange,
 }: SitemapToolbarProps) {
   const formatLastSaved = () => {
     if (!lastSaved) return null;
@@ -79,90 +59,13 @@ export function SitemapToolbar({
         </Badge>
       </div>
 
-      {/* Center: View Toggle + Action Groups */}
-      <div className="flex items-center gap-1">
-        {/* View toggle */}
-        <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-background/50">
-          <button
-            type="button"
-            onClick={() => onViewChange("grid")}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors ${
-              view === "grid"
-                ? "bg-surface text-text-primary font-medium shadow-sm"
-                : "text-text-dim hover:text-text-muted"
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            Grid
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewChange("canvas")}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors ${
-              view === "canvas"
-                ? "bg-surface text-text-primary font-medium shadow-sm"
-                : "text-text-dim hover:text-text-muted"
-            }`}
-          >
-            <Network className="w-3.5 h-3.5" />
-            Canvas
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewChange("structure")}
-            className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-md transition-colors ${
-              view === "structure"
-                ? "bg-surface text-text-primary font-medium shadow-sm"
-                : "text-text-dim hover:text-text-muted"
-            }`}
-          >
-            <List className="w-3.5 h-3.5" />
-            Structure
-          </button>
-        </div>
-
-        <div className="w-px h-5 bg-border mx-1" />
-
-        {/* Edit group */}
-        <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-background/50">
-          <Tooltip content="Add Page" side="bottom">
-            <Button variant="ghost" size="sm" onClick={onAddPage}>
-              <Plus className="w-4 h-4" />
-            </Button>
-          </Tooltip>
-          {view === "canvas" && (
-            <Tooltip content="Auto Layout" side="bottom">
-              <Button variant="ghost" size="sm" onClick={onAutoLayout}>
-                <LayoutGrid className="w-4 h-4" />
-              </Button>
-            </Tooltip>
-          )}
-        </div>
-
-        {view === "canvas" && (
-          <>
-            <div className="w-px h-5 bg-border mx-1" />
-
-            {/* Zoom group - only for canvas */}
-            <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-background/50">
-              <Tooltip content="Zoom Out" side="bottom">
-                <Button variant="ghost" size="sm" onClick={onZoomOut}>
-                  <ZoomOut className="w-4 h-4" />
-                </Button>
-              </Tooltip>
-              <Tooltip content="Fit View" side="bottom">
-                <Button variant="ghost" size="sm" onClick={onFitView}>
-                  <Maximize className="w-4 h-4" />
-                </Button>
-              </Tooltip>
-              <Tooltip content="Zoom In" side="bottom">
-                <Button variant="ghost" size="sm" onClick={onZoomIn}>
-                  <ZoomIn className="w-4 h-4" />
-                </Button>
-              </Tooltip>
-            </div>
-          </>
-        )}
+      {/* Center: Actions */}
+      <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg bg-background/50">
+        <Tooltip content="Add Page" side="bottom">
+          <Button variant="ghost" size="sm" onClick={onAddPage}>
+            <Plus className="w-4 h-4" />
+          </Button>
+        </Tooltip>
       </div>
 
       {/* Right: Save status + Share + Close */}
