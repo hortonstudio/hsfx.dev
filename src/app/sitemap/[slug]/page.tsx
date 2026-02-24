@@ -119,6 +119,20 @@ function PublicSitemapViewer() {
     setSelectedNodeId(null);
   }, []);
 
+  // Escape key to close panels
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (commentsOpen) {
+        setCommentsOpen(false);
+      } else if (selectedNodeId) {
+        setSelectedNodeId(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [commentsOpen, selectedNodeId]);
+
   // Collapse collection_items into parent collection template cards for canvas
   const canvasData = useMemo(
     () => sitemap

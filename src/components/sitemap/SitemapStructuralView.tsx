@@ -289,8 +289,8 @@ function TreeNodeCard({
         >
           {/* Top accent */}
           <div
-            className="h-[2px]"
-            style={{ backgroundColor: `${nodeColor}99` }}
+            className="h-[3px]"
+            style={{ backgroundColor: nodeColor }}
           />
 
           <div className="px-4 py-3">
@@ -300,12 +300,14 @@ function TreeNodeCard({
                 <span
                   role="button"
                   tabIndex={0}
+                  aria-label={isExpanded ? `Collapse ${data.label}` : `Expand ${data.label}`}
+                  aria-expanded={isExpanded}
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleExpanded(node.id);
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") { e.stopPropagation(); toggleExpanded(node.id); }
+                    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); toggleExpanded(node.id); }
                   }}
                   className="p-0.5 rounded hover:bg-background/60 transition-colors"
                 >

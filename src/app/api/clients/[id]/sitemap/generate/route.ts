@@ -85,11 +85,11 @@ Only these collections get individual collection_item children:
 - Service Areas → one collection_item per service area from the KB
 
 ## Content Rules
-- NEVER fabricate services, locations, team members, or details not present in the knowledge base.
-- Use the knowledge base to determine actual services, service areas, and business specifics.
-- If the KB mentions specific services, create a collection_item for each one.
+- Always prefer real data from the knowledge base (services, locations, team members, specialties).
+- If the KB mentions specific services, create a collection_item for each one with accurate names.
 - If the KB mentions specific cities/areas, create a Service Area collection_item for each.
-- For placeholder items (when KB lacks specifics), use generic but realistic names.
+- When the KB lacks detail for a required page (e.g. no FAQ content), still create the page but use the business name and industry context to write realistic placeholder descriptions and SEO fields.
+- NEVER invent services or locations not mentioned in or reasonably implied by the KB.
 
 ## Package Tier Guidelines
 - Package 1 (~8-15 pages): Home, About, Services collection + 3-4 service items, Contact, Privacy Policy.

@@ -88,6 +88,19 @@ const VALID_PAGE_TYPES = new Set<string>([
   "home", "static", "collection", "collection_item", "utility", "external",
 ]);
 
+/** Sections the AI is allowed to emit (case-insensitive match) */
+const VALID_SECTIONS = new Set([
+  "hero", "content", "services overview", "services grid", "service details",
+  "process steps", "stats/numbers", "testimonials", "testimonial grid",
+  "faq accordion", "cta", "contact form", "map", "team grid", "team member",
+  "story/history", "values", "credentials", "gallery grid", "before/after gallery",
+  "blog grid", "blog content", "related posts", "categories", "pricing table",
+  "pricing cards", "feature list", "feature grid", "comparison table", "video",
+  "image banner", "logo bar", "partners", "portfolio grid", "case study",
+  "download/resources", "newsletter signup", "social proof", "breadcrumbs",
+  "sidebar", "search", "filters", "area map", "area services",
+]);
+
 /** Normalize a URL path: lowercase, leading slash, no trailing slash, no double slashes */
 function normalizePath(path: string): string {
   let p = path.toLowerCase().trim();
@@ -125,8 +138,14 @@ export function validateAndCleanAINodes(
 
   const brand = businessName || "Our Company";
 
+  // Build lookup for collection hierarchy validation
+  const nodeTypeMap = new Map<string, string>();
+  for (const node of deduped) {
+    nodeTypeMap.set(node.id, VALID_PAGE_TYPES.has(node.pageType) ? node.pageType : "static");
+  }
+
   // 3. Clean each node
-  return deduped.map((node) => {
+  const cleaned = deduped.map((node) => {
     const pageType = VALID_PAGE_TYPES.has(node.pageType) ? node.pageType : "static";
 
     // Validate parentId references
@@ -138,12 +157,37 @@ export function validateAndCleanAINodes(
       parentId = null;
     }
 
+    // Collection hierarchy: collection_item must have a collection parent
+    if (pageType === "collection_item" && parentId) {
+      const parentType = nodeTypeMap.get(parentId);
+      if (parentType && parentType !== "collection") {
+        // Find a collection parent with matching collectionName, or fall back to home
+        const matchingCollection = deduped.find(
+          (n) => n.pageType === "collection" && n.collectionName === node.collectionName
+        );
+        parentId = matchingCollection?.id ?? "home";
+      }
+    }
+
+    // Validate sections against the catalog
+    const rawSections = Array.from(new Set(node.sections ?? []));
+    const sections = rawSections.filter((s) => VALID_SECTIONS.has(s.toLowerCase()));
+    // If all sections were invalid, keep the raw ones to avoid empty arrays
+    const finalSections = sections.length > 0 ? sections : rawSections;
+
+    // Clamp estimatedItems to reasonable bounds
+    let estimatedItems = node.estimatedItems;
+    if (estimatedItems != null) {
+      estimatedItems = Math.max(1, Math.min(200, Math.round(estimatedItems)));
+    }
+
     return {
       ...node,
       pageType: pageType as SitemapPageType,
       parentId,
       path: normalizePath(node.path),
-      sections: Array.from(new Set(node.sections ?? [])),
+      sections: finalSections,
+      estimatedItems,
       seoTitle: node.seoTitle || `${node.label} | ${brand}`,
       seoDescription:
         node.seoDescription ||
@@ -153,6 +197,18 @@ export function validateAndCleanAINodes(
         node.description || `${node.label} page for ${brand}.`,
     };
   });
+
+  // 4. Deduplicate paths — suffix collisions with -2, -3, etc.
+  const pathCount = new Map<string, number>();
+  for (const node of cleaned) {
+    const count = pathCount.get(node.path) ?? 0;
+    pathCount.set(node.path, count + 1);
+    if (count > 0) {
+      node.path = `${node.path}-${count + 1}`;
+    }
+  }
+
+  return cleaned;
 }
 
 /** Collapse collection_item nodes into their parent collection nodes for canvas display.

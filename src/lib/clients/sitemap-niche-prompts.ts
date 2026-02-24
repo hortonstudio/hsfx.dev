@@ -69,7 +69,20 @@ Structure the sitemap for menu discovery and reservations:
 - Common collections: Menu (or Menu Categories), Locations, Blog, Gallery
 `.trim(),
 
-  other: "",
+  other: `
+## Niche: General Business
+
+Structure the sitemap based on the knowledge base content:
+
+- Include a "Services" collection with individual service pages if the KB lists specific offerings.
+- About page: Hero, Story/History, Team Grid (if team info available), Values, CTA
+- Contact page: Hero, Contact Form, Map, CTA
+- If the business serves specific areas, include a "Service Areas" collection with city pages.
+- Gallery/Portfolio and Blog: TEMPLATE-ONLY (collection page with estimatedItems, no individual items).
+- FAQ and Testimonials: TEMPLATE-ONLY static pages.
+- Focus on the business's primary conversion goal (lead form, phone call, booking, etc.).
+- Common collections: Services (itemized); Gallery, Blog (template-only)
+`.trim(),
 };
 
 /**
