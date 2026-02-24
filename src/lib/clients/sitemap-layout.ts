@@ -15,7 +15,7 @@ const DEFAULT_CONFIG: LayoutConfig = {
   nodeWidth: 260,
   nodeHeight: 140,
   horizontalGap: 50,
-  verticalGap: 70,
+  verticalGap: 90,
   maxChildrenPerRow: 5,
   rowGap: 40,
 };

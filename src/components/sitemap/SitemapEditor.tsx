@@ -39,13 +39,14 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
   const { addToast } = useToast();
   const { fitView, zoomIn, zoomOut, getViewport } = useReactFlow();
 
-  // Normalize nodes to ensure type is set for React Flow custom rendering
+  // Normalize nodes and apply auto-layout with current constants
   const normalizedNodes = sitemap.sitemap_data.nodes.map((n) => ({
     ...n,
     type: "sitemap-page" as const,
     data: { ...n.data, status: n.data.status || "planned", pageType: n.data.pageType || "static" },
   }));
-  const [nodes, setNodes, onNodesChange] = useNodesState(normalizedNodes);
+  const laidOutNodes = autoLayout(normalizedNodes, sitemap.sitemap_data.edges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(laidOutNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(sitemap.sitemap_data.edges);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);

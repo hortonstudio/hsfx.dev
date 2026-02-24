@@ -279,7 +279,7 @@ Generate the complete sitemap as a JSON array of page objects for Package 3.
   const NODE_W = 260;
   const NODE_H = 140;
   const GAP_X = 50;
-  const GAP_Y = 70;
+  const GAP_Y = 90;
   const MAX_PER_ROW = 5;
   const ROW_GAP = 40;
 

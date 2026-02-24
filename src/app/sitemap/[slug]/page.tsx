@@ -188,7 +188,7 @@ function PublicSitemapViewer() {
           <div className="flex items-center gap-1.5">
             {sitemap.client_id && (
               <Link
-                href={`/clients/${sitemap.client_id}`}
+                href={`/clients/${sitemap.client_id}?tab=sitemap`}
                 className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-text-muted hover:text-text-primary rounded-md hover:bg-background/60 transition-colors"
               >
                 <Pencil className="w-3 h-3" />
