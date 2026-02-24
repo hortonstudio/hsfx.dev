@@ -5,17 +5,24 @@ interface LayoutConfig {
   nodeHeight: number;
   horizontalGap: number;
   verticalGap: number;
+  /** Max children per row before wrapping to next row */
+  maxChildrenPerRow: number;
+  /** Vertical gap between rows of children (smaller than verticalGap) */
+  rowGap: number;
 }
 
 const DEFAULT_CONFIG: LayoutConfig = {
-  nodeWidth: 320,
-  nodeHeight: 140,
-  horizontalGap: 60,
-  verticalGap: 100,
+  nodeWidth: 280,
+  nodeHeight: 160,
+  horizontalGap: 50,
+  verticalGap: 80,
+  maxChildrenPerRow: 5,
+  rowGap: 30,
 };
 
 /**
  * Auto-layout algorithm: positions nodes in a top-down tree.
+ * Wraps children into multiple rows when a parent has many children.
  * Returns new nodes with updated positions (does not mutate input).
  */
 export function autoLayout(
@@ -84,53 +91,96 @@ export function autoLayout(
     }
   }
 
-  // Compute subtree widths for better centering
-  const subtreeWidth = new Map<string, number>();
+  /** Split an array into chunks of maxSize */
+  function chunk<T>(arr: T[], maxSize: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < arr.length; i += maxSize) {
+      chunks.push(arr.slice(i, i + maxSize));
+    }
+    return chunks;
+  }
 
-  function computeWidth(nodeId: string): number {
+  // Compute subtree widths — accounts for multi-row wrapping
+  const subtreeWidth = new Map<string, number>();
+  const subtreeHeight = new Map<string, number>();
+
+  function computeSize(nodeId: string): { width: number; height: number } {
     const children = childrenMap.get(nodeId) ?? [];
     if (children.length === 0) {
-      const w = cfg.nodeWidth;
-      subtreeWidth.set(nodeId, w);
-      return w;
+      subtreeWidth.set(nodeId, cfg.nodeWidth);
+      subtreeHeight.set(nodeId, cfg.nodeHeight);
+      return { width: cfg.nodeWidth, height: cfg.nodeHeight };
     }
 
-    const totalChildrenWidth = children.reduce((sum, childId) => {
-      return sum + computeWidth(childId);
-    }, 0);
+    // Compute child sizes first
+    children.forEach((cId) => computeSize(cId));
 
-    const gapWidth = (children.length - 1) * cfg.horizontalGap;
-    const w = Math.max(cfg.nodeWidth, totalChildrenWidth + gapWidth);
-    subtreeWidth.set(nodeId, w);
-    return w;
+    // Split children into rows
+    const rows = chunk(children, cfg.maxChildrenPerRow);
+    let maxRowWidth = 0;
+    let totalChildHeight = 0;
+
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r];
+      const rowWidth = row.reduce(
+        (sum, cId) => sum + (subtreeWidth.get(cId) ?? cfg.nodeWidth),
+        0
+      ) + (row.length - 1) * cfg.horizontalGap;
+      maxRowWidth = Math.max(maxRowWidth, rowWidth);
+
+      // Row height = tallest subtree in this row
+      const rowHeight = Math.max(
+        ...row.map((cId) => subtreeHeight.get(cId) ?? cfg.nodeHeight)
+      );
+      totalChildHeight += rowHeight;
+      if (r > 0) totalChildHeight += cfg.rowGap;
+    }
+
+    const width = Math.max(cfg.nodeWidth, maxRowWidth);
+    const height = cfg.nodeHeight + cfg.verticalGap + totalChildHeight;
+
+    subtreeWidth.set(nodeId, width);
+    subtreeHeight.set(nodeId, height);
+    return { width, height };
   }
 
   for (const root of roots) {
-    computeWidth(root.id);
+    computeSize(root.id);
   }
 
   // Position nodes
   const positions = new Map<string, { x: number; y: number }>();
 
   function positionSubtree(nodeId: string, x: number, y: number) {
+    const myWidth = subtreeWidth.get(nodeId) ?? cfg.nodeWidth;
     positions.set(nodeId, {
-      x: x + (subtreeWidth.get(nodeId) ?? cfg.nodeWidth) / 2 - cfg.nodeWidth / 2,
+      x: x + myWidth / 2 - cfg.nodeWidth / 2,
       y,
     });
 
     const children = childrenMap.get(nodeId) ?? [];
     if (children.length === 0) return;
 
-    const totalWidth =
-      children.reduce((sum, cId) => sum + (subtreeWidth.get(cId) ?? cfg.nodeWidth), 0) +
-      (children.length - 1) * cfg.horizontalGap;
+    const rows = chunk(children, cfg.maxChildrenPerRow);
+    let rowY = y + cfg.nodeHeight + cfg.verticalGap;
 
-    let childX = x + ((subtreeWidth.get(nodeId) ?? cfg.nodeWidth) - totalWidth) / 2;
-    const childY = y + cfg.nodeHeight + cfg.verticalGap;
+    for (const row of rows) {
+      const rowWidth = row.reduce(
+        (sum, cId) => sum + (subtreeWidth.get(cId) ?? cfg.nodeWidth),
+        0
+      ) + (row.length - 1) * cfg.horizontalGap;
 
-    for (const childId of children) {
-      positionSubtree(childId, childX, childY);
-      childX += (subtreeWidth.get(childId) ?? cfg.nodeWidth) + cfg.horizontalGap;
+      // Center the row under the parent
+      let childX = x + (myWidth - rowWidth) / 2;
+
+      let rowMaxHeight = 0;
+      for (const childId of row) {
+        positionSubtree(childId, childX, rowY);
+        childX += (subtreeWidth.get(childId) ?? cfg.nodeWidth) + cfg.horizontalGap;
+        rowMaxHeight = Math.max(rowMaxHeight, subtreeHeight.get(childId) ?? cfg.nodeHeight);
+      }
+
+      rowY += rowMaxHeight + cfg.rowGap;
     }
   }
 

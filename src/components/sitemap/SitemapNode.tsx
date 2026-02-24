@@ -9,6 +9,7 @@ import {
   File,
   Settings,
   ExternalLink,
+  MessageSquare,
 } from "lucide-react";
 import type { SitemapPageData, SitemapPageType, SitemapPageStatus } from "@/lib/clients/sitemap-types";
 import { PAGE_TYPE_CONFIG } from "@/lib/clients/sitemap-utils";
@@ -30,6 +31,26 @@ const TYPE_ICONS: Record<SitemapPageType, React.ComponentType<{ className?: stri
   external: ExternalLink,
 };
 
+/** Visual height mapping for wireframe section blocks */
+const SECTION_HEIGHTS: Record<string, string> = {
+  hero: "h-8",
+  cta: "h-5",
+  form: "h-7",
+  map: "h-6",
+  gallery: "h-7",
+  pricing: "h-7",
+  testimonials: "h-6",
+  faq: "h-6",
+  stats: "h-5",
+  process: "h-6",
+  team: "h-6",
+};
+
+function getSectionHeight(section: string): string {
+  const key = section.toLowerCase().split(/[\s,/]+/)[0];
+  return SECTION_HEIGHTS[key] || "h-4";
+}
+
 type SitemapPageNode = Node<SitemapPageData, "sitemap-page">;
 
 function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
@@ -48,8 +69,8 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
 
       <div
         className={`
-          w-[320px] rounded-xl border bg-surface/80 backdrop-blur-sm
-          transition-all duration-200 ease-out relative
+          w-[280px] rounded-xl border bg-surface backdrop-blur-sm
+          transition-all duration-200 ease-out relative overflow-hidden
           ${selected
             ? "border-accent shadow-glow-sm ring-1 ring-accent/20"
             : "border-border hover:border-border-hover hover:shadow-md hover:-translate-y-0.5"
@@ -58,16 +79,16 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
       >
         {/* Top accent bar */}
         <div
-          className="h-[2px] rounded-t-xl"
-          style={{ backgroundColor: `${nodeColor}99` }}
+          className="h-[3px]"
+          style={{ backgroundColor: nodeColor }}
         />
 
         {/* Header */}
-        <div className="px-4 pt-3 pb-2">
+        <div className="px-3.5 pt-2.5 pb-2">
           {/* Type + Status row */}
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1.5">
             <span
-              className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider"
+              className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider"
               style={{ color: nodeColor }}
             >
               <TypeIcon className="w-3 h-3" />
@@ -79,36 +100,40 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
           </div>
 
           {/* Page name */}
-          <h3 className="text-sm font-medium text-text-primary leading-tight mb-0.5 truncate">
+          <h3 className="text-[13px] font-semibold text-text-primary leading-tight mb-0.5 truncate">
             {data.label}
           </h3>
 
           {/* Path */}
-          <p className="text-[11px] text-text-dim font-mono truncate">
+          <p className="text-[10px] text-text-dim font-mono truncate">
             {data.path}
           </p>
         </div>
 
-        {/* Sections — wireframe-style blocks */}
+        {/* Sections — wireframe block preview */}
         {data.sections && data.sections.length > 0 && (
-          <div className="px-4 pb-3">
-            <div className="h-px bg-border mb-2" />
-            <div className="space-y-1">
-              {data.sections.slice(0, 5).map((section) => (
+          <div className="px-3.5 pb-2.5">
+            <div className="rounded-lg border border-border/60 overflow-hidden">
+              {data.sections.slice(0, 6).map((section, i) => (
                 <div
                   key={section}
-                  className="flex items-center gap-2 px-2 py-1 rounded-md bg-background/60"
+                  className={`
+                    ${getSectionHeight(section)} flex items-center px-2.5
+                    ${i > 0 ? "border-t border-dashed border-border/40" : ""}
+                    ${i === 0 ? "bg-background/80" : "bg-background/40"}
+                  `}
                 >
-                  <div className="w-0.5 h-3 rounded-full bg-border-hover flex-shrink-0" />
-                  <span className="text-[11px] text-text-muted leading-none truncate">
+                  <span className="text-[9px] text-text-dim leading-none truncate">
                     {section}
                   </span>
                 </div>
               ))}
-              {data.sections.length > 5 && (
-                <span className="text-[10px] text-text-dim pl-4">
-                  +{data.sections.length - 5} more
-                </span>
+              {data.sections.length > 6 && (
+                <div className="h-4 flex items-center justify-center border-t border-dashed border-border/40 bg-background/30">
+                  <span className="text-[8px] text-text-dim">
+                    +{data.sections.length - 6} more sections
+                  </span>
+                </div>
               )}
             </div>
           </div>
@@ -116,8 +141,8 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
 
         {/* Collection info */}
         {data.collectionName && (
-          <div className="px-4 pb-3">
-            <div className="flex items-center gap-1.5 text-[11px] text-accent">
+          <div className="px-3.5 pb-2.5">
+            <div className="flex items-center gap-1.5 text-[10px] text-accent">
               <Database className="w-3 h-3" />
               <span>{data.collectionName}</span>
               {data.estimatedItems && (
@@ -127,9 +152,10 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
           </div>
         )}
 
-        {/* Comment count */}
+        {/* Comment indicator */}
         {data.commentCount && data.commentCount > 0 && (
-          <div className="absolute -top-2.5 -right-2.5 flex items-center justify-center w-5 h-5 rounded-full bg-accent text-white text-[10px] font-semibold shadow-glow-sm">
+          <div className="absolute -top-2 -right-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-accent text-white text-[9px] font-bold shadow-glow-sm">
+            <MessageSquare className="w-2.5 h-2.5" />
             {data.commentCount}
           </div>
         )}

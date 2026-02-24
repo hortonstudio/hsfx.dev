@@ -271,14 +271,15 @@ function TreeNodeCard({
               )}
 
               {data.sections && data.sections.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {data.sections.map((section) => (
+                <div className="mt-2 rounded-lg border border-border/50 overflow-hidden">
+                  {data.sections.map((section, i) => (
                     <div
                       key={section}
-                      className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-background/60"
+                      className={`flex items-center px-2.5 py-1 ${
+                        i > 0 ? "border-t border-dashed border-border/30" : ""
+                      } ${i === 0 ? "bg-background/60" : "bg-background/30"}`}
                     >
-                      <div className="w-0.5 h-2.5 rounded-full bg-border-hover flex-shrink-0" />
-                      <span className="text-[10px] text-text-muted leading-none">{section}</span>
+                      <span className="text-[10px] text-text-muted leading-none truncate">{section}</span>
                     </div>
                   ))}
                 </div>

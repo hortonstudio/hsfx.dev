@@ -65,6 +65,18 @@ function PublicSitemapViewer() {
           return;
         }
         const data = await res.json();
+        // Ensure all nodes have the custom type for React Flow rendering
+        if (data.sitemap_data?.nodes) {
+          data.sitemap_data.nodes = data.sitemap_data.nodes.map((n: Record<string, unknown>) => ({
+            ...n,
+            type: "sitemap-page",
+            data: {
+              ...(n.data as Record<string, unknown>),
+              status: (n.data as Record<string, unknown>)?.status || "planned",
+              pageType: (n.data as Record<string, unknown>)?.pageType || "static",
+            },
+          }));
+        }
         setSitemap(data);
       } catch {
         setError("Failed to load sitemap");
@@ -318,18 +330,18 @@ function PublicSitemapViewer() {
                     size="sm"
                     dot
                   >
-                    {selectedNode.data.status.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                    {(selectedNode.data.status || "planned").replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                   </Badge>
                 </div>
 
                 <div className="space-y-4 text-xs">
                   <div>
                     <span className="text-text-dim">Path</span>
-                    <p className="font-mono text-text-muted mt-0.5">{selectedNode.data.path}</p>
+                    <p className="font-mono text-text-muted mt-0.5">{selectedNode.data.path || "/"}</p>
                   </div>
                   <div>
                     <span className="text-text-dim">Type</span>
-                    <p className="text-text-muted capitalize mt-0.5">{selectedNode.data.pageType.replace("_", " ")}</p>
+                    <p className="text-text-muted capitalize mt-0.5">{(selectedNode.data.pageType || "static").replace("_", " ")}</p>
                   </div>
                   {selectedNode.data.description && (
                     <div>

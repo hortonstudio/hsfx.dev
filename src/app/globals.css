@@ -221,6 +221,19 @@ html.theme-transition *::after {
   }
 }
 
+/* React Flow — strip default node chrome so custom components render cleanly */
+.react-flow__node {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  width: auto !important;
+  font-size: inherit !important;
+  color: inherit !important;
+  text-align: left !important;
+  box-shadow: none !important;
+}
+
 /* Focus styles */
 :focus-visible {
   outline: 2px solid var(--accent);

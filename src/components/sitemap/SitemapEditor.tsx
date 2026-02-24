@@ -39,7 +39,13 @@ function SitemapEditorInner({ sitemap, clientId, onClose, onSaved }: SitemapEdit
   const { addToast } = useToast();
   const { fitView, zoomIn, zoomOut, getViewport } = useReactFlow();
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(sitemap.sitemap_data.nodes);
+  // Normalize nodes to ensure type is set for React Flow custom rendering
+  const normalizedNodes = sitemap.sitemap_data.nodes.map((n) => ({
+    ...n,
+    type: "sitemap-page" as const,
+    data: { ...n.data, status: n.data.status || "planned", pageType: n.data.pageType || "static" },
+  }));
+  const [nodes, setNodes, onNodesChange] = useNodesState(normalizedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(sitemap.sitemap_data.edges);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
