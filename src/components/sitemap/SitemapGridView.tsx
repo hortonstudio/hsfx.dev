@@ -59,11 +59,10 @@ export function SitemapGridView({
   const touchStartRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const pinchStartRef = useRef<{ distance: number; zoom: number } | null>(null);
 
-  // Clamp pan so content stays in view
-  const clampPan = useCallback((p: { x: number; y: number }) => {
+  // Clamp pan so content stays in view (accepts explicit zoom for atomic updates)
+  const clampPanAt = useCallback((p: { x: number; y: number }, z: number) => {
     if (!containerRef.current) return p;
     const { width: cw, height: ch } = containerRef.current.getBoundingClientRect();
-    const z = zoomRef.current;
     const cWidth = CONTENT_WIDTH * z;
     const cHeight = CONTENT_HEIGHT * z;
     return {
@@ -71,6 +70,11 @@ export function SitemapGridView({
       y: Math.max(-(cHeight - PAN_MARGIN), Math.min(ch - PAN_MARGIN, p.y)),
     };
   }, []);
+
+  const clampPan = useCallback(
+    (p: { x: number; y: number }) => clampPanAt(p, zoomRef.current),
+    [clampPanAt]
+  );
 
   // Center content on initial mount
   useEffect(() => {
@@ -97,20 +101,41 @@ export function SitemapGridView({
     return () => clearTimeout(timer);
   }, []);
 
-  // Wheel: Cmd/Ctrl+scroll = zoom, plain scroll = pan
+  // Wheel: Cmd/Ctrl+scroll = zoom toward cursor, plain scroll = pan
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault();
       dismissHint();
 
       if (e.metaKey || e.ctrlKey) {
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
         const delta = e.deltaY > 0 ? -0.05 : 0.05;
-        setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z + delta)));
+
+        setZoom((oldZoom) => {
+          const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldZoom + delta));
+          if (newZoom === oldZoom) return oldZoom;
+
+          // Keep the point under the cursor fixed
+          setPan((oldPan) => {
+            const contentX = (mouseX - oldPan.x) / oldZoom;
+            const contentY = (mouseY - oldPan.y) / oldZoom;
+            return clampPanAt(
+              { x: mouseX - contentX * newZoom, y: mouseY - contentY * newZoom },
+              newZoom
+            );
+          });
+
+          return newZoom;
+        });
       } else {
         setPan((p) => clampPan({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
       }
     },
-    [dismissHint, clampPan]
+    [dismissHint, clampPan, clampPanAt]
   );
 
   // Mouse pan — works from anywhere
