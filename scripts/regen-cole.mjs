@@ -276,7 +276,7 @@ Generate the complete sitemap as a JSON array of page objects for Package 3.
     childrenMap[parent].push(n.id);
   }
 
-  const NODE_W = 280;
+  const NODE_W = 260;
   const NODE_H = 240;
   const GAP_X = 80;
   const GAP_Y = 120;

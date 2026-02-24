@@ -12,7 +12,7 @@ interface LayoutConfig {
 }
 
 const DEFAULT_CONFIG: LayoutConfig = {
-  nodeWidth: 280,
+  nodeWidth: 260,
   nodeHeight: 240,
   horizontalGap: 80,
   verticalGap: 120,

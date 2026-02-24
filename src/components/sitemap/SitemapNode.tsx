@@ -31,168 +31,6 @@ const TYPE_ICONS: Record<SitemapPageType, React.ComponentType<{ className?: stri
   external: ExternalLink,
 };
 
-/** Mini wireframe visual block for a page section */
-function SectionBlock({ section, color, isFirst }: { section: string; color: string; isFirst: boolean }) {
-  const key = section.toLowerCase().split(/[\s,/]+/)[0];
-  const border = isFirst ? "" : "border-t border-border/20";
-
-  switch (key) {
-    case "hero":
-      return (
-        <div className={`${border} px-2.5 py-2.5`}>
-          <div className="flex flex-col items-center gap-1">
-            <div className="w-3/4 h-1 rounded-full" style={{ backgroundColor: `${color}35` }} />
-            <div className="w-1/2 h-0.5 rounded-full" style={{ backgroundColor: `${color}20` }} />
-            <div className="w-10 h-[7px] rounded mt-0.5" style={{ backgroundColor: `${color}28` }} />
-          </div>
-          <p className="text-[7px] text-center mt-1 leading-none opacity-40">{section}</p>
-        </div>
-      );
-
-    case "services":
-    case "features":
-    case "team":
-    case "pricing":
-      return (
-        <div className={`${border} px-2.5 py-1.5`}>
-          <div className="flex items-center justify-center gap-1">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="w-[18%] h-[10px] rounded-sm" style={{ backgroundColor: `${color}14` }} />
-            ))}
-          </div>
-          <p className="text-[7px] text-center mt-0.5 leading-none opacity-40">{section}</p>
-        </div>
-      );
-
-    case "testimonials":
-      return (
-        <div className={`${border} px-2.5 py-1.5`}>
-          <div className="flex items-center justify-center gap-2">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="flex flex-col items-center">
-                <div className="w-[7px] h-[7px] rounded-full" style={{ backgroundColor: `${color}18` }} />
-                <div className="w-3 h-px rounded-full mt-0.5" style={{ backgroundColor: `${color}12` }} />
-              </div>
-            ))}
-          </div>
-          <p className="text-[7px] text-center mt-0.5 leading-none opacity-40">{section}</p>
-        </div>
-      );
-
-    case "cta":
-    case "call":
-      return (
-        <div className={`${border} px-2.5 py-1.5`}>
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-12 h-px rounded-full" style={{ backgroundColor: `${color}20` }} />
-            <div className="w-8 h-[7px] rounded" style={{ backgroundColor: `${color}30` }} />
-          </div>
-          <p className="text-[7px] text-center mt-0.5 leading-none opacity-40">{section}</p>
-        </div>
-      );
-
-    case "gallery":
-    case "portfolio":
-    case "before":
-      return (
-        <div className={`${border} px-2.5 py-1.5`}>
-          <div className="grid grid-cols-3 gap-px mx-auto w-3/4">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-[6px] rounded-sm" style={{ backgroundColor: `${color}${12 + i * 2}` }} />
-            ))}
-          </div>
-          <p className="text-[7px] text-center mt-0.5 leading-none opacity-40">{section}</p>
-        </div>
-      );
-
-    case "faq":
-    case "accordion":
-      return (
-        <div className={`${border} px-2.5 py-1.5`}>
-          <div className="flex flex-col gap-[3px] mx-auto w-3/4">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="flex items-center gap-1">
-                <div className="w-[3px] h-[3px] rounded-sm flex-shrink-0" style={{ backgroundColor: `${color}25` }} />
-                <div className="flex-1 h-px rounded-full" style={{ backgroundColor: `${color}15` }} />
-              </div>
-            ))}
-          </div>
-          <p className="text-[7px] text-center mt-0.5 leading-none opacity-40">{section}</p>
-        </div>
-      );
-
-    case "form":
-    case "contact":
-      return (
-        <div className={`${border} px-2.5 py-1.5`}>
-          <div className="flex flex-col gap-[3px] mx-auto w-2/3">
-            <div className="h-[5px] rounded-sm border" style={{ borderColor: `${color}20` }} />
-            <div className="h-[5px] rounded-sm border" style={{ borderColor: `${color}20` }} />
-            <div className="w-8 h-[6px] rounded mx-auto mt-px" style={{ backgroundColor: `${color}25` }} />
-          </div>
-          <p className="text-[7px] text-center mt-0.5 leading-none opacity-40">{section}</p>
-        </div>
-      );
-
-    case "map":
-    case "location":
-      return (
-        <div className={`${border} px-2.5 py-1.5`}>
-          <div className="h-[14px] rounded mx-auto w-3/4 flex items-center justify-center" style={{ backgroundColor: `${color}08` }}>
-            <div className="w-[5px] h-[5px] rounded-full" style={{ backgroundColor: `${color}30` }} />
-          </div>
-          <p className="text-[7px] text-center mt-0.5 leading-none opacity-40">{section}</p>
-        </div>
-      );
-
-    case "stats":
-    case "numbers":
-      return (
-        <div className={`${border} px-2.5 py-1.5`}>
-          <div className="flex items-end justify-center gap-1.5">
-            {[5, 8, 6].map((h, i) => (
-              <div key={i} className="w-[10px] rounded-sm" style={{ height: `${h}px`, backgroundColor: `${color}20` }} />
-            ))}
-          </div>
-          <p className="text-[7px] text-center mt-0.5 leading-none opacity-40">{section}</p>
-        </div>
-      );
-
-    case "process":
-    case "steps":
-    case "how":
-      return (
-        <div className={`${border} px-2.5 py-1.5`}>
-          <div className="flex items-center justify-center gap-[3px]">
-            {[1, 2, 3].map((n) => (
-              <div key={n} className="flex items-center gap-[2px]">
-                <div
-                  className="w-[10px] h-[10px] rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: `${color}15` }}
-                >
-                  <span className="text-[5px] font-bold" style={{ color: `${color}60` }}>{n}</span>
-                </div>
-                {n < 3 && <div className="w-[6px] h-px" style={{ backgroundColor: `${color}20` }} />}
-              </div>
-            ))}
-          </div>
-          <p className="text-[7px] text-center mt-0.5 leading-none opacity-40">{section}</p>
-        </div>
-      );
-
-    default:
-      return (
-        <div className={`${border} px-2.5 py-1`}>
-          <div className="flex items-center gap-1 mx-auto w-3/4">
-            <div className="w-[3px] h-[6px] rounded-full flex-shrink-0" style={{ backgroundColor: `${color}20` }} />
-            <div className="flex-1 h-px rounded-full" style={{ backgroundColor: `${color}12` }} />
-          </div>
-          <p className="text-[7px] text-center mt-0.5 leading-none opacity-40">{section}</p>
-        </div>
-      );
-  }
-}
-
 type SitemapPageNode = Node<SitemapPageData, "sitemap-page">;
 
 function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
@@ -201,6 +39,9 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
   const TypeIcon = TYPE_ICONS[data.pageType] ?? FileText;
   const nodeColor = data.color || typeConfig.color;
   const isCollection = data.pageType === "collection";
+
+  const visibleSections = data.sections?.slice(0, 5) ?? [];
+  const overflowCount = (data.sections?.length ?? 0) - visibleSections.length;
 
   return (
     <>
@@ -212,7 +53,7 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
 
       <div
         className={`
-          w-[280px] rounded-xl border backdrop-blur-sm
+          w-[260px] rounded-xl border
           transition-all duration-200 ease-out relative overflow-hidden
           ${selected
             ? "border-accent shadow-glow-sm ring-1 ring-accent/20 bg-surface"
@@ -225,9 +66,9 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
 
         {/* Header */}
         <div className="px-3.5 pt-2.5 pb-2">
-          <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center justify-between mb-1">
             <span
-              className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider"
+              className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider"
               style={{ color: nodeColor }}
             >
               <TypeIcon className="w-3 h-3" />
@@ -241,30 +82,37 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
             </div>
           </div>
 
-          <h3 className="text-[13px] font-semibold text-text-primary leading-tight mb-0.5 truncate">
+          <h3 className="text-[13px] font-semibold text-text-primary leading-tight truncate">
             {data.label}
           </h3>
-          <p className="text-[10px] text-text-dim font-mono truncate">
+          <p className="text-[10px] text-text-dim font-mono truncate mt-0.5">
             {data.path}
           </p>
         </div>
 
-        {/* Wireframe sections */}
-        {data.sections && data.sections.length > 0 && (
-          <div className="px-3 pb-2.5">
-            <div className="rounded-lg border border-border/30 overflow-hidden bg-background/20">
-              {data.sections.slice(0, 7).map((section, i) => (
-                <SectionBlock
+        {/* Sections — compact stacked bars */}
+        {visibleSections.length > 0 && (
+          <div className="px-3.5 pb-2.5">
+            <div className="space-y-[3px]">
+              {visibleSections.map((section, i) => (
+                <div
                   key={`${section}-${i}`}
-                  section={section}
-                  color={nodeColor}
-                  isFirst={i === 0}
-                />
+                  className="flex items-center gap-2 h-[18px] px-2 rounded"
+                  style={{ backgroundColor: `${nodeColor}08` }}
+                >
+                  <div
+                    className="w-[3px] h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: `${nodeColor}40` }}
+                  />
+                  <span className="text-[9px] text-text-dim leading-none truncate">
+                    {section}
+                  </span>
+                </div>
               ))}
-              {data.sections.length > 7 && (
-                <div className="py-1 text-center border-t border-border/20">
-                  <span className="text-[7px] opacity-40">
-                    +{data.sections.length - 7} more
+              {overflowCount > 0 && (
+                <div className="flex items-center justify-center h-[16px]">
+                  <span className="text-[8px] text-text-dim/50">
+                    +{overflowCount} more
                   </span>
                 </div>
               )}
@@ -272,21 +120,21 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
           </div>
         )}
 
-        {/* Collection template: CMS items */}
+        {/* Collection: CMS items */}
         {isCollection && data.collectionItems && data.collectionItems.length > 0 && (
-          <div className="px-3 pb-3">
-            <div className="rounded-lg border border-border/30 bg-background/20 p-2.5">
-              <div className="flex items-center gap-1.5 mb-2">
+          <div className="px-3.5 pb-3">
+            <div className="rounded-lg border border-border/30 bg-background/20 p-2">
+              <div className="flex items-center gap-1.5 mb-1.5">
                 <Layers className="w-3 h-3" style={{ color: nodeColor }} />
-                <span className="text-[10px] font-semibold text-text-muted">
-                  {data.collectionItems.length} CMS {data.collectionItems.length === 1 ? "Item" : "Items"}
+                <span className="text-[9px] font-semibold text-text-muted">
+                  {data.collectionItems.length} {data.collectionItems.length === 1 ? "Item" : "Items"}
                 </span>
               </div>
               <div className="flex flex-wrap gap-1">
                 {data.collectionItems.slice(0, 6).map((item) => (
                   <span
                     key={item.path}
-                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] text-text-muted border border-border/30"
+                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] text-text-muted border border-border/20"
                     style={{ backgroundColor: `${nodeColor}08` }}
                   >
                     {item.label}
@@ -302,27 +150,24 @@ function SitemapNodeComponent({ data, selected }: NodeProps<SitemapPageNode>) {
           </div>
         )}
 
-        {/* Collection template card (no items — template-only) */}
+        {/* Collection: template-only (no items) */}
         {isCollection && !data.collectionItems && (
-          <div className="px-3 pb-3">
+          <div className="px-3.5 pb-3">
             <div
-              className="rounded-lg border border-dashed p-2.5"
-              style={{ borderColor: `${nodeColor}40` }}
+              className="rounded-lg border border-dashed p-2"
+              style={{ borderColor: `${nodeColor}30` }}
             >
-              <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="flex items-center gap-1.5">
                 <Layers className="w-3 h-3" style={{ color: nodeColor }} />
-                <span className="text-[10px] font-semibold text-text-muted">
+                <span className="text-[9px] font-semibold text-text-muted">
                   CMS Template
                 </span>
+                {data.estimatedItems != null && (
+                  <span className="text-[8px] text-text-dim ml-auto">
+                    ~{data.estimatedItems} items
+                  </span>
+                )}
               </div>
-              {data.collectionName && (
-                <p className="text-[9px] text-text-dim mb-1">{data.collectionName}</p>
-              )}
-              <p className="text-[8px] text-text-dim/60">
-                {data.estimatedItems != null
-                  ? `~${data.estimatedItems} items planned`
-                  : "Items added after launch"}
-              </p>
             </div>
           </div>
         )}
