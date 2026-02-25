@@ -35,54 +35,84 @@ Each page object MUST have ALL of these fields:
 - sections: At least 2 sections from the catalog below. Never empty array.
 
 ## Page Types
-- "home": EXACTLY ONE. The root page. parentId: null.
-- "static": Standalone pages (About, Contact, FAQ, Testimonials, Gallery).
-- "collection": Index/listing pages that are parents for collection_item pages. Examples: Services, Blog, Service Areas, Projects.
-- "collection_item": Individual items WITHIN a collection. parentId MUST be a collection page. Examples: each service, blog post, city page, project.
+- "home": EXACTLY ONE root page. parentId: null.
+- "static": Standalone pages AND hub/overview pages for CMS collections. Examples: About, Contact, FAQ, Services (hub), Blog (hub), Case Studies (hub).
+- "collection": CMS page templates that define the layout of dynamic/repeating pages. Always paired with a static hub page — parentId MUST reference the hub. Examples: "Service Template", "Blog Post Template", "Case Study Template".
+- "collection_item": Individual CMS items created from a collection template. parentId MUST reference a collection page. Examples: each service, blog post, case study, city page.
 - "utility": Legal/system pages (Privacy Policy, Terms, 404). Minimal sections.
 - "external": External links (rarely used). No sections needed.
+
+## Hub + Template Pattern (CRITICAL)
+
+Every CMS-driven section of the site uses a Hub + Template pair:
+
+1. **Hub Page** (pageType: "static") — The listing/overview page users see. Shows grids, filters, cards linking to individual items. parentId: "home".
+2. **Template Page** (pageType: "collection") — Defines the layout for each individual item page. parentId: the hub page's id. Has collectionName and sections for the detail view.
+3. **Items** (pageType: "collection_item") — Individual entries. parentId: the template page's id. Has matching collectionName.
+
+### Example — Services (with items):
+  { "id": "services", "pageType": "static", "parentId": "home", "label": "Services", "sections": ["Hero", "Services Grid", "CTA"] }
+  { "id": "service-template", "pageType": "collection", "parentId": "services", "label": "Service Template", "collectionName": "Services", "sections": ["Hero", "Service Details", "Process Steps", "FAQ Accordion", "CTA"] }
+  { "id": "roof-repair", "pageType": "collection_item", "parentId": "service-template", "label": "Roof Repair", "collectionName": "Services" }
+
+### Example — Blog (template-only, no individual items):
+  { "id": "blog", "pageType": "static", "parentId": "home", "label": "Blog", "sections": ["Hero", "Blog Grid", "Categories", "CTA"] }
+  { "id": "blog-post-template", "pageType": "collection", "parentId": "blog", "label": "Blog Post Template", "collectionName": "Blog", "estimatedItems": 5, "sections": ["Hero", "Blog Content", "Related Posts", "CTA"] }
+
+### Example — Case Studies (template-only OR with items depending on KB detail):
+  { "id": "case-studies", "pageType": "static", "parentId": "home", "label": "Case Studies", "sections": ["Hero", "Portfolio Grid", "Filters", "CTA"] }
+  { "id": "case-study-template", "pageType": "collection", "parentId": "case-studies", "label": "Case Study Template", "collectionName": "Case Studies", "estimatedItems": 6, "sections": ["Hero", "Case Study", "Stats/Numbers", "Testimonials", "Related Posts", "CTA"] }
 
 ## Path Rules
 - Always lowercase, kebab-case
 - Always start with /
 - No trailing slashes (except "/" for home)
 - No special characters
-- Collection items nest under parent: /services/roof-repair, /areas/dallas, /blog/spring-tips
+- Hub pages: /services, /blog, /case-studies
+- Template items nest under hub: /services/roof-repair, /blog/spring-tips, /areas/dallas
 
 ## Section Catalog — ONLY use sections from this list:
 Hero, Content, Services Overview, Services Grid, Service Details, Process Steps, Stats/Numbers, Testimonials, Testimonial Grid, FAQ Accordion, CTA, Contact Form, Map, Team Grid, Team Member, Story/History, Values, Credentials, Gallery Grid, Before/After Gallery, Blog Grid, Blog Content, Related Posts, Categories, Pricing Table, Pricing Cards, Feature List, Feature Grid, Comparison Table, Video, Image Banner, Logo Bar, Partners, Portfolio Grid, Case Study, Download/Resources, Newsletter Signup, Social Proof, Breadcrumbs, Sidebar, Search, Filters, Area Map, Area Services
 
 ## Required Sections by Page Type:
-- Home: Hero + at least 3 of [Services Overview, Testimonials, Stats/Numbers, FAQ Accordion, CTA]
+- Home: Hero + at least 3 of [Services Overview, Testimonials, Stats/Numbers, FAQ Accordion, CTA, Logo Bar, Case Study]
 - About: Hero + Story/History + at least 1 of [Team Grid, Values, Credentials, CTA]
 - Contact: Hero + Contact Form + at least 1 of [Map, Stats/Numbers, CTA]
-- Service (collection): Hero + Services Grid + CTA
-- Service Item (collection_item): Hero + Service Details + at least 2 of [Gallery Grid, Before/After Gallery, Process Steps, FAQ Accordion, Testimonials, Pricing Table, CTA]
-- Blog (collection): Hero + Blog Grid + CTA
-- Blog Post (collection_item): Hero + Blog Content + Related Posts + CTA
-- Service Area (collection_item): Hero + Area Services + at least 2 of [Testimonials, FAQ Accordion, Map, CTA]
-- Gallery/Portfolio (collection): Hero + Gallery Grid or Portfolio Grid
-- FAQ: Hero + FAQ Accordion + CTA
-- Testimonials: Hero + Testimonial Grid + CTA
+- Services hub (static): Hero + Services Grid + CTA
+- Service Template (collection): Hero + Service Details + at least 2 of [Gallery Grid, Before/After Gallery, Process Steps, FAQ Accordion, Testimonials, Pricing Table, CTA]
+- Service Item (collection_item): Hero + Service Details + CTA (shorter than template)
+- Blog hub (static): Hero + Blog Grid + CTA
+- Blog Post Template (collection): Hero + Blog Content + Related Posts + CTA
+- Case Studies hub (static): Hero + Portfolio Grid + Filters + CTA
+- Case Study Template (collection): Hero + Case Study + Stats/Numbers + Testimonials + CTA
+- Service Areas hub (static): Hero + Area Map + Services Grid + CTA
+- Service Area Template (collection): Hero + Area Services + at least 2 of [Testimonials, FAQ Accordion, Map, CTA]
+- Gallery/Portfolio hub (static): Hero + Gallery Grid or Portfolio Grid + CTA
+- Gallery Template (collection): Hero + Gallery Grid + Content + CTA
+- FAQ (static, no template needed): Hero + FAQ Accordion + CTA
+- Testimonials (static, no template needed): Hero + Testimonial Grid + CTA
 - Privacy/Terms (utility): Content
 
 ## Hierarchy Rules
-- Home is the root. All top-level pages are children of Home.
-- Services MUST be a collection page with individual service collection_items as children.
-- If the business serves multiple areas, create a Service Areas collection with city/town collection_items.
+- Home is the root (parentId: null). All top-level pages have parentId: "home".
+- Every CMS-driven section MUST use the Hub + Template pattern: static hub page + collection template page.
+- collection template pages have parentId pointing to their static hub page.
+- collection_items have parentId pointing to their collection template page.
 - collection_items MUST have a collectionName matching their parent collection's collectionName.
+- Static sub-pages may have parentId pointing to another static page (e.g., service category sub-pages under a Services hub).
 
-## Template-Only Collections (NO collection_items generated)
-The following are TEMPLATE-ONLY. Generate ONLY the parent page with an estimatedItems count. Do NOT generate any collection_item children for these:
-- Gallery / Portfolio / Projects → collection page with estimatedItems. Sections: Hero, Gallery Grid, CTA
-- FAQ → static page. Sections: Hero, FAQ Accordion, CTA
-- Blog → collection page with estimatedItems (e.g. 5). Do NOT generate individual blog post items.
-- Testimonials → static page. Sections: Hero, Testimonial Grid, CTA
+## Template-Only Collections (Hub + Template, NO collection_items)
+These get a static hub page AND a collection template page, but NO individual collection_item children:
+- Gallery / Portfolio / Projects → hub + template with estimatedItems
+- Blog → hub + template with estimatedItems (e.g. 5). No individual blog post items.
+- Case Studies → hub + template with estimatedItems (unless KB has specific case study details)
+- FAQ → static page only (no template needed). Sections: Hero, FAQ Accordion, CTA
+- Testimonials → static page only (no template needed). Sections: Hero, Testimonial Grid, CTA
 
-## Itemized Collections (DO generate collection_items)
+## Itemized Collections (Hub + Template + collection_items)
 Only these collections get individual collection_item children:
-- Services → one collection_item per actual service from the KB
-- Service Areas → one collection_item per service area from the KB
+- Services → hub + template + one collection_item per actual service from KB
+- Service Areas → hub + template + one collection_item per service area from KB
 
 ## Content Rules
 - Always prefer real data from the knowledge base (services, locations, team members, specialties).
@@ -90,12 +120,13 @@ Only these collections get individual collection_item children:
 - If the KB mentions specific cities/areas, create a Service Area collection_item for each.
 - When the KB lacks detail for a required page (e.g. no FAQ content), still create the page but use the business name and industry context to write realistic placeholder descriptions and SEO fields.
 - NEVER invent services or locations not mentioned in or reasonably implied by the KB.
+- If the KB describes a few major service categories with rich detail, create them as static sub-pages under the Services hub instead of collection_items. Use collection_items for many similar/repeating items that share the same template.
 
 ## Package Tier Guidelines
-- Package 1 (~8-15 pages): Home, About, Services collection + 3-4 service items, Contact, Privacy Policy.
-- Package 2 (~15-25 pages): Everything in Package 1 + Service Areas collection (5-8 area items), Gallery template, FAQ, Blog template, Testimonials.
-- Package 3 (~25-40 pages): Everything in Package 2 + more area items (up to 15), more service items, Terms of Service.
-These counts are lower because template-only collections (Gallery, Blog, FAQ, Testimonials) do NOT generate individual items.
+- Package 1 (~10-18 pages): Home, About, Services hub + template + 3-4 items, Contact, Privacy Policy.
+- Package 2 (~18-30 pages): Package 1 + Service Areas hub + template (5-8 items), Gallery hub + template, FAQ, Blog hub + template, Testimonials.
+- Package 3 (~30-50 pages): Package 2 + Case Studies hub + template, more area/service items (up to 15), Terms of Service.
+Hub + template pairs count as 2 pages. Template-only collections (Gallery, Blog) have hub + template but no individual items.
 
 Return ONLY the JSON array.`;
 
