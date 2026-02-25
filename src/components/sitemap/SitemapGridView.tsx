@@ -285,33 +285,29 @@ export function SitemapGridView({
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
         }}
       >
-        <div className="min-w-[1400px] px-12 py-10 space-y-12" data-pannable="true">
-          {/* Pages row */}
-          {layout.columns.length > 0 && (
+        <div className="px-12 py-10 space-y-12" data-pannable="true">
+          {/* Tier 1: Home */}
+          {layout.homeColumns.length > 0 && (
             <section>
               <div className="flex items-center gap-4 mb-6">
                 <div
                   className="h-px w-10 flex-shrink-0"
-                  style={{ backgroundColor: PAGE_TYPE_CONFIG.static.color }}
+                  style={{ backgroundColor: PAGE_TYPE_CONFIG.home.color }}
                 />
                 <h3
                   className="text-sm font-bold uppercase tracking-widest flex-shrink-0"
-                  style={{ color: PAGE_TYPE_CONFIG.static.color }}
+                  style={{ color: PAGE_TYPE_CONFIG.home.color }}
                 >
-                  Pages
+                  Home
                 </h3>
-                <Badge variant="default" size="sm">
-                  {layout.columns.length}
-                </Badge>
                 <div className="flex-1 h-px bg-border/30" />
               </div>
 
-              {/* Column layout: page cards on top, connectors + templates below */}
-              <div className="flex gap-4 items-start">
-                {layout.columns.map((col) => {
-                  const nodeColor = col.page.data.color || PAGE_TYPE_CONFIG[col.page.data.pageType]?.color || "#64748b";
+              <div className="flex flex-wrap gap-5 items-start">
+                {layout.homeColumns.map((col) => {
+                  const nodeColor = col.page.data.color || PAGE_TYPE_CONFIG.home.color;
                   return (
-                    <div key={col.page.id} className="w-[420px] flex-shrink-0 flex flex-col items-center">
+                    <div key={col.page.id} className="w-[320px] flex flex-col items-center">
                       <SitemapGridCard
                         node={col.page}
                         selected={selectedNodeId === col.page.id}
@@ -323,16 +319,140 @@ export function SitemapGridView({
                         commentSlot={commentSlot ? (s) => commentSlot(col.page.id, s) : undefined}
                         commentCount={commentCounts.get(col.page.id)}
                       />
-
-                      {/* Animated connector + template card */}
                       {col.template && (
                         <>
                           <div
-                            className="w-[2px] h-10"
+                            className="w-[2px] h-12"
                             style={{
-                              background: `repeating-linear-gradient(to bottom, ${nodeColor}60 0px, ${nodeColor}60 4px, transparent 4px, transparent 8px)`,
-                              backgroundSize: "2px 16px",
-                              animation: "connector-march 0.8s linear infinite",
+                              background: `repeating-linear-gradient(to bottom, ${nodeColor}90 0px, ${nodeColor}90 5px, transparent 5px, transparent 10px)`,
+                              backgroundSize: "2px 10px",
+                              animation: "connector-march 1.2s linear infinite",
+                            }}
+                          />
+                          <div className="w-full">
+                            <SitemapTemplateCard
+                              node={col.template}
+                              selected={selectedNodeId === col.template.id}
+                              onClick={() => handleCardClick(col.template?.id ?? col.page.id)}
+                              commentSlot={commentSlot ? (s) => commentSlot(col.template!.id, s) : undefined}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Tier 2: Core Pages */}
+          {layout.coreColumns.length > 0 && (
+            <section>
+              <div className="flex items-center gap-4 mb-6">
+                <div
+                  className="h-px w-10 flex-shrink-0"
+                  style={{ backgroundColor: PAGE_TYPE_CONFIG.static.color }}
+                />
+                <h3
+                  className="text-sm font-bold uppercase tracking-widest flex-shrink-0"
+                  style={{ color: PAGE_TYPE_CONFIG.static.color }}
+                >
+                  Core Pages
+                </h3>
+                <Badge variant="default" size="sm">
+                  {layout.coreColumns.length}
+                </Badge>
+                <div className="flex-1 h-px bg-border/30" />
+              </div>
+
+              <div className="flex flex-wrap gap-5 items-start">
+                {layout.coreColumns.map((col) => {
+                  const nodeColor = col.page.data.color || PAGE_TYPE_CONFIG[col.page.data.pageType]?.color || "#64748b";
+                  return (
+                    <div key={col.page.id} className="w-[320px] flex flex-col items-center">
+                      <SitemapGridCard
+                        node={col.page}
+                        selected={selectedNodeId === col.page.id}
+                        onClick={() => handleCardClick(col.page.id)}
+                        readOnly={readOnly}
+                        onDelete={onDeleteNode}
+                        onDuplicate={onDuplicateNode}
+                        onAddChild={onAddChild}
+                        commentSlot={commentSlot ? (s) => commentSlot(col.page.id, s) : undefined}
+                        commentCount={commentCounts.get(col.page.id)}
+                      />
+                      {col.template && (
+                        <>
+                          <div
+                            className="w-[2px] h-12"
+                            style={{
+                              background: `repeating-linear-gradient(to bottom, ${nodeColor}90 0px, ${nodeColor}90 5px, transparent 5px, transparent 10px)`,
+                              backgroundSize: "2px 10px",
+                              animation: "connector-march 1.2s linear infinite",
+                            }}
+                          />
+                          <div className="w-full">
+                            <SitemapTemplateCard
+                              node={col.template}
+                              selected={selectedNodeId === col.template.id}
+                              onClick={() => handleCardClick(col.template?.id ?? col.page.id)}
+                              commentSlot={commentSlot ? (s) => commentSlot(col.template!.id, s) : undefined}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Tier 3: Resources & More */}
+          {layout.resourceColumns.length > 0 && (
+            <section>
+              <div className="flex items-center gap-4 mb-6">
+                <div
+                  className="h-px w-10 flex-shrink-0"
+                  style={{ backgroundColor: PAGE_TYPE_CONFIG.collection.color }}
+                />
+                <h3
+                  className="text-sm font-bold uppercase tracking-widest flex-shrink-0"
+                  style={{ color: PAGE_TYPE_CONFIG.collection.color }}
+                >
+                  Resources &amp; More
+                </h3>
+                <Badge variant="default" size="sm">
+                  {layout.resourceColumns.length}
+                </Badge>
+                <div className="flex-1 h-px bg-border/30" />
+              </div>
+
+              <div className="flex flex-wrap gap-5 items-start">
+                {layout.resourceColumns.map((col) => {
+                  const nodeColor = col.page.data.color || PAGE_TYPE_CONFIG[col.page.data.pageType]?.color || "#64748b";
+                  return (
+                    <div key={col.page.id} className="w-[320px] flex flex-col items-center">
+                      <SitemapGridCard
+                        node={col.page}
+                        selected={selectedNodeId === col.page.id}
+                        onClick={() => handleCardClick(col.page.id)}
+                        readOnly={readOnly}
+                        onDelete={onDeleteNode}
+                        onDuplicate={onDuplicateNode}
+                        onAddChild={onAddChild}
+                        commentSlot={commentSlot ? (s) => commentSlot(col.page.id, s) : undefined}
+                        commentCount={commentCounts.get(col.page.id)}
+                      />
+                      {col.template && (
+                        <>
+                          <div
+                            className="w-[2px] h-12"
+                            style={{
+                              background: `repeating-linear-gradient(to bottom, ${nodeColor}90 0px, ${nodeColor}90 5px, transparent 5px, transparent 10px)`,
+                              backgroundSize: "2px 10px",
+                              animation: "connector-march 1.2s linear infinite",
                             }}
                           />
                           <div className="w-full">
@@ -372,9 +492,9 @@ export function SitemapGridView({
                 <div className="flex-1 h-px bg-border/30" />
               </div>
 
-              <div className="flex gap-4 items-start">
+              <div className="flex flex-wrap gap-5 items-start">
                 {layout.legalPages.map((node) => (
-                  <div key={node.id} className="w-[420px] flex-shrink-0">
+                  <div key={node.id} className="w-[320px]">
                     <SitemapGridCard
                       node={node}
                       selected={selectedNodeId === node.id}
@@ -392,7 +512,7 @@ export function SitemapGridView({
             </section>
           )}
 
-          {layout.columns.length === 0 && layout.legalPages.length === 0 && (
+          {layout.homeColumns.length === 0 && layout.coreColumns.length === 0 && layout.resourceColumns.length === 0 && layout.legalPages.length === 0 && (
             <div className="text-center py-20 text-text-dim text-sm">
               No pages yet
             </div>

@@ -249,16 +249,16 @@ html.theme-transition *::after {
 .sitemap-connector {
   background: repeating-linear-gradient(
     to bottom,
-    var(--connector-color, rgba(100, 116, 139, 0.4)) 0px,
-    var(--connector-color, rgba(100, 116, 139, 0.4)) 4px,
-    transparent 4px,
-    transparent 8px
+    var(--connector-color, rgba(100, 116, 139, 0.57)) 0px,
+    var(--connector-color, rgba(100, 116, 139, 0.57)) 5px,
+    transparent 5px,
+    transparent 10px
   );
-  background-size: 2px 16px;
-  animation: connector-march 0.8s linear infinite;
+  background-size: 2px 10px;
+  animation: connector-march 1.2s linear infinite;
 }
 
 @keyframes connector-march {
   0% { background-position: 0 0; }
-  100% { background-position: 0 16px; }
+  100% { background-position: 0 10px; }
 }

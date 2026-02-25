@@ -106,10 +106,12 @@ export interface SitemapGridColumn {
   template: SitemapNode | null;
 }
 
-/** Full hierarchy layout output */
+/** Full hierarchy layout output — 3-tier vertical hierarchy */
 export interface SitemapGridLayout {
-  columns: SitemapGridColumn[];
-  legalPages: SitemapNode[];
+  homeColumns: SitemapGridColumn[];      // Tier 1: Home (usually 1)
+  coreColumns: SitemapGridColumn[];      // Tier 2: About, Services+template, Contact, etc.
+  resourceColumns: SitemapGridColumn[];  // Tier 3: Blog+template, FAQ, Gallery, etc.
+  legalPages: SitemapNode[];             // Bottom row: Privacy, Terms, etc.
 }
 
 // ════════════════════════════════════════════════════════════

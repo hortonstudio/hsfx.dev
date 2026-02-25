@@ -271,7 +271,26 @@ export const PAGE_TYPE_CONFIG: Record<
   external: { label: "External", color: "#8b5cf6", icon: "ExternalLink" },
 };
 
-/** Build a hierarchy-aware grid layout: pages row with templates below, legal row at bottom */
+/** Keywords that identify resource/secondary pages (vs core business pages) */
+const RESOURCE_KEYWORDS = [
+  "blog", "faq", "resource", "gallery", "review", "testimonial",
+  "case stud", "news", "press", "media", "podcast",
+];
+
+function isResourcePage(label: string): boolean {
+  const lower = label.toLowerCase();
+  return RESOURCE_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+/** Normalize a label for fuzzy matching: lowercase, strip common suffixes */
+function normalizeLabel(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/\s*(template|overview|page|index|listing)s?\s*/g, " ")
+    .trim();
+}
+
+/** Build a 3-tier hierarchy layout: Home → Core Pages → Resources → Legal */
 export function buildGridLayout(
   nodes: SitemapNode[],
   edges: SitemapEdge[]
@@ -296,7 +315,7 @@ export function buildGridLayout(
     }
   }
 
-  // Build a map: collection node id → parent static page id (via edges)
+  // Build a map: collection node id → parent page id (via edges)
   const collectionToParent = new Map<string, string>();
   const staticIds = new Set([...homeNodes, ...staticNodes].map((n) => n.id));
 
@@ -309,8 +328,32 @@ export function buildGridLayout(
     }
   }
 
-  // Track which collections are claimed by a page
-  // A page can have multiple templates — keep only the first one, extras become standalone
+  // Label-similarity fallback: collections matched to Home should be re-checked
+  // against static pages for a better label match (fixes Services template under Home)
+  const homeId = homeNodes[0]?.id;
+  if (homeId) {
+    for (const col of collectionNodes) {
+      const parentId = collectionToParent.get(col.id);
+      if (parentId !== homeId) continue; // only fix Home-matched ones
+
+      const colLabel = normalizeLabel(col.data.label);
+      let bestMatch: string | null = null;
+
+      for (const page of staticNodes) {
+        const pageLabel = normalizeLabel(page.data.label);
+        if (colLabel.includes(pageLabel) || pageLabel.includes(colLabel)) {
+          bestMatch = page.id;
+          break;
+        }
+      }
+
+      if (bestMatch) {
+        collectionToParent.set(col.id, bestMatch);
+      }
+    }
+  }
+
+  // Track which collections are claimed by a page (one template per page)
   const claimedCollections = new Set<string>();
   const pageToTemplate = new Map<string, SitemapNode>();
 
@@ -322,24 +365,35 @@ export function buildGridLayout(
     }
   }
 
-  // Build columns: home first, then static pages
-  const columns: SitemapGridColumn[] = [];
+  // Build tier columns
+  const homeColumns: SitemapGridColumn[] = [];
+  const coreColumns: SitemapGridColumn[] = [];
+  const resourceColumns: SitemapGridColumn[] = [];
 
   for (const home of homeNodes) {
-    columns.push({ page: home, template: pageToTemplate.get(home.id) ?? null });
+    homeColumns.push({ page: home, template: pageToTemplate.get(home.id) ?? null });
   }
 
   for (const page of staticNodes) {
-    columns.push({ page: page, template: pageToTemplate.get(page.id) ?? null });
-  }
-
-  // Unclaimed collections (no parent page, or second+ template for same page) get their own column
-  // They render as template-only columns (page card is the collection itself)
-  for (const col of collectionNodes) {
-    if (!claimedCollections.has(col.id)) {
-      columns.push({ page: col, template: null });
+    const col: SitemapGridColumn = { page, template: pageToTemplate.get(page.id) ?? null };
+    if (isResourcePage(page.data.label)) {
+      resourceColumns.push(col);
+    } else {
+      coreColumns.push(col);
     }
   }
 
-  return { columns, legalPages };
+  // Unclaimed collections get their own column in the appropriate tier
+  for (const col of collectionNodes) {
+    if (!claimedCollections.has(col.id)) {
+      const column: SitemapGridColumn = { page: col, template: null };
+      if (isResourcePage(col.data.label)) {
+        resourceColumns.push(column);
+      } else {
+        coreColumns.push(column);
+      }
+    }
+  }
+
+  return { homeColumns, coreColumns, resourceColumns, legalPages };
 }
