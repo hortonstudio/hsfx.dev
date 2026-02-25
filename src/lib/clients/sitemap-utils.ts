@@ -4,6 +4,8 @@ import type {
   SitemapPageData,
   SitemapPageType,
   AISitemapNode,
+  SitemapGridLayout,
+  SitemapGridColumn,
 } from "./sitemap-types";
 
 /** Generate a unique node ID */
@@ -256,62 +258,88 @@ export function collapseCollectionItems(
   return { nodes: newNodes, edges: newEdges };
 }
 
-/** Group nodes into sections for the grid view */
-export interface SitemapSection {
-  id: "static" | "collections" | "utility";
-  label: string;
-  color: string;
-  nodes: SitemapNode[];
-}
-
-export function groupNodesIntoSections(
-  nodes: SitemapNode[],
-  edges: SitemapEdge[]
-): SitemapSection[] {
-  const { nodes: collapsed } = collapseCollectionItems(nodes, edges);
-
-  const staticNodes: SitemapNode[] = [];
-  const collectionNodes: SitemapNode[] = [];
-  const utilityNodes: SitemapNode[] = [];
-
-  for (const node of collapsed) {
-    const pt = node.data.pageType;
-    if (pt === "home" || pt === "static") {
-      staticNodes.push(node);
-    } else if (pt === "collection") {
-      collectionNodes.push(node);
-    } else if (pt === "utility" || pt === "external") {
-      utilityNodes.push(node);
-    }
-  }
-
-  // Home always first in static section
-  staticNodes.sort((a, b) =>
-    a.data.pageType === "home" ? -1 : b.data.pageType === "home" ? 1 : 0
-  );
-
-  const sections: SitemapSection[] = [];
-  if (staticNodes.length > 0) {
-    sections.push({ id: "static", label: "Static Pages", color: "#3b82f6", nodes: staticNodes });
-  }
-  if (collectionNodes.length > 0) {
-    sections.push({ id: "collections", label: "Collections", color: "#10b981", nodes: collectionNodes });
-  }
-  if (utilityNodes.length > 0) {
-    sections.push({ id: "utility", label: "Utility", color: "#f59e0b", nodes: utilityNodes });
-  }
-  return sections;
-}
-
 /** Page type display info */
 export const PAGE_TYPE_CONFIG: Record<
   SitemapPageType,
   { label: string; color: string; icon: string }
 > = {
   home: { label: "Home", color: "#3b82f6", icon: "House" },
-  static: { label: "Static", color: "#64748b", icon: "FileText" },
-  collection: { label: "Collection", color: "#10b981", icon: "Database" },
-  collection_item: { label: "Item", color: "#34d399", icon: "File" },
-  utility: { label: "Utility", color: "#f59e0b", icon: "Settings" },
+  static: { label: "Page", color: "#64748b", icon: "FileText" },
+  collection: { label: "Page Template", color: "#10b981", icon: "Database" },
+  collection_item: { label: "Planned Page", color: "#34d399", icon: "File" },
+  utility: { label: "Legal & Other", color: "#f59e0b", icon: "Settings" },
   external: { label: "External", color: "#8b5cf6", icon: "ExternalLink" },
 };
+
+/** Build a hierarchy-aware grid layout: pages row with templates below, legal row at bottom */
+export function buildGridLayout(
+  nodes: SitemapNode[],
+  edges: SitemapEdge[]
+): SitemapGridLayout {
+  const { nodes: collapsed, edges: collapsedEdges } = collapseCollectionItems(nodes, edges);
+
+  const homeNodes: SitemapNode[] = [];
+  const staticNodes: SitemapNode[] = [];
+  const collectionNodes: SitemapNode[] = [];
+  const legalPages: SitemapNode[] = [];
+
+  for (const node of collapsed) {
+    const pt = node.data.pageType;
+    if (pt === "home") {
+      homeNodes.push(node);
+    } else if (pt === "static") {
+      staticNodes.push(node);
+    } else if (pt === "collection") {
+      collectionNodes.push(node);
+    } else if (pt === "utility" || pt === "external") {
+      legalPages.push(node);
+    }
+  }
+
+  // Build a map: collection node id → parent static page id (via edges)
+  const collectionToParent = new Map<string, string>();
+  const staticIds = new Set([...homeNodes, ...staticNodes].map((n) => n.id));
+
+  for (const edge of collapsedEdges) {
+    if (staticIds.has(edge.source)) {
+      const target = collapsed.find((n) => n.id === edge.target);
+      if (target && target.data.pageType === "collection") {
+        collectionToParent.set(target.id, edge.source);
+      }
+    }
+  }
+
+  // Track which collections are claimed by a page
+  // A page can have multiple templates — keep only the first one, extras become standalone
+  const claimedCollections = new Set<string>();
+  const pageToTemplate = new Map<string, SitemapNode>();
+
+  for (const col of collectionNodes) {
+    const parentId = collectionToParent.get(col.id);
+    if (parentId && !pageToTemplate.has(parentId)) {
+      pageToTemplate.set(parentId, col);
+      claimedCollections.add(col.id);
+    }
+  }
+
+  // Build columns: home first, then static pages
+  const columns: SitemapGridColumn[] = [];
+
+  for (const home of homeNodes) {
+    columns.push({ page: home, template: pageToTemplate.get(home.id) ?? null });
+  }
+
+  for (const page of staticNodes) {
+    columns.push({ page: page, template: pageToTemplate.get(page.id) ?? null });
+  }
+
+  // Unclaimed collections (no parent page, or second+ template for same page) get their own column
+  // They render as template-only columns (page card is the collection itself)
+  for (const col of collectionNodes) {
+    if (!claimedCollections.has(col.id)) {
+      columns.push({ page: col, template: null });
+    }
+  }
+
+  return { columns, legalPages };
+}

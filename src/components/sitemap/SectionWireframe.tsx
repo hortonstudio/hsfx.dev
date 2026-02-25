@@ -392,9 +392,11 @@ const ROW_OVERHEAD = 24;
 interface SectionWireframeStackProps {
   sections: string[];
   color: string;
+  /** Optional: render comment triggers on each section row */
+  commentSlot?: (sectionName: string) => React.ReactNode;
 }
 
-export function SectionWireframeStack({ sections, color }: SectionWireframeStackProps) {
+export function SectionWireframeStack({ sections, color, commentSlot }: SectionWireframeStackProps) {
   if (sections.length === 0) return null;
 
   let totalHeight = 0;
@@ -421,7 +423,7 @@ export function SectionWireframeStack({ sections, color }: SectionWireframeStack
               return (
                 <div
                   key={`${section}-${i}`}
-                  className="px-3 py-1.5 border-b border-border/10 last:border-b-0"
+                  className="relative px-3 py-1.5 border-b border-border/10 last:border-b-0 group/section"
                 >
                   <div className="flex items-baseline gap-1.5 mb-1">
                     <span
@@ -440,6 +442,8 @@ export function SectionWireframeStack({ sections, color }: SectionWireframeStack
                       <Pattern color={color} height={config.height} />
                     </div>
                   </div>
+                  {/* Comment trigger slot */}
+                  {commentSlot && commentSlot(section)}
                 </div>
               );
             })}

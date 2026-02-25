@@ -3,12 +3,13 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
 import { useToast } from "@/components/ui";
-import type { ClientSitemap, SitemapData, SitemapPageData } from "@/lib/clients/sitemap-types";
+import type { ClientSitemap, SitemapData, SitemapPageData, SitemapComment } from "@/lib/clients/sitemap-types";
 import { createNode, createEdge, generateNodeId } from "@/lib/clients/sitemap-utils";
 import { SitemapToolbar } from "./SitemapToolbar";
-import { SitemapSidebar } from "./SitemapSidebar";
+import { SitemapSidebarTabs } from "./SitemapSidebarTabs";
 import { SitemapShareModal } from "./SitemapShareModal";
 import { SitemapGridView } from "./SitemapGridView";
+import { SectionCommentPopover } from "./SectionCommentPopover";
 
 interface SitemapEditorProps {
   sitemap: ClientSitemap;
@@ -40,6 +41,44 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
   const pendingSaveRef = useRef(false);
 
   const selectedNode = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) : null;
+
+  // ── Comments state ──────────────────────────────────────
+  const [comments, setComments] = useState<SitemapComment[]>([]);
+
+  const fetchComments = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}/sitemap/comments`);
+      if (res.ok) {
+        const data = await res.json();
+        setComments(data);
+      }
+    } catch {
+      // silently fail for comments
+    }
+  }, [clientId]);
+
+  // Initial fetch + polling every 30s
+  useEffect(() => {
+    fetchComments();
+    const interval = setInterval(fetchComments, 30000);
+    return () => clearInterval(interval);
+  }, [fetchComments]);
+
+  const handleResolveComment = useCallback(
+    async (commentId: string, resolved: boolean) => {
+      try {
+        const res = await fetch(`/api/clients/${clientId}/sitemap/comments`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ comment_id: commentId, is_resolved: resolved }),
+        });
+        if (res.ok) fetchComments();
+      } catch {
+        addToast({ variant: "error", title: "Failed to update comment" });
+      }
+    },
+    [clientId, fetchComments, addToast]
+  );
 
   // ── Save to API ────────────────────────────────────────
   const saveToApi = useCallback(
@@ -279,11 +318,21 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
           onDeleteNode={handleDeleteNode}
           onDuplicateNode={handleDuplicateNode}
           onAddChild={handleAddChild}
+          comments={comments}
+          commentSlot={(nodeId, sectionName) => (
+            <SectionCommentPopover
+              sectionName={sectionName}
+              nodeId={nodeId}
+              comments={comments}
+              apiEndpoint={`/api/clients/${clientId}/sitemap/comments`}
+              onCommentAdded={fetchComments}
+            />
+          )}
         />
 
-        {/* Sidebar */}
+        {/* Tabbed sidebar (Details + Comments) */}
         {selectedNode && (
-          <SitemapSidebar
+          <SitemapSidebarTabs
             nodeId={selectedNode.id}
             data={selectedNode.data as SitemapPageData}
             onUpdate={handleUpdateNode}
@@ -291,6 +340,10 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
             onDuplicate={handleDuplicateNode}
             onAddChild={handleAddChild}
             onClose={() => setSelectedNodeId(null)}
+            comments={comments}
+            clientId={clientId}
+            onCommentAdded={fetchComments}
+            onResolveComment={handleResolveComment}
           />
         )}
       </div>

@@ -4,9 +4,10 @@ import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mouse, Command } from "lucide-react";
 import { Badge } from "@/components/ui";
-import type { SitemapNode, SitemapEdge } from "@/lib/clients/sitemap-types";
-import { groupNodesIntoSections } from "@/lib/clients/sitemap-utils";
+import type { SitemapNode, SitemapEdge, SitemapComment } from "@/lib/clients/sitemap-types";
+import { buildGridLayout, PAGE_TYPE_CONFIG } from "@/lib/clients/sitemap-utils";
 import { SitemapGridCard } from "./SitemapGridCard";
+import { SitemapTemplateCard } from "./SitemapTemplateCard";
 
 interface SitemapGridViewProps {
   nodes: SitemapNode[];
@@ -17,6 +18,10 @@ interface SitemapGridViewProps {
   onDeleteNode?: (id: string) => void;
   onDuplicateNode?: (id: string) => void;
   onAddChild?: (id: string) => void;
+  /** Render slot for section-level comment triggers on cards */
+  commentSlot?: (nodeId: string, sectionName: string) => React.ReactNode;
+  /** Live comments for computing per-node comment counts */
+  comments?: SitemapComment[];
 }
 
 const MIN_ZOOM = 0.3;
@@ -36,11 +41,25 @@ export function SitemapGridView({
   onDeleteNode,
   onDuplicateNode,
   onAddChild,
+  commentSlot,
+  comments,
 }: SitemapGridViewProps) {
-  const sections = useMemo(
-    () => groupNodesIntoSections(nodes, edges),
+  const layout = useMemo(
+    () => buildGridLayout(nodes, edges),
     [nodes, edges]
   );
+
+  // Compute comment counts per node from live comments
+  const commentCounts = useMemo(() => {
+    if (!comments?.length) return new Map<string, number>();
+    const counts = new Map<string, number>();
+    for (const c of comments) {
+      if (c.node_id && !c.parent_id) {
+        counts.set(c.node_id, (counts.get(c.node_id) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [comments]);
 
   // Zoom & pan state
   const [zoom, setZoom] = useState(0.85);
@@ -267,29 +286,94 @@ export function SitemapGridView({
         }}
       >
         <div className="min-w-[1400px] px-12 py-10 space-y-12" data-pannable="true">
-          {sections.map((section) => (
-            <section key={section.id}>
-              {/* Section header */}
+          {/* Pages row */}
+          {layout.columns.length > 0 && (
+            <section>
               <div className="flex items-center gap-4 mb-6">
                 <div
                   className="h-px w-10 flex-shrink-0"
-                  style={{ backgroundColor: section.color }}
+                  style={{ backgroundColor: PAGE_TYPE_CONFIG.static.color }}
                 />
                 <h3
                   className="text-sm font-bold uppercase tracking-widest flex-shrink-0"
-                  style={{ color: section.color }}
+                  style={{ color: PAGE_TYPE_CONFIG.static.color }}
                 >
-                  {section.label}
+                  Pages
                 </h3>
                 <Badge variant="default" size="sm">
-                  {section.nodes.length}
+                  {layout.columns.length}
                 </Badge>
                 <div className="flex-1 h-px bg-border/30" />
               </div>
 
-              {/* Card row — horizontal single row */}
+              {/* Column layout: page cards on top, connectors + templates below */}
               <div className="flex gap-4 items-start">
-                {section.nodes.map((node) => (
+                {layout.columns.map((col) => {
+                  const nodeColor = col.page.data.color || PAGE_TYPE_CONFIG[col.page.data.pageType]?.color || "#64748b";
+                  return (
+                    <div key={col.page.id} className="w-[420px] flex-shrink-0 flex flex-col items-center">
+                      <SitemapGridCard
+                        node={col.page}
+                        selected={selectedNodeId === col.page.id}
+                        onClick={() => handleCardClick(col.page.id)}
+                        readOnly={readOnly}
+                        onDelete={onDeleteNode}
+                        onDuplicate={onDuplicateNode}
+                        onAddChild={onAddChild}
+                        commentSlot={commentSlot ? (s) => commentSlot(col.page.id, s) : undefined}
+                        commentCount={commentCounts.get(col.page.id)}
+                      />
+
+                      {/* Animated connector + template card */}
+                      {col.template && (
+                        <>
+                          <div
+                            className="w-[2px] h-10"
+                            style={{
+                              background: `repeating-linear-gradient(to bottom, ${nodeColor}60 0px, ${nodeColor}60 4px, transparent 4px, transparent 8px)`,
+                              backgroundSize: "2px 16px",
+                              animation: "connector-march 0.8s linear infinite",
+                            }}
+                          />
+                          <div className="w-full">
+                            <SitemapTemplateCard
+                              node={col.template}
+                              selected={selectedNodeId === col.template.id}
+                              onClick={() => handleCardClick(col.template?.id ?? col.page.id)}
+                              commentSlot={commentSlot ? (s) => commentSlot(col.template!.id, s) : undefined}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Legal & Other row */}
+          {layout.legalPages.length > 0 && (
+            <section>
+              <div className="flex items-center gap-4 mb-6">
+                <div
+                  className="h-px w-10 flex-shrink-0"
+                  style={{ backgroundColor: PAGE_TYPE_CONFIG.utility.color }}
+                />
+                <h3
+                  className="text-sm font-bold uppercase tracking-widest flex-shrink-0"
+                  style={{ color: PAGE_TYPE_CONFIG.utility.color }}
+                >
+                  Legal &amp; Other
+                </h3>
+                <Badge variant="default" size="sm">
+                  {layout.legalPages.length}
+                </Badge>
+                <div className="flex-1 h-px bg-border/30" />
+              </div>
+
+              <div className="flex gap-4 items-start">
+                {layout.legalPages.map((node) => (
                   <div key={node.id} className="w-[420px] flex-shrink-0">
                     <SitemapGridCard
                       node={node}
@@ -299,14 +383,16 @@ export function SitemapGridView({
                       onDelete={onDeleteNode}
                       onDuplicate={onDuplicateNode}
                       onAddChild={onAddChild}
+                      commentSlot={commentSlot ? (s) => commentSlot(node.id, s) : undefined}
+                      commentCount={commentCounts.get(node.id)}
                     />
                   </div>
                 ))}
               </div>
             </section>
-          ))}
+          )}
 
-          {sections.length === 0 && (
+          {layout.columns.length === 0 && layout.legalPages.length === 0 && (
             <div className="text-center py-20 text-text-dim text-sm">
               No pages yet
             </div>

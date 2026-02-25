@@ -58,6 +58,7 @@ export async function POST(
 
   let body: {
     node_id?: string | null;
+    section_name?: string | null;
     parent_id?: string | null;
     author_name: string;
     author_email?: string;
@@ -79,6 +80,7 @@ export async function POST(
     .insert({
       sitemap_id: sitemap.id,
       node_id: body.node_id ?? null,
+      section_name: body.section_name ?? null,
       parent_id: body.parent_id ?? null,
       author_name: body.author_name.trim(),
       author_email: body.author_email?.trim() || null,

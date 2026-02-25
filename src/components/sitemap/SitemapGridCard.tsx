@@ -44,6 +44,9 @@ interface SitemapGridCardProps {
   onDelete?: (id: string) => void;
   onDuplicate?: (id: string) => void;
   onAddChild?: (id: string) => void;
+  commentSlot?: (sectionName: string) => React.ReactNode;
+  /** Override comment count (computed from live comments array) */
+  commentCount?: number;
 }
 
 export function SitemapGridCard({
@@ -54,6 +57,8 @@ export function SitemapGridCard({
   onDelete,
   onDuplicate,
   onAddChild,
+  commentSlot,
+  commentCount: commentCountProp,
 }: SitemapGridCardProps) {
   const data = node.data as SitemapPageData;
   const typeConfig = PAGE_TYPE_CONFIG[data.pageType] ?? PAGE_TYPE_CONFIG.static;
@@ -122,7 +127,7 @@ export function SitemapGridCard({
 
         {/* Section wireframes */}
         {data.sections && data.sections.length > 0 && (
-          <SectionWireframeStack sections={data.sections} color={nodeColor} />
+          <SectionWireframeStack sections={data.sections} color={nodeColor} commentSlot={commentSlot} />
         )}
 
         {/* Collection: CMS items */}
@@ -196,10 +201,10 @@ export function SitemapGridCard({
       </div>
 
       {/* Comment indicator */}
-      {data.commentCount != null && data.commentCount > 0 && (
+      {(commentCountProp ?? data.commentCount ?? 0) > 0 && (
         <div className="absolute top-2 right-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-accent text-white text-[9px] font-bold shadow-glow-sm">
           <MessageSquare className="w-2.5 h-2.5" />
-          {data.commentCount}
+          {commentCountProp ?? data.commentCount}
         </div>
       )}
 

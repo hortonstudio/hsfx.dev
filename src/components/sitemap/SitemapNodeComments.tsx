@@ -1,52 +1,50 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui";
-import type { SitemapComment, SitemapNode } from "@/lib/clients/sitemap-types";
+import type { SitemapComment } from "@/lib/clients/sitemap-types";
 
-interface SitemapCommentPanelProps {
-  slug: string;
+interface SitemapNodeCommentsProps {
+  nodeId: string;
   comments: SitemapComment[];
-  selectedNodeId: string | null;
+  clientId: string;
   onCommentAdded: () => void;
-  onClose: () => void;
-  nodes?: SitemapNode[];
+  onResolve?: (commentId: string, resolved: boolean) => void;
 }
 
-export function SitemapCommentPanel({
-  slug,
-  comments,
-  selectedNodeId,
-  onCommentAdded,
-  onClose,
-  nodes,
-}: SitemapCommentPanelProps) {
-  const [filter, setFilter] = useState<"all" | "unresolved" | "node">("all");
-  const [authorName, setAuthorName] = useState("");
-  const [content, setContent] = useState("");
+function formatTime(dateStr: string) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
-  // Build node name lookup map
-  const nodeNameMap = new Map<string, string>();
-  if (nodes) {
-    for (const n of nodes) {
-      nodeNameMap.set(n.id, n.data.label);
-    }
-  }
+export function SitemapNodeComments({
+  nodeId,
+  comments,
+  clientId,
+  onCommentAdded,
+  onResolve,
+}: SitemapNodeCommentsProps) {
+  const [filter, setFilter] = useState<"all" | "unresolved">("all");
+  const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load saved author name
-  useEffect(() => {
-    const saved = localStorage.getItem("sitemap-comment-name");
-    if (saved) setAuthorName(saved);
-  }, []);
+  // Filter to this node's comments (top-level only)
+  const nodeComments = comments.filter(
+    (c) => c.node_id === nodeId && !c.parent_id
+  );
 
-  // Filter comments
-  const filtered = comments.filter((c) => {
-    if (c.parent_id) return false;
+  const filtered = nodeComments.filter((c) => {
     if (filter === "unresolved") return !c.is_resolved;
-    if (filter === "node") return c.node_id === selectedNodeId;
     return true;
   });
 
@@ -56,21 +54,18 @@ export function SitemapCommentPanel({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!authorName.trim() || !content.trim()) return;
+    if (!content.trim()) return;
 
     setSubmitting(true);
     setError(null);
-    localStorage.setItem("sitemap-comment-name", authorName.trim());
 
     try {
-      const res = await fetch(`/api/sitemap/${slug}/comments`, {
+      const res = await fetch(`/api/clients/${clientId}/sitemap/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          author_name: authorName.trim(),
+          node_id: nodeId,
           content: content.trim(),
-          node_id: filter === "node" ? selectedNodeId : null,
-          author_type: "client",
         }),
       });
 
@@ -78,45 +73,20 @@ export function SitemapCommentPanel({
         setContent("");
         onCommentAdded();
       } else {
-        setError("Failed to post comment. Please try again.");
+        setError("Failed to post comment.");
       }
     } catch {
-      setError("Network error. Please check your connection.");
+      setError("Network error.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  function formatTime(dateStr: string) {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diff = now.getTime() - d.getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
-  }
-
   return (
-    <div className="w-80 border-l border-border bg-surface flex flex-col" data-lenis-prevent>
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-        <h3 className="text-sm font-medium text-text-primary">Comments</h3>
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1 rounded-md text-text-dim hover:text-text-primary hover:bg-background/60 transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
+    <div className="flex flex-col h-full">
       {/* Filters */}
       <div className="flex gap-1 px-5 py-2.5 border-b border-border">
-        {(["all", "unresolved", ...(selectedNodeId ? ["node" as const] : [])] as const).map((f) => (
+        {(["all", "unresolved"] as const).map((f) => (
           <button
             key={f}
             type="button"
@@ -127,7 +97,7 @@ export function SitemapCommentPanel({
                 : "text-text-dim hover:text-text-muted hover:bg-background/60"
             }`}
           >
-            {f === "all" ? "All" : f === "unresolved" ? "Unresolved" : "This Page"}
+            {f === "all" ? `All (${nodeComments.length})` : "Unresolved"}
           </button>
         ))}
       </div>
@@ -135,27 +105,45 @@ export function SitemapCommentPanel({
       {/* Comment list */}
       <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3" data-lenis-prevent>
         {filtered.length === 0 && (
-          <p className="text-xs text-text-dim text-center py-6">No comments yet</p>
+          <div className="text-center py-8">
+            <MessageSquare className="w-6 h-6 text-text-dim mx-auto mb-2" />
+            <p className="text-xs text-text-dim">No comments on this page yet</p>
+          </div>
         )}
         {filtered.map((comment) => (
           <div key={comment.id} className="space-y-2">
-            {/* Main comment */}
             <div className={`p-3 rounded-lg ${comment.is_resolved ? "bg-background/50 opacity-60" : "bg-background"}`}>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-medium text-text-secondary">{comment.author_name}</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-medium text-text-secondary">{comment.author_name}</span>
+                  <span
+                    className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                    style={{
+                      backgroundColor: comment.author_type === "agency" ? "rgba(14,165,233,0.1)" : "rgba(16,185,129,0.1)",
+                      color: comment.author_type === "agency" ? "#0ea5e9" : "#10b981",
+                    }}
+                  >
+                    {comment.author_type}
+                  </span>
+                </div>
                 <span className="text-[10px] text-text-dim">{formatTime(comment.created_at)}</span>
               </div>
               <p className="text-xs text-text-muted leading-relaxed">{comment.content}</p>
               <div className="flex items-center gap-1.5 mt-2">
-                {comment.node_id && (
+                {comment.section_name && (
                   <span className="inline-block px-1.5 py-0.5 text-[9px] rounded bg-accent/10 text-accent">
-                    Page: {nodeNameMap.get(comment.node_id) || comment.node_id}
+                    {comment.section_name}
                   </span>
                 )}
-                {comment.section_name && (
-                  <span className="inline-block px-1.5 py-0.5 text-[9px] rounded bg-blue-500/10 text-blue-400">
-                    Section: {comment.section_name}
-                  </span>
+                {onResolve && !comment.is_resolved && (
+                  <button
+                    type="button"
+                    onClick={() => onResolve(comment.id, true)}
+                    className="ml-auto flex items-center gap-1 text-[10px] text-text-dim hover:text-green-400 transition-colors"
+                  >
+                    <CheckCircle className="w-3 h-3" />
+                    Resolve
+                  </button>
                 )}
                 {comment.is_resolved && (
                   <span className="inline-block px-1.5 py-0.5 text-[9px] rounded bg-green-500/10 text-green-400">
@@ -184,17 +172,10 @@ export function SitemapCommentPanel({
         {error && (
           <p className="text-[11px] text-red-400 bg-red-500/10 px-3 py-1.5 rounded-md">{error}</p>
         )}
-        <input
-          type="text"
-          value={authorName}
-          onChange={(e) => setAuthorName(e.target.value)}
-          placeholder="Your name"
-          className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background text-text-primary placeholder:text-text-dim focus:outline-none focus:border-accent/50 transition-colors"
-        />
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder={selectedNodeId && filter === "node" ? "Comment on this page..." : "Add a comment..."}
+          placeholder="Add a comment..."
           rows={2}
           className="w-full px-3 py-2 text-xs rounded-lg border border-border bg-background text-text-primary placeholder:text-text-dim resize-none focus:outline-none focus:border-accent/50 transition-colors"
         />
@@ -202,7 +183,7 @@ export function SitemapCommentPanel({
           variant="primary"
           size="sm"
           className="w-full justify-center"
-          disabled={submitting || !authorName.trim() || !content.trim()}
+          disabled={submitting || !content.trim()}
         >
           {submitting ? "Posting..." : "Post Comment"}
         </Button>

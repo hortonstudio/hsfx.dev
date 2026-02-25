@@ -24,6 +24,7 @@ import type { ClientSitemap, SitemapPageType, SitemapComment } from "@/lib/clien
 import { PAGE_TYPE_CONFIG } from "@/lib/clients/sitemap-utils";
 import { SitemapGridView } from "@/components/sitemap/SitemapGridView";
 import { SitemapCommentPanel } from "@/components/sitemap/SitemapCommentPanel";
+import { SectionCommentPopover } from "@/components/sitemap/SectionCommentPopover";
 import { Badge, Button } from "@/components/ui";
 
 const TYPE_ICONS: Record<SitemapPageType, React.ComponentType<{ className?: string }>> = {
@@ -253,6 +254,17 @@ function PublicSitemapViewer() {
           selectedNodeId={selectedNodeId}
           onNodeSelect={setSelectedNodeId}
           readOnly
+          comments={sitemap.allow_comments ? comments : undefined}
+          commentSlot={sitemap.allow_comments ? (nodeId, sectionName) => (
+            <SectionCommentPopover
+              sectionName={sectionName}
+              nodeId={nodeId}
+              comments={comments}
+              apiEndpoint={`/api/sitemap/${slug}/comments`}
+              isPublic
+              onCommentAdded={fetchComments}
+            />
+          ) : undefined}
         />
 
         {/* Selected node detail panel */}

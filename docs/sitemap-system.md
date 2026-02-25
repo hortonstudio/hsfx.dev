@@ -21,7 +21,11 @@ The sitemap system is a React Flow-based visual editor integrated into the clien
 | `SitemapTab.tsx` | Entry point — shows sitemap status, templates, triggers editor/generate |
 | `SitemapEditor.tsx` | Main canvas editor with React Flow, auto-save, keyboard shortcuts |
 | `SitemapNode.tsx` | React Flow node renderer (card with type, status, sections, color) |
-| `SitemapSidebar.tsx` | Right panel — edit label, path, type, status, color, sections, SEO |
+| `SitemapSidebarTabs.tsx` | Tabbed right panel (Details + Comments) — wraps SitemapSidebarDetails |
+| `SitemapSidebarDetails.tsx` | Detail form — edit label, path, type, status, color, sections, SEO |
+| `SitemapNodeComments.tsx` | Node-scoped comment thread for sidebar Comments tab |
+| `SitemapTemplateCard.tsx` | Template card with stacked-card visual for collection pages |
+| `SectionCommentPopover.tsx` | Inline popover for section-level comments on wireframe rows |
 | `SitemapToolbar.tsx` | Top bar — view toggle, zoom, save status, export, share, close |
 | `SitemapStructuralView.tsx` | Tree view — search/filter, expand/collapse, stats, inline actions |
 | `SitemapLegend.tsx` | Collapsible legend showing page type and status colors |

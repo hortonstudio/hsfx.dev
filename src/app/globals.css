@@ -244,3 +244,21 @@ html.theme-transition *::after {
 :focus:not(:focus-visible) {
   outline: none;
 }
+
+/* Sitemap connector — animated marching ants */
+.sitemap-connector {
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--connector-color, rgba(100, 116, 139, 0.4)) 0px,
+    var(--connector-color, rgba(100, 116, 139, 0.4)) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  background-size: 2px 16px;
+  animation: connector-march 0.8s linear infinite;
+}
+
+@keyframes connector-march {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 16px; }
+}

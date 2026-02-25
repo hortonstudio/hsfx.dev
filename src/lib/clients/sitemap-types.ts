@@ -88,6 +88,7 @@ export interface SitemapComment {
   id: string;
   sitemap_id: string;
   node_id: string | null;
+  section_name: string | null;
   parent_id: string | null;
   author_name: string;
   author_email: string | null;
@@ -97,6 +98,18 @@ export interface SitemapComment {
   created_at: string;
   updated_at: string;
   replies?: SitemapComment[];
+}
+
+/** A column in the hierarchy layout — one page + optional template below */
+export interface SitemapGridColumn {
+  page: SitemapNode;
+  template: SitemapNode | null;
+}
+
+/** Full hierarchy layout output */
+export interface SitemapGridLayout {
+  columns: SitemapGridColumn[];
+  legalPages: SitemapNode[];
 }
 
 // ════════════════════════════════════════════════════════════
