@@ -22,8 +22,8 @@ interface SitemapGridViewProps {
 const MIN_ZOOM = 0.3;
 const MAX_ZOOM = 1.5;
 const DRAG_THRESHOLD = 5;
-const CONTENT_WIDTH = 1400;
-const CONTENT_HEIGHT = 2000;
+const CONTENT_WIDTH = 5000;
+const CONTENT_HEIGHT = 3000;
 const PAN_MARGIN = 200;
 const DOT_GAP = 24;
 
@@ -266,7 +266,7 @@ export function SitemapGridView({
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
         }}
       >
-        <div className="w-[1400px] px-12 py-10 space-y-12" data-pannable="true">
+        <div className="min-w-[1400px] px-12 py-10 space-y-12" data-pannable="true">
           {sections.map((section) => (
             <section key={section.id}>
               {/* Section header */}
@@ -287,19 +287,20 @@ export function SitemapGridView({
                 <div className="flex-1 h-px bg-border/30" />
               </div>
 
-              {/* Card grid — items-start so cards align to top, not stretch */}
-              <div className="grid grid-cols-4 gap-4 items-start">
+              {/* Card row — horizontal single row */}
+              <div className="flex gap-4 items-start">
                 {section.nodes.map((node) => (
-                  <SitemapGridCard
-                    key={node.id}
-                    node={node}
-                    selected={selectedNodeId === node.id}
-                    onClick={() => handleCardClick(node.id)}
-                    readOnly={readOnly}
-                    onDelete={onDeleteNode}
-                    onDuplicate={onDuplicateNode}
-                    onAddChild={onAddChild}
-                  />
+                  <div key={node.id} className="w-[420px] flex-shrink-0">
+                    <SitemapGridCard
+                      node={node}
+                      selected={selectedNodeId === node.id}
+                      onClick={() => handleCardClick(node.id)}
+                      readOnly={readOnly}
+                      onDelete={onDeleteNode}
+                      onDuplicate={onDuplicateNode}
+                      onAddChild={onAddChild}
+                    />
+                  </div>
                 ))}
               </div>
             </section>
@@ -321,9 +322,9 @@ export function SitemapGridView({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4 }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/40 backdrop-blur-[2px]"
           >
-            <div className="flex flex-col items-center gap-5 text-text-dim/60">
+            <div className="flex flex-col items-center gap-5 text-white/70">
               <div className="flex items-center gap-8">
                 <div className="flex flex-col items-center gap-2">
                   <Mouse className="w-8 h-8" />

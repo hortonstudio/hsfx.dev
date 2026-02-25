@@ -21,81 +21,115 @@ type WireframePattern =
   | "nav"
   | "people";
 
-interface WireframeConfig {
+interface SectionConfig {
   pattern: WireframePattern;
   height: number;
+  description: string;
 }
 
-const SECTION_MAP: Record<string, WireframeConfig> = {
-  "hero":                { pattern: "hero",       height: 20 },
+const SECTION_MAP: Record<string, SectionConfig> = {
+  "hero":                { pattern: "hero",       height: 22, description: "Full-width hero with headline and CTA" },
 
-  "content":             { pattern: "text-block", height: 14 },
-  "blog content":        { pattern: "text-block", height: 14 },
-  "story/history":       { pattern: "text-block", height: 14 },
-  "values":              { pattern: "text-block", height: 14 },
-  "case study":          { pattern: "text-block", height: 14 },
-  "service details":     { pattern: "text-block", height: 14 },
-  "area services":       { pattern: "text-block", height: 14 },
+  "content":             { pattern: "text-block", height: 14, description: "Rich text content block" },
+  "blog content":        { pattern: "text-block", height: 14, description: "Article body content" },
+  "story/history":       { pattern: "text-block", height: 14, description: "Brand origin story and history" },
+  "values":              { pattern: "text-block", height: 14, description: "Core values and principles" },
+  "case study":          { pattern: "text-block", height: 14, description: "Case study details and results" },
+  "service details":     { pattern: "text-block", height: 14, description: "In-depth service information" },
+  "area services":       { pattern: "text-block", height: 14, description: "Location-specific service details" },
+  "overview":            { pattern: "text-block", height: 14, description: "Section overview and introduction" },
+  "philosophy":          { pattern: "text-block", height: 14, description: "Company philosophy and approach" },
+  "challenges":          { pattern: "text-block", height: 14, description: "Problem statement and challenges" },
+  "solutions":           { pattern: "text-block", height: 14, description: "Solution approach and methodology" },
+  "problem":             { pattern: "text-block", height: 14, description: "Pain points and problem framing" },
+  "solution":            { pattern: "text-block", height: 14, description: "How the solution addresses the problem" },
+  "platform overview":   { pattern: "text-block", height: 14, description: "Product platform overview" },
+  "features deep dive":  { pattern: "text-block", height: 14, description: "Detailed feature breakdown" },
+  "integration":         { pattern: "text-block", height: 14, description: "System integration details" },
 
-  "services grid":       { pattern: "grid-3",     height: 18 },
-  "feature grid":        { pattern: "grid-3",     height: 18 },
-  "team grid":           { pattern: "grid-3",     height: 18 },
-  "testimonial grid":    { pattern: "grid-3",     height: 18 },
-  "portfolio grid":      { pattern: "grid-3",     height: 18 },
-  "pricing cards":       { pattern: "grid-3",     height: 18 },
+  "services grid":       { pattern: "grid-3",     height: 18, description: "3-column grid of service cards" },
+  "feature grid":        { pattern: "grid-3",     height: 18, description: "Feature highlights in grid layout" },
+  "team grid":           { pattern: "grid-3",     height: 18, description: "Team member cards in grid" },
+  "testimonial grid":    { pattern: "grid-3",     height: 18, description: "Client testimonials in grid layout" },
+  "portfolio grid":      { pattern: "grid-3",     height: 18, description: "Portfolio items in grid layout" },
+  "pricing cards":       { pattern: "grid-3",     height: 18, description: "Pricing tiers comparison cards" },
+  "case studies grid":   { pattern: "grid-3",     height: 18, description: "Case study cards in grid" },
+  "open positions":      { pattern: "grid-3",     height: 18, description: "Job listings grid with filters" },
 
-  "before/after gallery": { pattern: "grid-2",    height: 16 },
-  "comparison table":    { pattern: "grid-2",     height: 16 },
+  "before/after gallery": { pattern: "grid-2",    height: 16, description: "Before and after comparison view" },
+  "comparison table":    { pattern: "grid-2",     height: 16, description: "Side-by-side comparison layout" },
+  "card links":          { pattern: "grid-2",     height: 16, description: "Linked navigation cards" },
+  "engagement models":   { pattern: "grid-2",     height: 16, description: "Partnership structure options" },
 
-  "gallery grid":        { pattern: "gallery",    height: 20 },
+  "gallery grid":        { pattern: "gallery",    height: 20, description: "Image gallery in masonry grid" },
 
-  "feature list":        { pattern: "list",       height: 16 },
-  "process steps":       { pattern: "list",       height: 16 },
-  "services overview":   { pattern: "list",       height: 16 },
+  "feature list":        { pattern: "list",       height: 16, description: "Vertical feature list with icons" },
+  "process steps":       { pattern: "list",       height: 16, description: "Step-by-step process breakdown" },
+  "services overview":   { pattern: "list",       height: 16, description: "Service offerings overview list" },
+  "timeline":            { pattern: "list",       height: 16, description: "Chronological timeline of events" },
+  "objectives":          { pattern: "list",       height: 16, description: "Project goals and objectives" },
+  "what to expect":      { pattern: "list",       height: 16, description: "Timeline and deliverables overview" },
+  "why work with us":    { pattern: "list",       height: 16, description: "Key benefits of working together" },
+  "resources":           { pattern: "list",       height: 16, description: "Helpful resources and downloads" },
 
-  "faq accordion":       { pattern: "accordion",  height: 16 },
+  "faq accordion":       { pattern: "accordion",  height: 16, description: "Expandable FAQ questions" },
+  "faq":                 { pattern: "accordion",  height: 16, description: "Frequently asked questions" },
+  "category tabs":       { pattern: "accordion",  height: 16, description: "Tabbed content categories" },
+  "filter/tabs":         { pattern: "accordion",  height: 16, description: "Content filter and tab controls" },
 
-  "contact form":        { pattern: "form",       height: 18 },
-  "newsletter signup":   { pattern: "form",       height: 18 },
+  "contact form":        { pattern: "form",       height: 18, description: "Contact form with input fields" },
+  "newsletter signup":   { pattern: "form",       height: 18, description: "Email newsletter subscription" },
 
-  "stats/numbers":       { pattern: "stats",      height: 10 },
-  "social proof":        { pattern: "stats",      height: 10 },
-  "credentials":         { pattern: "stats",      height: 10 },
+  "stats/numbers":       { pattern: "stats",      height: 10, description: "Key metrics and statistics" },
+  "social proof":        { pattern: "stats",      height: 10, description: "Trust badges and social proof" },
+  "credentials":         { pattern: "stats",      height: 10, description: "Certifications and credentials" },
+  "results":             { pattern: "stats",      height: 10, description: "Key outcomes and achievements" },
 
-  "blog grid":           { pattern: "cards",      height: 14 },
-  "related posts":       { pattern: "cards",      height: 14 },
-  "categories":          { pattern: "cards",      height: 14 },
-  "pricing table":       { pattern: "cards",      height: 14 },
-  "download/resources":  { pattern: "cards",      height: 14 },
+  "blog grid":           { pattern: "cards",      height: 14, description: "Blog post cards in grid" },
+  "related posts":       { pattern: "cards",      height: 14, description: "Related content cards" },
+  "categories":          { pattern: "cards",      height: 14, description: "Category navigation cards" },
+  "pricing table":       { pattern: "cards",      height: 14, description: "Pricing comparison table" },
+  "download/resources":  { pattern: "cards",      height: 14, description: "Downloadable resources grid" },
+  "related case studies": { pattern: "cards",     height: 14, description: "Related case study cards" },
+  "core values":         { pattern: "cards",      height: 14, description: "Core values display cards" },
 
-  "cta":                 { pattern: "banner",     height: 10 },
-  "image banner":        { pattern: "banner",     height: 10 },
+  "cta":                 { pattern: "banner",     height: 10, description: "Call-to-action banner" },
+  "image banner":        { pattern: "banner",     height: 10, description: "Full-width image banner" },
 
-  "logo bar":            { pattern: "logo-row",   height: 8 },
-  "partners":            { pattern: "logo-row",   height: 8 },
+  "logo bar":            { pattern: "logo-row",   height: 8, description: "Partner and client logos" },
+  "partners":            { pattern: "logo-row",   height: 8, description: "Partner company logos" },
 
-  "video":               { pattern: "media",      height: 16 },
-  "map":                 { pattern: "media",      height: 16 },
-  "area map":            { pattern: "media",      height: 16 },
+  "video":               { pattern: "media",      height: 16, description: "Embedded video player" },
+  "map":                 { pattern: "media",      height: 16, description: "Interactive location map" },
+  "area map":            { pattern: "media",      height: 16, description: "Service area coverage map" },
 
-  "breadcrumbs":         { pattern: "nav",        height: 6 },
-  "sidebar":             { pattern: "nav",        height: 6 },
-  "search":              { pattern: "nav",        height: 6 },
-  "filters":             { pattern: "nav",        height: 6 },
+  "breadcrumbs":         { pattern: "nav",        height: 6, description: "Page breadcrumb navigation" },
+  "sidebar":             { pattern: "nav",        height: 6, description: "Sidebar navigation menu" },
+  "search":              { pattern: "nav",        height: 6, description: "Search bar and filters" },
+  "filters":             { pattern: "nav",        height: 6, description: "Content filter controls" },
 
-  "team member":         { pattern: "people",     height: 14 },
-  "testimonials":        { pattern: "people",     height: 14 },
+  "team member":         { pattern: "people",     height: 14, description: "Team member profile cards" },
+  "testimonials":        { pattern: "people",     height: 14, description: "Client testimonial quotes" },
+  "quote":               { pattern: "people",     height: 14, description: "Featured quote or testimonial" },
 };
 
-function getConfig(section: string): WireframeConfig {
-  return SECTION_MAP[section.toLowerCase()] ?? { pattern: "text-block", height: 12 };
+const DEFAULT_CONFIG: SectionConfig = { pattern: "text-block", height: 12, description: "Content section" };
+
+function getConfig(section: string): SectionConfig {
+  return SECTION_MAP[section.toLowerCase()] ?? DEFAULT_CONFIG;
 }
 
-function getStackHeight(sections: string[]): number {
-  if (sections.length === 0) return 0;
-  let total = 0;
-  for (const s of sections) total += getConfig(s).height + 2;
-  return total - 2;
+const UPPER_WORDS = new Set(["faq", "cta", "cms", "hr", "seo", "b2b", "b2c"]);
+
+function formatName(section: string): string {
+  return section
+    .split(/[\s/]+/)
+    .map((w) => {
+      const lower = w.toLowerCase();
+      if (UPPER_WORDS.has(lower)) return lower.toUpperCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
 }
 
 // ================================================================
@@ -346,10 +380,11 @@ const PATTERNS: Record<WireframePattern, React.FC<P>> = {
 };
 
 // ================================================================
-// Public Components
+// Public Component
 // ================================================================
 
-const MAX_HEIGHT = 120;
+const MAX_HEIGHT = 220;
+const ROW_OVERHEAD = 22;
 
 interface SectionWireframeStackProps {
   sections: string[];
@@ -359,27 +394,62 @@ interface SectionWireframeStackProps {
 export function SectionWireframeStack({ sections, color }: SectionWireframeStackProps) {
   if (sections.length === 0) return null;
 
-  const totalHeight = getStackHeight(sections);
+  let totalHeight = 0;
+  for (const s of sections) totalHeight += getConfig(s).height + ROW_OVERHEAD;
   const overflows = totalHeight > MAX_HEIGHT;
 
   return (
-    <div className="mt-3 relative">
-      <div
-        className="flex flex-col gap-[2px] overflow-hidden"
-        style={{ maxHeight: `${MAX_HEIGHT}px` }}
-      >
-        {sections.map((section, i) => {
-          const config = getConfig(section);
-          const Pattern = PATTERNS[config.pattern];
-          return <Pattern key={`${section}-${i}`} color={color} height={config.height} />;
-        })}
+    <div className="mt-3">
+      <div className="rounded-lg border border-border/40 bg-background/30 overflow-hidden">
+        {/* Browser chrome bar */}
+        <div className="flex items-center gap-1 px-2.5 py-1.5 border-b border-border/20 bg-background/20">
+          <div className="w-1.5 h-1.5 rounded-full bg-text-dim/20" />
+          <div className="w-1.5 h-1.5 rounded-full bg-text-dim/20" />
+          <div className="w-1.5 h-1.5 rounded-full bg-text-dim/20" />
+          <div className="flex-1 mx-2 h-2.5 rounded-sm bg-background/40 border border-border/20" />
+        </div>
+
+        {/* Page sections */}
+        <div className="relative" style={{ maxHeight: MAX_HEIGHT, overflow: "hidden" }}>
+          <div className="py-0.5">
+            {sections.map((section, i) => {
+              const config = getConfig(section);
+              const Pattern = PATTERNS[config.pattern];
+              return (
+                <div
+                  key={`${section}-${i}`}
+                  className="px-3 py-1.5 border-b border-border/10 last:border-b-0"
+                >
+                  <div className="flex items-baseline gap-1.5 mb-1">
+                    <span
+                      className="text-[9px] font-semibold leading-none flex-shrink-0"
+                      style={{ color }}
+                    >
+                      {formatName(section)}
+                    </span>
+                    <span className="text-[8px] text-text-dim leading-none truncate">
+                      {config.description}
+                    </span>
+                  </div>
+                  {/* Centered at 75% width to simulate 1440px content in 1920px viewport */}
+                  <div className="flex justify-center">
+                    <div style={{ width: "75%" }}>
+                      <Pattern color={color} height={config.height} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {overflows && (
+            <div
+              className="absolute bottom-0 left-0 right-0 h-[30px] pointer-events-none"
+              style={{ background: "linear-gradient(to bottom, transparent, var(--color-surface))" }}
+            />
+          )}
+        </div>
       </div>
-      {overflows && (
-        <div
-          className="absolute bottom-0 left-0 right-0 h-[20px] pointer-events-none"
-          style={{ background: "linear-gradient(to bottom, transparent, var(--color-surface))" }}
-        />
-      )}
     </div>
   );
 }
