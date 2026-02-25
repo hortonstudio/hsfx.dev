@@ -349,17 +349,21 @@ export function buildGridLayout(
 
       if (bestMatch) {
         collectionToParent.set(col.id, bestMatch);
+      } else {
+        // No matching static page — don't attach to Home, make it standalone
+        collectionToParent.delete(col.id);
       }
     }
   }
 
   // Track which collections are claimed by a page (one template per page)
+  // Home never gets a template — it's always a standalone page
   const claimedCollections = new Set<string>();
   const pageToTemplate = new Map<string, SitemapNode>();
 
   for (const col of collectionNodes) {
     const parentId = collectionToParent.get(col.id);
-    if (parentId && !pageToTemplate.has(parentId)) {
+    if (parentId && parentId !== homeId && !pageToTemplate.has(parentId)) {
       pageToTemplate.set(parentId, col);
       claimedCollections.add(col.id);
     }
@@ -371,7 +375,7 @@ export function buildGridLayout(
   const resourceColumns: SitemapGridColumn[] = [];
 
   for (const home of homeNodes) {
-    homeColumns.push({ page: home, template: pageToTemplate.get(home.id) ?? null });
+    homeColumns.push({ page: home, template: null });
   }
 
   for (const page of staticNodes) {
