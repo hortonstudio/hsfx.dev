@@ -169,7 +169,7 @@ function PublicSitemapViewer() {
   useEffect(() => {
     async function fetchSitemap() {
       try {
-        const res = await fetch(`/api/sitemap/${slug}`, { cache: "no-store" });
+        const res = await fetch(`/api/sitemap/${slug}?_t=${Date.now()}`, { cache: "no-store" });
         if (!res.ok) {
           setError(res.status === 404 ? "Sitemap not found" : "Failed to load sitemap");
           return;
@@ -201,7 +201,7 @@ function PublicSitemapViewer() {
   const fetchComments = useCallback(async () => {
     if (!sitemap?.allow_comments) return;
     try {
-      const res = await fetch(`/api/sitemap/${slug}/comments`, { cache: "no-store" });
+      const res = await fetch(`/api/sitemap/${slug}/comments?_t=${Date.now()}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setComments(data);
