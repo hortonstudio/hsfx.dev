@@ -90,7 +90,7 @@ export function SitemapGridCard({
       `}
       style={!selected ? { ["--glow-color" as string]: nodeColor } : undefined}
       onMouseEnter={(e) => {
-        if (!selected) e.currentTarget.style.boxShadow = `0 4px 20px ${nodeColor}15, 0 2px 8px ${nodeColor}10`;
+        if (!selected) e.currentTarget.style.boxShadow = `0 4px 20px ${nodeColor}25, 0 2px 8px ${nodeColor}18`;
       }}
       onMouseLeave={(e) => {
         if (!selected) e.currentTarget.style.boxShadow = "";
@@ -99,7 +99,7 @@ export function SitemapGridCard({
       {/* Top accent bar — gradient */}
       <div
         className="h-[3px] rounded-t-xl"
-        style={{ background: `linear-gradient(90deg, ${nodeColor}, ${nodeColor}90, ${nodeColor}50)` }}
+        style={{ background: `linear-gradient(90deg, ${nodeColor}, ${nodeColor}c0, ${nodeColor}60)` }}
       />
 
       <div className="p-4">
@@ -155,7 +155,7 @@ export function SitemapGridCard({
                   <span
                     key={item.path}
                     className="inline-flex items-center px-2 py-0.5 rounded text-[9px] text-text-muted font-medium border border-border/30"
-                    style={{ backgroundColor: `${nodeColor}08` }}
+                    style={{ backgroundColor: `${nodeColor}12` }}
                   >
                     {item.label}
                   </span>
@@ -192,7 +192,7 @@ export function SitemapGridCard({
           <div className="mt-3">
             <div
               className="rounded-lg border border-dashed p-2.5"
-              style={{ borderColor: `${nodeColor}30` }}
+              style={{ borderColor: `${nodeColor}40` }}
             >
               <div className="flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5" style={{ color: nodeColor }} />

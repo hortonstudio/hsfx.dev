@@ -34,11 +34,11 @@ export function SitemapTemplateCard({
       {/* Stacked-card effect: offset shadows behind */}
       <div
         className="absolute inset-0 rounded-xl border border-border/20 bg-surface/30 translate-x-1 translate-y-1"
-        style={{ borderColor: `${nodeColor}15` }}
+        style={{ borderColor: `${nodeColor}22` }}
       />
       <div
         className="absolute inset-0 rounded-xl border border-border/10 bg-surface/15 translate-x-2 translate-y-2"
-        style={{ borderColor: `${nodeColor}10` }}
+        style={{ borderColor: `${nodeColor}18` }}
       />
 
       {/* Main card */}
@@ -56,7 +56,7 @@ export function SitemapTemplateCard({
           }
         `}
         onMouseEnter={(e) => {
-          if (!selected) e.currentTarget.style.boxShadow = `0 4px 20px ${nodeColor}15, 0 2px 8px ${nodeColor}10`;
+          if (!selected) e.currentTarget.style.boxShadow = `0 4px 20px ${nodeColor}25, 0 2px 8px ${nodeColor}18`;
         }}
         onMouseLeave={(e) => {
           if (!selected) e.currentTarget.style.boxShadow = "";
@@ -66,7 +66,7 @@ export function SitemapTemplateCard({
         <div
           className="h-[3px] rounded-t-xl"
           style={{
-            backgroundImage: `repeating-linear-gradient(90deg, ${nodeColor} 0px, ${nodeColor}90 6px, transparent 6px, transparent 10px)`,
+            backgroundImage: `repeating-linear-gradient(90deg, ${nodeColor} 0px, ${nodeColor}c0 6px, transparent 6px, transparent 10px)`,
           }}
         />
 
@@ -117,7 +117,7 @@ export function SitemapTemplateCard({
                     <span
                       key={item.path}
                       className="inline-flex items-center px-2 py-0.5 rounded text-[9px] text-text-muted font-medium border border-border/30"
-                      style={{ backgroundColor: `${nodeColor}08` }}
+                      style={{ backgroundColor: `${nodeColor}12` }}
                     >
                       {item.label}
                     </span>

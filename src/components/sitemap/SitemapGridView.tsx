@@ -36,10 +36,10 @@ const CANVAS_PAD = 80; // px-10 * 2
 
 /** Tier visual config */
 const TIER_STYLE = {
-  home: { color: "#3b82f6", gradientTo: "#818cf8", label: "Home" },
-  core: { color: "#7c3aed", gradientTo: "#a78bfa", label: "Core Pages" },
-  resources: { color: "#06b6d4", gradientTo: "#22d3ee", label: "Resources & More" },
-  legal: { color: "#f59e0b", gradientTo: "#fbbf24", label: "Legal & Other" },
+  home: { color: "#60a5fa", gradientTo: "#a5b4fc", label: "Home" },
+  core: { color: "#a78bfa", gradientTo: "#c4b5fd", label: "Core Pages" },
+  resources: { color: "#22d3ee", gradientTo: "#67e8f9", label: "Resources & More" },
+  legal: { color: "#fbbf24", gradientTo: "#fde68a", label: "Legal & Other" },
 } as const;
 
 export function SitemapGridView({
@@ -284,7 +284,7 @@ export function SitemapGridView({
     return (
       <section
         className="rounded-2xl border border-white/[0.04] p-6 pt-5"
-        style={{ backgroundColor: `${style.color}06` }}
+        style={{ backgroundColor: `${style.color}0a` }}
       >
         {/* Tier header */}
         <div className="flex items-center gap-3 mb-6">
@@ -308,7 +308,7 @@ export function SitemapGridView({
           )}
           <div
             className="flex-1 h-px"
-            style={{ background: `linear-gradient(to right, ${style.color}30, transparent)` }}
+            style={{ background: `linear-gradient(to right, ${style.color}40, transparent)` }}
           />
         </div>
 
@@ -363,7 +363,7 @@ export function SitemapGridView({
     return (
       <section
         className="rounded-2xl border border-white/[0.04] p-6 pt-5"
-        style={{ backgroundColor: `${style.color}06` }}
+        style={{ backgroundColor: `${style.color}0a` }}
       >
         <div className="flex items-center gap-3 mb-6">
           <div
@@ -384,7 +384,7 @@ export function SitemapGridView({
           </span>
           <div
             className="flex-1 h-px"
-            style={{ background: `linear-gradient(to right, ${style.color}30, transparent)` }}
+            style={{ background: `linear-gradient(to right, ${style.color}40, transparent)` }}
           />
         </div>
         <div className="flex justify-center gap-6">
