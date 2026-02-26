@@ -27,6 +27,13 @@ const STATUS_COLORS: Record<SitemapPageStatus, string> = {
   deferred: "#6366f1",
 };
 
+const STATUS_LABELS: Record<SitemapPageStatus, string> = {
+  planned: "Planned",
+  in_progress: "In Progress",
+  complete: "Complete",
+  deferred: "On Hold",
+};
+
 const TYPE_ICONS: Record<SitemapPageType, React.ComponentType<{ className?: string }>> = {
   home: House,
   static: FileText,
@@ -84,29 +91,32 @@ export function SitemapGridCard({
         group w-full text-left rounded-xl border
         transition-all duration-200 ease-out relative
         ${selected
-          ? "border-accent shadow-glow-sm ring-1 ring-accent/20 bg-surface"
-          : "border-border hover:border-border-hover bg-surface"
+          ? "shadow-glow-sm ring-1 ring-accent/20"
+          : ""
         }
       `}
-      style={!selected ? { ["--glow-color" as string]: nodeColor } : undefined}
+      style={{
+        backgroundColor: selected ? `${nodeColor}22` : `${nodeColor}18`,
+        borderColor: selected ? "var(--color-accent)" : `${nodeColor}35`,
+      }}
       onMouseEnter={(e) => {
-        if (!selected) e.currentTarget.style.boxShadow = `0 4px 20px ${nodeColor}25, 0 2px 8px ${nodeColor}18`;
+        if (!selected) {
+          e.currentTarget.style.borderColor = `${nodeColor}50`;
+          e.currentTarget.style.boxShadow = `0 4px 24px ${nodeColor}30, 0 2px 8px ${nodeColor}20`;
+        }
       }}
       onMouseLeave={(e) => {
-        if (!selected) e.currentTarget.style.boxShadow = "";
+        if (!selected) {
+          e.currentTarget.style.borderColor = `${nodeColor}35`;
+          e.currentTarget.style.boxShadow = "";
+        }
       }}
     >
-      {/* Top accent bar — gradient */}
-      <div
-        className="h-[3px] rounded-t-xl"
-        style={{ background: `linear-gradient(90deg, ${nodeColor}, ${nodeColor}c0, ${nodeColor}60)` }}
-      />
-
       <div className="p-4">
         {/* Header row */}
-        <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center justify-between mb-2">
           <span
-            className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider"
+            className="inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-wide"
             style={{ color: nodeColor }}
           >
             <TypeIcon className="w-3.5 h-3.5" />
@@ -114,23 +124,23 @@ export function SitemapGridCard({
           </span>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: statusColor }} />
-            <span className="text-[10px] text-text-muted font-medium capitalize">
-              {(data.status || "planned").replace("_", " ")}
+            <span className="text-[10px] text-text-muted font-medium">
+              {STATUS_LABELS[data.status] ?? "Planned"}
             </span>
           </div>
         </div>
 
         {/* Title + path */}
-        <h3 className="text-sm font-semibold text-text-primary leading-snug truncate">
+        <h3 className="text-[15px] font-semibold text-text-primary leading-snug truncate">
           {data.label}
         </h3>
-        <p className="text-[11px] text-text-muted font-mono truncate mt-0.5">
+        <p className="text-[11px] text-text-dim truncate mt-0.5">
           {data.path}
         </p>
 
         {/* Description */}
         {data.description && (
-          <p className="text-[11px] text-text-muted/80 leading-relaxed mt-2 line-clamp-2">
+          <p className="text-xs text-text-muted leading-relaxed mt-2.5 line-clamp-2">
             {data.description}
           </p>
         )}
@@ -143,11 +153,11 @@ export function SitemapGridCard({
         {/* Collection: CMS items */}
         {isCollection && collectionItems.length > 0 && (
           <div className="mt-3">
-            <div className="rounded-lg border border-border/40 bg-background/30 p-2.5">
+            <div className="rounded-lg border border-black/10 bg-black/15 p-2.5">
               <div className="flex items-center gap-1.5 mb-2">
                 <Layers className="w-3.5 h-3.5" style={{ color: nodeColor }} />
                 <span className="text-[10px] font-semibold text-text-muted">
-                  {collectionItems.length} {collectionItems.length === 1 ? "Item" : "Items"}
+                  {collectionItems.length} {collectionItems.length === 1 ? "Page" : "Pages"}
                 </span>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -197,7 +207,7 @@ export function SitemapGridCard({
               <div className="flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5" style={{ color: nodeColor }} />
                 <span className="text-[10px] font-semibold text-text-muted">
-                  CMS Template
+                  Dynamic Pages
                 </span>
                 {data.estimatedItems != null && (
                   <span className="text-[10px] text-text-dim ml-auto">
@@ -228,7 +238,7 @@ export function SitemapGridCard({
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); onAddChild(node.id); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onAddChild(node.id); } }}
-                className="p-1 rounded-md text-text-dim hover:text-text-primary hover:bg-background/60 transition-colors"
+                className="p-1 rounded-md text-text-dim hover:text-text-primary hover:bg-black/30 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
               </span>
@@ -241,7 +251,7 @@ export function SitemapGridCard({
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); onDuplicate(node.id); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onDuplicate(node.id); } }}
-                className="p-1 rounded-md text-text-dim hover:text-text-primary hover:bg-background/60 transition-colors"
+                className="p-1 rounded-md text-text-dim hover:text-text-primary hover:bg-black/30 transition-colors"
               >
                 <Copy className="w-3.5 h-3.5" />
               </span>
@@ -254,7 +264,7 @@ export function SitemapGridCard({
                 tabIndex={0}
                 onClick={(e) => { e.stopPropagation(); onDelete(node.id); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onDelete(node.id); } }}
-                className="p-1 rounded-md text-text-dim hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                className="p-1 rounded-md text-text-dim hover:text-red-400 hover:bg-red-500/15 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </span>
