@@ -109,6 +109,11 @@ export function GenerateOnboardModal({
   const [error, setError] = useState<string | null>(null);
   const [autoFilled, setAutoFilled] = useState(false);
 
+  // Manual AI flow state
+  const [copyingPrompt, setCopyingPrompt] = useState(false);
+  const [manualResponse, setManualResponse] = useState("");
+  const [showPaste, setShowPaste] = useState(false);
+
   // Fetch existing slugs when modal opens for deduplication
   const [existingSlugs, setExistingSlugs] = useState<string[]>([]);
 
@@ -129,6 +134,9 @@ export function GenerateOnboardModal({
     setSaving(false);
     setError(null);
     setAutoFilled(false);
+    setCopyingPrompt(false);
+    setManualResponse("");
+    setShowPaste(false);
   }, [open, client]);
 
   useEffect(() => {
@@ -191,6 +199,47 @@ export function GenerateOnboardModal({
     });
   }, []);
 
+  // Build shared payload for analyze endpoint
+  function buildPayload() {
+    const payload: Record<string, unknown> = {
+      url: analyzeUrl.trim() || `https://${slugify(businessName)}.com`,
+      niche,
+    };
+    if (compiledKB) payload.knowledgeBase = compiledKB;
+    if (analyzeNotes.trim()) payload.notes = analyzeNotes.trim();
+    if (screenshots.length > 0) payload.screenshots = screenshots.map((s) => s.dataUrl);
+    return payload;
+  }
+
+  // Copy prompt handler
+  async function handleCopyPrompt() {
+    setCopyingPrompt(true);
+    setAnalyzeError(null);
+    try {
+      const payload = buildPayload();
+      payload.returnPromptOnly = true;
+
+      const res = await fetch("/api/onboard/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to build prompt");
+      }
+
+      const { prompt } = await res.json();
+      await navigator.clipboard.writeText(prompt);
+      setShowPaste(true);
+    } catch (err) {
+      setAnalyzeError(err instanceof Error ? err.message : "Failed to copy prompt");
+    } finally {
+      setCopyingPrompt(false);
+    }
+  }
+
   // Generate with AI handler
   async function handleGenerate() {
     setAnalyzeError(null);
@@ -198,21 +247,9 @@ export function GenerateOnboardModal({
     setAnalyzing(true);
 
     try {
-      const payload: Record<string, unknown> = {
-        url: analyzeUrl.trim() || `https://${slugify(businessName)}.com`,
-        niche,
-      };
-
-      if (compiledKB) {
-        payload.knowledgeBase = compiledKB;
-      }
-
-      if (analyzeNotes.trim()) {
-        payload.notes = analyzeNotes.trim();
-      }
-
-      if (screenshots.length > 0) {
-        payload.screenshots = screenshots.map((s) => s.dataUrl);
+      const payload = buildPayload();
+      if (manualResponse.trim()) {
+        payload.manualResponse = manualResponse.trim();
       }
 
       const res = await fetch("/api/onboard/analyze", {
@@ -561,36 +598,55 @@ export function GenerateOnboardModal({
             </div>
           </div>
 
-          {/* Generate button */}
-          <Button
-            onClick={handleGenerate}
-            disabled={analyzing}
-            className="w-full"
-          >
-            {analyzing ? (
-              <span className="flex items-center gap-2">
-                <Spinner size="sm" />
-                Generating with AI...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-                Generate with AI
-              </span>
+          {/* Manual AI Flow */}
+          <div className="space-y-2 pt-1">
+            <p className="text-[11px] text-text-muted">
+              Copy the prompt, paste into Claude chat, then paste the response back.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCopyPrompt}
+                disabled={copyingPrompt || analyzing}
+                className="flex-1"
+              >
+                {copyingPrompt ? (
+                  <span className="flex items-center gap-2">
+                    <Spinner size="sm" />
+                    Building...
+                  </span>
+                ) : (
+                  "Step 1: Copy Prompt"
+                )}
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleGenerate}
+                disabled={analyzing || (showPaste && !manualResponse.trim())}
+                className="flex-1"
+              >
+                {analyzing ? (
+                  <span className="flex items-center gap-2">
+                    <Spinner size="sm" />
+                    Processing...
+                  </span>
+                ) : (
+                  "Step 3: Process Response"
+                )}
+              </Button>
+            </div>
+
+            {showPaste && (
+              <textarea
+                value={manualResponse}
+                onChange={(e) => setManualResponse(e.target.value)}
+                disabled={analyzing}
+                placeholder="Step 2: Paste the JSON response from Claude here..."
+                className="w-full min-h-[80px] bg-background border border-border rounded-lg px-3 py-2 text-text-primary placeholder:text-text-dim focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none transition-colors font-mono text-sm resize-y"
+              />
             )}
-          </Button>
+          </div>
 
           {analyzeError && (
             <p className="text-xs text-red-400">{analyzeError}</p>

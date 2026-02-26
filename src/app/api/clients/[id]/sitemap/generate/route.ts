@@ -146,22 +146,15 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json(
-      { error: "Claude API not configured. Add ANTHROPIC_API_KEY to environment." },
-      { status: 503 }
-    );
-  }
-
   // Parse request body
-  let body: { packageTier: 1 | 2 | 3; customPrompt?: string; importJson?: string; niche?: string };
+  let body: { packageTier: 1 | 2 | 3; customPrompt?: string; importJson?: string; niche?: string; manualResponse?: string; returnPromptOnly?: boolean };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { packageTier, customPrompt, importJson, niche } = body;
+  const { packageTier, customPrompt, importJson, niche, manualResponse, returnPromptOnly } = body;
 
   if (![1, 2, 3].includes(packageTier)) {
     return NextResponse.json({ error: "Invalid package tier" }, { status: 400 });
@@ -232,42 +225,63 @@ ${kbDoc.content}`;
 
   userMessage += `\n\nGenerate the complete sitemap as a JSON array of page objects for Package ${packageTier}.`;
 
-  // Call Claude
-  const anthropic = new Anthropic();
-  let response;
-  try {
-    response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 8192,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
+  // Return prompt only (for copy-to-clipboard manual flow)
+  if (returnPromptOnly) {
+    return NextResponse.json({
+      prompt: `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== USER MESSAGE ===\n${userMessage}`,
     });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error("[sitemap/generate] Claude API error:", msg);
-    return NextResponse.json(
-      { error: `AI generation failed: ${msg}` },
-      { status: 502 }
-    );
   }
 
-  // Log usage
-  const usage = response.usage;
-  console.log(
-    `[sitemap/generate] Client: ${id} | Pkg: ${packageTier} | Input: ${usage.input_tokens} | Output: ${usage.output_tokens} | Total: ${usage.input_tokens + usage.output_tokens} tokens`
-  );
+  let rawText: string;
+  let usage = { input_tokens: 0, output_tokens: 0 };
 
-  // Extract text
-  const textBlock = response.content.find((c) => c.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    return NextResponse.json(
-      { error: "No text response from Claude" },
-      { status: 500 }
+  if (manualResponse) {
+    // Manual mode — use pasted AI response, skip Claude API call
+    rawText = manualResponse.trim();
+  } else {
+    // API mode — call Claude
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { error: "Claude API not configured. Use manual mode (Copy Prompt → Paste Response) or add ANTHROPIC_API_KEY." },
+        { status: 503 }
+      );
+    }
+
+    const anthropic = new Anthropic();
+    let response;
+    try {
+      response = await anthropic.messages.create({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 8192,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      console.error("[sitemap/generate] Claude API error:", msg);
+      return NextResponse.json(
+        { error: `AI generation failed: ${msg}` },
+        { status: 502 }
+      );
+    }
+
+    usage = response.usage;
+    console.log(
+      `[sitemap/generate] Client: ${id} | Pkg: ${packageTier} | Input: ${usage.input_tokens} | Output: ${usage.output_tokens} | Total: ${usage.input_tokens + usage.output_tokens} tokens`
     );
+
+    const textBlock = response.content.find((c) => c.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      return NextResponse.json(
+        { error: "No text response from Claude" },
+        { status: 500 }
+      );
+    }
+
+    rawText = textBlock.text.trim();
   }
 
   // Parse JSON (strip markdown code fences if present)
-  let rawText = textBlock.text.trim();
   if (rawText.startsWith("```")) {
     rawText = rawText.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
   }

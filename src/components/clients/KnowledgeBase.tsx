@@ -337,6 +337,9 @@ export function KnowledgeBase({
   // ──────────────────────────────────────────────────
 
   const [copyingPrompt, setCopyingPrompt] = useState(false);
+  const [showPasteResponse, setShowPasteResponse] = useState(false);
+  const [pasteContent, setPasteContent] = useState("");
+  const [savingPaste, setSavingPaste] = useState(false);
 
   async function handleCopyAIPrompt() {
     setCopyingPrompt(true);
@@ -350,6 +353,7 @@ export function KnowledgeBase({
 
       await navigator.clipboard.writeText(fullPrompt);
       addToast({ variant: "success", title: "AI prompt copied to clipboard" });
+      setShowPasteResponse(true);
     } catch (err) {
       addToast({
         variant: "error",
@@ -358,6 +362,47 @@ export function KnowledgeBase({
       });
     } finally {
       setCopyingPrompt(false);
+    }
+  }
+
+  async function handlePasteResponse() {
+    if (!pasteContent.trim()) return;
+    setSavingPaste(true);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/knowledge/compile`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: pasteContent.trim() }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to save");
+      }
+
+      setLocalCompiledDoc({
+        id: localCompiledDoc?.id ?? "",
+        client_id: clientId,
+        content: pasteContent.trim(),
+        last_compiled_at: new Date().toISOString(),
+        entry_ids_included: entries.map((e) => e.id),
+        metadata: { source: "manual" },
+        created_at: localCompiledDoc?.created_at ?? new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      addToast({ variant: "success", title: "Knowledge base saved from paste" });
+      setPasteContent("");
+      setShowPasteResponse(false);
+      onDataChanged();
+    } catch (err) {
+      addToast({
+        variant: "error",
+        title: "Save failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setSavingPaste(false);
     }
   }
 
@@ -589,6 +634,53 @@ export function KnowledgeBase({
             </Button>
           </div>
         </div>
+
+        {/* Paste AI Response flow */}
+        {showPasteResponse && (
+          <div className="bg-surface border border-accent/20 rounded-xl p-4 space-y-3">
+            <h4 className="text-sm font-medium text-text-primary">
+              Paste AI Response
+            </h4>
+            <p className="text-[11px] text-text-muted">
+              Paste the compiled knowledge base markdown from Claude here.
+            </p>
+            <textarea
+              value={pasteContent}
+              onChange={(e) => setPasteContent(e.target.value)}
+              disabled={savingPaste}
+              placeholder="Paste the compiled markdown response from Claude..."
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-text-primary text-sm placeholder:text-text-dim resize-none focus:outline-none focus:ring-1 focus:ring-accent/50"
+              rows={6}
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setShowPasteResponse(false);
+                  setPasteContent("");
+                }}
+                disabled={savingPaste}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handlePasteResponse}
+                disabled={savingPaste || !pasteContent.trim()}
+              >
+                {savingPaste ? (
+                  <>
+                    <Spinner size="sm" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Compiled Doc"
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {compiling && (
           <div className="bg-surface border border-border rounded-xl p-8 flex items-center justify-center gap-3">

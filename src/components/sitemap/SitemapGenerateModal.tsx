@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, X, ChevronRight } from "lucide-react";
+import { Sparkles, X, ChevronRight, Copy, ClipboardPaste } from "lucide-react";
 import { Button, Badge, Spinner, useToast } from "@/components/ui";
 import { PACKAGE_INFO } from "@/lib/clients/sitemap-templates";
 import { NICHE_OPTIONS, type BusinessNiche } from "@/lib/onboard/niche-prompts";
@@ -25,6 +25,44 @@ export function SitemapGenerateModal({
   const [importJson, setImportJson] = useState("");
   const [showImport, setShowImport] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [copyingPrompt, setCopyingPrompt] = useState(false);
+  const [manualResponse, setManualResponse] = useState("");
+  const [showPaste, setShowPaste] = useState(false);
+
+  async function handleCopyPrompt() {
+    setCopyingPrompt(true);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/sitemap/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packageTier: selectedTier,
+          niche: niche !== "other" ? niche : undefined,
+          customPrompt: customPrompt.trim() || undefined,
+          importJson: importJson.trim() || undefined,
+          returnPromptOnly: true,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to build prompt");
+      }
+
+      const { prompt } = await res.json();
+      await navigator.clipboard.writeText(prompt);
+      addToast({ variant: "success", title: "Prompt copied to clipboard" });
+      setShowPaste(true);
+    } catch (err) {
+      addToast({
+        variant: "error",
+        title: "Failed to copy prompt",
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setCopyingPrompt(false);
+    }
+  }
 
   async function handleGenerate() {
     setGenerating(true);
@@ -37,6 +75,7 @@ export function SitemapGenerateModal({
           niche: niche !== "other" ? niche : undefined,
           customPrompt: customPrompt.trim() || undefined,
           importJson: importJson.trim() || undefined,
+          manualResponse: manualResponse.trim() || undefined,
         }),
       });
 
@@ -186,22 +225,77 @@ export function SitemapGenerateModal({
               </div>
             )}
           </div>
+
+          {/* Manual AI Flow */}
+          <div className="p-4 bg-accent/5 border border-accent/20 rounded-xl space-y-3">
+            <h3 className="text-sm font-medium text-text-primary flex items-center gap-2">
+              <Copy className="w-4 h-4 text-accent" />
+              Manual AI Flow
+            </h3>
+            <p className="text-[11px] text-text-muted">
+              Copy the prompt, paste into Claude chat, then paste the response back here.
+            </p>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCopyPrompt}
+              disabled={copyingPrompt || generating}
+              className="w-full justify-center"
+            >
+              {copyingPrompt ? (
+                <>
+                  <Spinner size="sm" className="mr-1.5" />
+                  Building prompt...
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 mr-1.5" />
+                  Step 1: Copy Prompt
+                </>
+              )}
+            </Button>
+
+            {showPaste && (
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-text-muted">
+                  Step 2: Paste AI Response
+                </label>
+                <textarea
+                  value={manualResponse}
+                  onChange={(e) => setManualResponse(e.target.value)}
+                  disabled={generating}
+                  placeholder="Paste the JSON array response from Claude here..."
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-text-primary text-sm font-mono placeholder:text-text-dim resize-none focus:outline-none focus:ring-1 focus:ring-accent/50"
+                  rows={5}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-border">
           <p className="text-xs text-text-dim">
-            Uses compiled Knowledge Base + Claude Sonnet
+            Uses compiled Knowledge Base
           </p>
           <div className="flex items-center gap-2">
             <Button variant="ghost" onClick={onClose} disabled={generating}>
               Cancel
             </Button>
-            <Button onClick={handleGenerate} disabled={generating}>
+            <Button
+              onClick={handleGenerate}
+              disabled={generating || (showPaste && !manualResponse.trim())}
+            >
               {generating ? (
                 <>
                   <Spinner size="sm" className="mr-1.5" />
-                  Generating...
+                  Processing...
+                </>
+              ) : manualResponse.trim() ? (
+                <>
+                  <ClipboardPaste className="w-4 h-4 mr-1.5" />
+                  Process Response
                 </>
               ) : (
                 <>

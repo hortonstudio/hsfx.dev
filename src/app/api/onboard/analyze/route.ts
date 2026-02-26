@@ -41,6 +41,8 @@ interface AnalyzeBody {
   niche?: BusinessNiche;
   screenshots?: string[];
   knowledgeBase?: string;
+  manualResponse?: string;
+  returnPromptOnly?: boolean;
 }
 
 // POST: Scrape site + generate config via Claude
@@ -55,13 +57,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json(
-      { error: "Claude API not configured. Add ANTHROPIC_API_KEY to environment." },
-      { status: 503 }
-    );
-  }
-
   let body: AnalyzeBody;
   try {
     body = await request.json();
@@ -69,7 +64,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { url, notes, niche, screenshots, knowledgeBase } = body;
+  const { url, notes, niche, screenshots, knowledgeBase, manualResponse, returnPromptOnly } = body;
   if (!url) {
     return NextResponse.json({ error: "Missing url" }, { status: 400 });
   }
@@ -228,37 +223,65 @@ Using the scraped data above${notes ? " and the designer's notes" : ""}, generat
   // Build system prompt with niche addendum
   const systemPrompt = buildSystemPrompt(promptData.value, niche ?? "other");
 
-  // Call Claude Sonnet 4.5
-  const anthropic = new Anthropic();
-
-  let response;
-  try {
-    response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userContent }],
+  // Return prompt only (for copy-to-clipboard manual flow)
+  if (returnPromptOnly) {
+    return NextResponse.json({
+      prompt: `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== USER MESSAGE ===\n${userMessage}`,
     });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error("Claude API error:", msg);
-    return NextResponse.json(
-      { error: `AI generation failed: ${msg}` },
-      { status: 502 }
-    );
   }
 
-  // Extract text from response
-  const textBlock = response.content.find((c) => c.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    return NextResponse.json(
-      { error: "No text response from Claude" },
-      { status: 500 }
+  let jsonText: string;
+  let usage = { input_tokens: 0, output_tokens: 0 };
+
+  if (manualResponse) {
+    // Manual mode — use pasted AI response, skip Claude API call
+    jsonText = manualResponse.trim();
+  } else {
+    // API mode — call Claude
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { error: "Claude API not configured. Use manual mode (Copy Prompt → Paste Response) or add ANTHROPIC_API_KEY." },
+        { status: 503 }
+      );
+    }
+
+    const anthropic = new Anthropic();
+
+    let response;
+    try {
+      response = await anthropic.messages.create({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userContent }],
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      console.error("Claude API error:", msg);
+      return NextResponse.json(
+        { error: `AI generation failed: ${msg}` },
+        { status: 502 }
+      );
+    }
+
+    // Extract text from response
+    const textBlock = response.content.find((c) => c.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      return NextResponse.json(
+        { error: "No text response from Claude" },
+        { status: 500 }
+      );
+    }
+
+    usage = response.usage;
+    jsonText = textBlock.text.trim();
+
+    console.log(
+      `[onboard/analyze] URL: ${url} | Niche: ${niche ?? "other"} | Screenshots: ${validScreenshots.length} | Input: ${usage.input_tokens} | Output: ${usage.output_tokens} | Total: ${usage.input_tokens + usage.output_tokens} tokens`
     );
   }
 
   // Parse JSON (handle optional code block wrapping)
-  let jsonText = textBlock.text.trim();
   const codeBlockMatch = jsonText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
   if (codeBlockMatch) {
     jsonText = codeBlockMatch[1].trim();
@@ -268,9 +291,9 @@ Using the scraped data above${notes ? " and the designer's notes" : ""}, generat
   try {
     generatedConfig = JSON.parse(jsonText);
   } catch {
-    console.error("Failed to parse Claude response:", jsonText.slice(0, 500));
+    console.error("Failed to parse response:", jsonText.slice(0, 500));
     return NextResponse.json(
-      { error: "AI returned invalid JSON. Try again or use manual flow." },
+      { error: "Invalid JSON in response. Check the AI output and try again." },
       { status: 500 }
     );
   }
@@ -283,16 +306,10 @@ Using the scraped data above${notes ? " and the designer's notes" : ""}, generat
     !generatedConfig.config?.questions?.length
   ) {
     return NextResponse.json(
-      { error: "AI response missing required fields. Try again or use manual flow." },
+      { error: "Response missing required fields (client_slug, client_name, business_name, config.questions)." },
       { status: 500 }
     );
   }
-
-  // Log usage for cost monitoring
-  const usage = response.usage;
-  console.log(
-    `[onboard/analyze] URL: ${url} | Niche: ${niche ?? "other"} | Screenshots: ${validScreenshots.length} | Input: ${usage.input_tokens} | Output: ${usage.output_tokens} | Total: ${usage.input_tokens + usage.output_tokens} tokens`
-  );
 
   return NextResponse.json({
     success: true,
