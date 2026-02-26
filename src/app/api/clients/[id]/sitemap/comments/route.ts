@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/clients/[id]/sitemap/comments — list comments for client's sitemap (authenticated)
 export async function GET(
   _request: NextRequest,
