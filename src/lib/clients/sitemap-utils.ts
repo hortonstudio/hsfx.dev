@@ -263,12 +263,12 @@ export const PAGE_TYPE_CONFIG: Record<
   SitemapPageType,
   { label: string; color: string; icon: string }
 > = {
-  home: { label: "Home", color: "#60a5fa", icon: "House" },
+  home: { label: "Homepage", color: "#818cf8", icon: "House" },
   static: { label: "Page", color: "#a78bfa", icon: "FileText" },
-  collection: { label: "Page Template", color: "#34d399", icon: "Database" },
-  collection_item: { label: "Planned Page", color: "#6ee7b7", icon: "File" },
-  utility: { label: "Legal & Other", color: "#fbbf24", icon: "Settings" },
-  external: { label: "External", color: "#c084fc", icon: "ExternalLink" },
+  collection: { label: "Template", color: "#2dd4bf", icon: "Database" },
+  collection_item: { label: "Content Page", color: "#4ade80", icon: "File" },
+  utility: { label: "Legal & Other", color: "#fb923c", icon: "Settings" },
+  external: { label: "External Link", color: "#f472b6", icon: "ExternalLink" },
 };
 
 /** Keywords that identify resource/secondary pages (vs core business pages) */
