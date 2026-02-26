@@ -9,11 +9,12 @@ npm run lint    # ESLint
 
 ## Required Reading
 Before making changes, read the relevant docs:
-- `docs/architecture.md` - App structure, routes, DB tables, env vars
+- `docs/architecture.md` - App structure, routes, DB tables, env vars, tools inventory
 - `docs/ui-system.md` - Design tokens, component API, UI gotchas
-- `docs/client-suite.md` - Client flow, KB, mockup generation, onboarding
+- `docs/client-suite.md` - Client flow (5 tabs), KB, mockup, onboarding, sitemap overview
+- `docs/sitemap-system.md` - Sitemap editor architecture, grid view, AI generation, comments, roadmap
 - `docs/webflow-integration.md` - CMS fields, variant values, push flow
-- `docs/patterns-and-gotchas.md` - Lenis scroll, z-index, Radix patterns, common pitfalls
+- `docs/patterns-and-gotchas.md` - Lenis scroll, z-index, Radix patterns, sitemap gotchas, common pitfalls
 
 ## Critical Rules
 
@@ -62,5 +63,14 @@ Next.js 14 params are async: `const { id } = await params;`
 - Server/API: `createClient()` from `@/lib/supabase/server`
 - Admin (bypass RLS): `createAdminClient()` from `@/lib/supabase/admin`
 
+### Sitemap Editor
+The sitemap uses a custom 3-tier grid layout (not React Flow canvas). Key rules:
+- Auto-save debounces at 3s — always save on close if `dirtyRef.current` is true
+- Collection items embed into parent cards via `collapseCollectionItems()` (display-only)
+- AI output goes through `validateAndCleanAINodes()` — never skip validation
+- Default zoom is `0.65` — preserve this for full sitemap visibility on load
+- Grid view and public viewer share `SitemapGridView` — gate editor features with `readOnly` prop
+- Page type colors are Tailwind 400-level for dark background contrast
+
 ## Stack
-Next.js 14 (App Router), React 18, TypeScript, Supabase, Tailwind CSS, Radix UI, Framer Motion, Lenis, Claude AI (Haiku 4.5), Webflow CMS API v2
+Next.js 14 (App Router), React 18, TypeScript, Supabase, Tailwind CSS, Radix UI, Framer Motion, GSAP + ScrollTrigger, Lenis, Claude AI (Sonnet 4.5 for generation, Haiku 4.5 for KB), Webflow CMS API v2

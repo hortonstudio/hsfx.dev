@@ -1,14 +1,16 @@
 # Sitemap System Reference
 
-> AI-powered sitemap planning tool with visual canvas editor, structural tree view, public sharing, client commenting, and approval workflows.
+> AI-powered sitemap planning tool with 3-tier visual grid editor, structural tree view, public sharing, and client commenting.
 
 ## Architecture Overview
 
-The sitemap system is a React Flow-based visual editor integrated into the client dashboard. It provides:
-- **AI-powered generation** via Claude Sonnet with niche-specific prompts
-- **Dual-view editing** (canvas + structural tree)
-- **Public sharing** with commenting and approval
-- **Custom colors, tag-style sections, SEO fields, export**
+The sitemap system is a custom grid-based visual editor integrated into the client dashboard (Sitemap tab). It provides:
+- **AI-powered generation** via Claude Sonnet with niche-specific prompts and package tier templates
+- **3-tier visual grid layout** — Home → Core Pages → Resources → Legal
+- **Dual-view editing** (grid canvas + structural tree)
+- **Public sharing** at `/sitemap/[slug]` with commenting
+- **Custom colors, section wireframes, SEO fields, collection item nesting, export**
+- **Auto-save** with 3-second debounce + manual Cmd+S
 
 ---
 
@@ -19,14 +21,18 @@ The sitemap system is a React Flow-based visual editor integrated into the clien
 | File | Purpose |
 |------|---------|
 | `SitemapTab.tsx` | Entry point — shows sitemap status, templates, triggers editor/generate |
-| `SitemapEditor.tsx` | Main canvas editor with React Flow, auto-save, keyboard shortcuts |
+| `SitemapEditor.tsx` | Main editor orchestrator — auto-save, keyboard shortcuts, state management |
+| `SitemapGridView.tsx` | Grid canvas — 3-tier layout, zoom/pan, dot grid background, dynamic width |
+| `SitemapGridCard.tsx` | Individual page card — type badge, sections wireframe, collection items, comments |
 | `SitemapNode.tsx` | React Flow node renderer (card with type, status, sections, color) |
-| `SitemapSidebarTabs.tsx` | Tabbed right panel (Details + Comments) — wraps SitemapSidebarDetails |
+| `SitemapSidebarTabs.tsx` | Tabbed right panel (Details + Comments) with backdrop blur |
 | `SitemapSidebarDetails.tsx` | Detail form — edit label, path, type, status, color, sections, SEO |
+| `SitemapSidebar.tsx` | Sidebar wrapper (WIP — untracked) |
 | `SitemapNodeComments.tsx` | Node-scoped comment thread for sidebar Comments tab |
 | `SitemapTemplateCard.tsx` | Template card with stacked-card visual for collection pages |
+| `SectionWireframe.tsx` | Visual section wireframe stack rendered inside cards |
 | `SectionCommentPopover.tsx` | Inline popover for section-level comments on wireframe rows |
-| `SitemapToolbar.tsx` | Top bar — view toggle, zoom, save status, export, share, close |
+| `SitemapToolbar.tsx` | Top bar — save, add page, export, share, close |
 | `SitemapStructuralView.tsx` | Tree view — search/filter, expand/collapse, stats, inline actions |
 | `SitemapLegend.tsx` | Collapsible legend showing page type and status colors |
 | `SitemapShareModal.tsx` | Share settings — public toggle, comments toggle, slug |
@@ -136,16 +142,87 @@ User edits → onChange handlers → scheduleSave() (3s debounce)
 
 ---
 
+## Grid View Architecture
+
+The primary editor view is a custom 3-tier grid layout (`SitemapGridView.tsx`), not a free-form React Flow canvas.
+
+### Component Hierarchy
+```
+SitemapEditor (root — fullscreen overlay)
+├── SitemapToolbar (top bar: title, save status, export, share, close)
+├── SitemapGridView (main canvas: zoom/pan, grid cards, tier headers)
+│   ├── Tier Sections (Home → Core → Resources → Legal)
+│   │   └── SitemapGridCard (per-page card)
+│   │       ├── Type badge + status indicator
+│   │       ├── SectionWireframe stack (visual section rows)
+│   │       ├── SectionCommentPopover (inline comments)
+│   │       └── Collection items list (collapsed, up to 8 visible)
+│   └── Zoom/Pan controls (mouse wheel, keyboard, touch)
+└── SitemapSidebarTabs (right panel when node selected)
+    ├── Details tab (edit label, path, type, status, sections, SEO, color)
+    └── Comments tab (node-scoped comment thread)
+```
+
+### 3-Tier Layout (`buildGridLayout`)
+Pages are sorted into tiers based on type and parent relationships:
+1. **Home** — The single home page
+2. **Core Pages** — Direct children of home: About, Services, Contact, etc.
+3. **Resources** — Deeper pages: Blog, Gallery, FAQ, Testimonials, etc.
+4. **Legal** — Utility pages: Privacy Policy, Terms of Service, etc.
+
+Each tier displays cards in a single horizontal row. Canvas width is computed dynamically from the widest tier (maxCols × 300px + gaps + padding).
+
+### Collection Collapse
+Collection items (e.g., individual service pages) are **embedded into their parent collection card** rather than rendered as separate nodes:
+- `collapseCollectionItems()` moves `collection_item` nodes into parent's `data.collectionItems[]`
+- Cards show up to 8 items inline with an expandable list
+- Reduces visual clutter while preserving the full hierarchy
+
+### Zoom & Pan
+- Default zoom: `0.65` (zoomed out to show full sitemap)
+- Range: `0.3` – `1.5`
+- Zoom toward cursor position
+- Pan clamped to prevent infinite scrolling
+- Touch support: two-finger zoom/pan
+- Dot grid background at 24px intervals
+
+### State Management
+```
+nodes, edges           — React state (mutable via handlers)
+selectedNodeId         — Current card selection
+dirtyRef.current       — Boolean — tracks unsaved changes
+saveTimeoutRef         — 3-second debounce timer
+comments[]             — Fetched, polled every 30s
+commentCounts Map      — Computed per-node from live comments
+```
+
+---
+
 ## Key Behaviors
 
 ### Editor Keyboard Shortcuts
 - `Cmd+S` / `Ctrl+S` — Manual save
 - `Delete` / `Backspace` — Delete selected node (not in input fields)
 
-### Page Type Colors
-- Home: `#3b82f6` (blue) | Static: `#64748b` (slate) | Collection: `#10b981` (green)
-- Collection Item: `#34d399` (emerald) | Utility: `#f59e0b` (amber) | External: `#8b5cf6` (violet)
-- Custom `color` field overrides type color everywhere (node, minimap, structural view)
+### Page Type Colors (brightened for dark background contrast)
+| Type | Color | Hex | Icon |
+|------|-------|-----|------|
+| `home` | Blue 400 | `#60a5fa` | House |
+| `static` | Violet 400 | `#a78bfa` | FileText |
+| `collection` | Emerald 400 | `#34d399` | Database |
+| `collection_item` | Emerald 300 | `#6ee7b7` | File |
+| `utility` | Amber 400 | `#fbbf24` | Settings |
+| `external` | Violet 500 | `#c084fc` | ExternalLink |
+
+Custom `color` field overrides type color everywhere (node card, structural view, minimap).
+
+### Tier Colors (grid section headers)
+| Tier | Color | Gradient To | Label |
+|------|-------|-------------|-------|
+| Home | `#60a5fa` | `#a5b4fc` | "Home" |
+| Core | `#a78bfa` | `#c4b5fd` | "Core Pages" |
+| Resources | `#22d3ee` | `#67e8f9` | "Resources & More" |
+| Legal | `#fbbf24` | `#fde68a` | "Legal & Other" |
 
 ### Validation (`validateAndCleanAINodes`)
 1. Deduplicates by id

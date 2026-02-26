@@ -1,7 +1,7 @@
 # Client Suite Reference
 
 ## Overview
-The client suite manages client relationships through four tabs: Overview, Knowledge Base, Onboarding, and Mockups. The core flow is: gather knowledge → compile with AI → generate mockup config → push to Webflow.
+The client suite manages client relationships through five tabs: Overview, Knowledge Base, Onboarding, Mockup, and Sitemap. The core flow is: gather knowledge → compile with AI → generate mockup config → push to Webflow. A parallel flow handles sitemap planning: generate sitemap with AI → edit in visual editor → share with client for feedback.
 
 ## Data Flow
 ```
@@ -12,6 +12,10 @@ Client Created
   → Config saved as "draft"
   → Push to Webflow CMS → status becomes "active"
   → Live at https://{domain}/mockup/{slug}
+
+  (Parallel) → Generate Sitemap with AI (uses KB + package tier + niche)
+  → Edit in visual grid editor (auto-saves every 3s)
+  → Share publicly → client comments → iterate
 ```
 
 ## Knowledge Base
@@ -140,8 +144,31 @@ Accepts optional body: `{ config?: MockupConfig, name?: string, slug?: string }`
 4. Submission saved with answers + file_urls
 5. Admin reviews in client detail page (Onboarding tab)
 
+## Sitemap System
+
+The sitemap tab provides AI-powered site structure planning with a visual grid editor. Full documentation in `docs/sitemap-system.md`.
+
+### Quick Reference
+- **Generation**: Claude Sonnet generates sitemap from KB + package tier + niche
+- **Editor**: 3-tier grid layout (Home → Core → Resources → Legal) with zoom/pan
+- **Auto-save**: 3-second debounce, Cmd+S for immediate save
+- **Sharing**: Public URL at `/sitemap/[slug]` with optional commenting
+- **Templates**: 3 package tiers with pre-built node structures
+- **Data**: Stored in `client_sitemaps` table as JSONB (nodes, edges, viewport)
+
+### Page Types
+| Type | Color | Use |
+|------|-------|-----|
+| `home` | Blue (#60a5fa) | Homepage (always root, exactly one) |
+| `static` | Violet (#a78bfa) | Standard pages (About, Contact, etc.) |
+| `collection` | Emerald (#34d399) | CMS collection hubs (Services, Blog) |
+| `collection_item` | Light emerald (#6ee7b7) | Individual CMS entries |
+| `utility` | Amber (#fbbf24) | Legal pages (Privacy, Terms) |
+| `external` | Purple (#c084fc) | External links |
+
 ## Client Page (src/app/clients/[id]/page.tsx)
-- Fetches all data in parallel on mount (client, KB entries, KB doc, onboard configs, submissions, mockup)
+- Fetches all data in parallel on mount (client, KB entries, KB doc, onboard configs, submissions, mockup, sitemap)
 - Uses controlled Tabs (value/onValueChange) to prevent tab reset on data refresh
+- Tab state synced with URL search params for browser navigation
 - `initialLoadDone` ref prevents loading spinner on background refetches
 - `fetchData()` called after mutations to refresh state silently

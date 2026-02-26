@@ -163,6 +163,34 @@ try {
 }
 ```
 
+## Sitemap System
+
+### Auto-Save Race Conditions
+The sitemap editor auto-saves on a 3-second debounce. If you modify nodes and immediately close the editor, you must call `saveToApi()` synchronously on close. The `dirtyRef.current` boolean tracks unsaved changes — check it before any close/navigation action.
+
+### Collection Item Embedding
+Collection items are collapsed into their parent's `data.collectionItems[]` array for display via `collapseCollectionItems()`. This means the grid view has **fewer nodes/edges** than what's stored in the DB. When saving, the full node set (including collection_item nodes) is persisted — the collapse is display-only.
+
+### Grid Layout vs React Flow
+The sitemap uses a **custom grid layout** (`SitemapGridView.tsx`), not React Flow's free-form canvas. Nodes are positioned by `buildGridLayout()` into 3 tiers. Don't add React Flow-specific features (edge routing, node dragging) to the grid view — they're separate rendering paths.
+
+### AI Validation Pipeline
+AI-generated sitemaps go through `validateAndCleanAINodes()` which:
+- Deduplicates by ID and path (adds `-2`, `-3` suffixes for collisions)
+- Ensures exactly 1 home page
+- Validates `pageType` values (invalid → "static")
+- Orphans broken `parentId` references to "home"
+- Validates sections against the `VALID_SECTIONS` catalog
+- Clamps `estimatedItems` to [1, 200]
+
+Never skip validation — Claude sometimes generates invalid hierarchies (e.g., collection_item without a collection parent).
+
+### Zoom Default
+Default zoom is `0.65` (zoomed out). When modifying zoom behavior, preserve this default so the full sitemap is visible on load without manual zooming.
+
+### Public Viewer vs Editor
+The public viewer at `/sitemap/[slug]` reuses `SitemapGridView` in read-only mode but adds its own header, comment panel, and node detail sidebar. Don't couple editor-only features (add/delete/edit) into the shared grid view component — use the `readOnly` prop to gate interactions.
+
 ## Code Style
 
 ### CSS Classes
