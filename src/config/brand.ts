@@ -20,6 +20,7 @@ export const brand = {
   dataPrefix: "hsfx",
   cssPrefix: "hsfx",
   logo: { light: "/logo-w.svg", dark: "/logo-b.svg" },
+  icon: { light: "/icon-w.svg", dark: "/icon-b.svg" },
   favicon: { small: "/favicon32x.png", large: "/favicon256x.png" },
   accentColor: "#0EA5E9",
 } as const;
