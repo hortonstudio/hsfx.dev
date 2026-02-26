@@ -39,6 +39,7 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef(false);
+  const dirtyRef = useRef(false);
 
   const selectedNode = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) : null;
 
@@ -128,6 +129,7 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
   }, [saveToApi, setNodes, setEdges]);
 
   useEffect(() => {
+    if (!dirtyRef.current) return;
     scheduleSave();
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -153,6 +155,7 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
 
   // ── Add page ───────────────────────────────────────────
   const handleAddPage = useCallback(() => {
+    dirtyRef.current = true;
     const newNode = createNode(
       { label: "New Page", path: "/new-page" },
       { x: 0, y: 0 }
@@ -169,6 +172,7 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
   // ── Update node data ──────────────────────────────────
   const handleUpdateNode = useCallback(
     (nodeId: string, updates: Partial<SitemapPageData>) => {
+      dirtyRef.current = true;
       setNodes((nds) =>
         nds.map((n) =>
           n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n
@@ -181,6 +185,7 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
   // ── Delete node ────────────────────────────────────────
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
+      dirtyRef.current = true;
       setNodes((nds) => nds.filter((n) => n.id !== nodeId));
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
       if (selectedNodeId === nodeId) setSelectedNodeId(null);
@@ -191,6 +196,7 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
   // ── Duplicate node ─────────────────────────────────────
   const handleDuplicateNode = useCallback(
     (nodeId: string) => {
+      dirtyRef.current = true;
       setNodes((currentNodes) => {
         const original = currentNodes.find((n) => n.id === nodeId);
         if (!original) return currentNodes;
@@ -221,6 +227,7 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
   // ── Add child ──────────────────────────────────────────
   const handleAddChild = useCallback(
     (parentId: string) => {
+      dirtyRef.current = true;
       setNodes((currentNodes) => {
         const parent = currentNodes.find((n) => n.id === parentId);
         const newNode = createNode(

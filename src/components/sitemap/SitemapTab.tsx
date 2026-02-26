@@ -28,6 +28,13 @@ export function SitemapTab({
   const [editorOpen, setEditorOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
 
+  // Sync local state when parent prop updates (e.g. after re-fetch)
+  useEffect(() => {
+    if (sitemap && !editorOpen) {
+      setLocalSitemap(sitemap);
+    }
+  }, [sitemap, editorOpen]);
+
   // Push history entry when editor opens so browser Back closes it
   const openEditor = useCallback(() => {
     window.history.pushState({ sitemapEditor: true }, "");

@@ -34,7 +34,9 @@ export async function GET(
     return NextResponse.json(null);
   }
 
-  return NextResponse.json(data);
+  return NextResponse.json(data, {
+    headers: { "Cache-Control": "no-store, max-age=0" },
+  });
 }
 
 // POST /api/clients/[id]/sitemap — create a new sitemap
