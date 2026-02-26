@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, MessageSquare } from "lucide-react";
+import { CheckCircle, MessageSquare, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import type { SitemapComment } from "@/lib/clients/sitemap-types";
 
@@ -11,6 +11,7 @@ interface SitemapNodeCommentsProps {
   clientId: string;
   onCommentAdded: () => void;
   onResolve?: (commentId: string, resolved: boolean) => void;
+  onDelete?: (commentId: string) => void;
 }
 
 function formatTime(dateStr: string) {
@@ -32,6 +33,7 @@ export function SitemapNodeComments({
   clientId,
   onCommentAdded,
   onResolve,
+  onDelete,
 }: SitemapNodeCommentsProps) {
   const [filter, setFilter] = useState<"all" | "unresolved">("all");
   const [content, setContent] = useState("");
@@ -149,6 +151,16 @@ export function SitemapNodeComments({
                   <span className="inline-block px-1.5 py-0.5 text-[9px] rounded bg-green-500/10 text-green-400">
                     Resolved
                   </span>
+                )}
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={() => onDelete(comment.id)}
+                    className={`${onResolve && !comment.is_resolved ? "" : "ml-auto "}flex items-center gap-1 text-[10px] text-text-dim hover:text-red-400 transition-colors`}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Delete
+                  </button>
                 )}
               </div>
             </div>

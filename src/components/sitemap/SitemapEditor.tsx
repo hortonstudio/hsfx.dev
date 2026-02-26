@@ -81,6 +81,25 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
     [clientId, fetchComments, addToast]
   );
 
+  const handleDeleteComment = useCallback(
+    async (commentId: string) => {
+      try {
+        const res = await fetch(`/api/clients/${clientId}/sitemap/comments`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ comment_id: commentId }),
+        });
+        if (res.ok) {
+          fetchComments();
+          addToast({ variant: "success", title: "Comment deleted" });
+        }
+      } catch {
+        addToast({ variant: "error", title: "Failed to delete comment" });
+      }
+    },
+    [clientId, fetchComments, addToast]
+  );
+
   // ── Save to API ────────────────────────────────────────
   const saveToApi = useCallback(
     async (data: SitemapData) => {
@@ -351,6 +370,7 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
             clientId={clientId}
             onCommentAdded={fetchComments}
             onResolveComment={handleResolveComment}
+            onDeleteComment={handleDeleteComment}
           />
         )}
       </div>

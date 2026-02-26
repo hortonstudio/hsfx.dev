@@ -21,6 +21,7 @@ interface SitemapSidebarTabsProps {
   clientId: string;
   onCommentAdded: () => void;
   onResolveComment?: (commentId: string, resolved: boolean) => void;
+  onDeleteComment?: (commentId: string) => void;
 }
 
 export function SitemapSidebarTabs({
@@ -35,6 +36,7 @@ export function SitemapSidebarTabs({
   clientId,
   onCommentAdded,
   onResolveComment,
+  onDeleteComment,
 }: SitemapSidebarTabsProps) {
   const [tab, setTab] = useState("details");
   const typeConfig = PAGE_TYPE_CONFIG[data.pageType] ?? PAGE_TYPE_CONFIG.static;
@@ -116,6 +118,7 @@ export function SitemapSidebarTabs({
             clientId={clientId}
             onCommentAdded={onCommentAdded}
             onResolve={onResolveComment}
+            onDelete={onDeleteComment}
           />
         </Tabs.Content>
       </Tabs.Root>

@@ -107,6 +107,63 @@ export async function POST(
   return NextResponse.json(data);
 }
 
+// DELETE /api/clients/[id]/sitemap/comments — delete a comment
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: sitemap } = await supabase
+    .from("client_sitemaps")
+    .select("id")
+    .eq("client_id", id)
+    .maybeSingle();
+
+  if (!sitemap) {
+    return NextResponse.json({ error: "Sitemap not found" }, { status: 404 });
+  }
+
+  let body: { comment_id: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (!body.comment_id) {
+    return NextResponse.json({ error: "comment_id is required" }, { status: 400 });
+  }
+
+  // Delete replies first, then the comment
+  await supabase
+    .from("sitemap_comments")
+    .delete()
+    .eq("parent_id", body.comment_id)
+    .eq("sitemap_id", sitemap.id);
+
+  const { error } = await supabase
+    .from("sitemap_comments")
+    .delete()
+    .eq("id", body.comment_id)
+    .eq("sitemap_id", sitemap.id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}
+
 // PATCH /api/clients/[id]/sitemap/comments — resolve/unresolve a comment
 export async function PATCH(
   request: NextRequest,

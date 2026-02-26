@@ -1,7 +1,68 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
+
+// DELETE /api/sitemap/[slug]/comments — delete a comment (authenticated agency user only)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await params;
+
+  // Require authenticated user
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const adminClient = createAdminClient();
+
+  const { data: sitemap } = await adminClient
+    .from("client_sitemaps")
+    .select("id")
+    .eq("slug", slug)
+    .single();
+
+  if (!sitemap) {
+    return NextResponse.json({ error: "Sitemap not found" }, { status: 404 });
+  }
+
+  let body: { comment_id: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (!body.comment_id) {
+    return NextResponse.json({ error: "comment_id is required" }, { status: 400 });
+  }
+
+  // Delete replies first, then the comment
+  await adminClient
+    .from("sitemap_comments")
+    .delete()
+    .eq("parent_id", body.comment_id)
+    .eq("sitemap_id", sitemap.id);
+
+  const { error } = await adminClient
+    .from("sitemap_comments")
+    .delete()
+    .eq("id", body.comment_id)
+    .eq("sitemap_id", sitemap.id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}
 
 // GET /api/sitemap/[slug]/comments — list comments for a public sitemap
 export async function GET(

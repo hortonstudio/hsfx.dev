@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import type { SitemapComment, SitemapNode } from "@/lib/clients/sitemap-types";
 
@@ -12,6 +12,7 @@ interface SitemapCommentPanelProps {
   onCommentAdded: () => void;
   onClose: () => void;
   nodes?: SitemapNode[];
+  onDelete?: (commentId: string) => void;
 }
 
 export function SitemapCommentPanel({
@@ -21,6 +22,7 @@ export function SitemapCommentPanel({
   onCommentAdded,
   onClose,
   nodes,
+  onDelete,
 }: SitemapCommentPanelProps) {
   const [filter, setFilter] = useState<"all" | "unresolved" | "node">("all");
   const [authorName, setAuthorName] = useState("");
@@ -161,6 +163,16 @@ export function SitemapCommentPanel({
                   <span className="inline-block px-1.5 py-0.5 text-[9px] rounded bg-green-500/10 text-green-400">
                     Resolved
                   </span>
+                )}
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={() => onDelete(comment.id)}
+                    className="ml-auto flex items-center gap-1 text-[10px] text-text-dim hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Delete
+                  </button>
                 )}
               </div>
             </div>
