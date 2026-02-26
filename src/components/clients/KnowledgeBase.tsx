@@ -340,6 +340,14 @@ export function KnowledgeBase({
   const [showPasteResponse, setShowPasteResponse] = useState(false);
   const [pasteContent, setPasteContent] = useState("");
   const [savingPaste, setSavingPaste] = useState(false);
+  const [pasteDragging, setPasteDragging] = useState(false);
+  const pasteFileRef = useRef<HTMLInputElement>(null);
+
+  function handlePasteFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = () => setPasteContent(reader.result as string);
+    reader.readAsText(file);
+  }
 
   async function handleCopyAIPrompt() {
     setCopyingPrompt(true);
@@ -349,7 +357,7 @@ export function KnowledgeBase({
 
       const { systemPrompt, entriesText, businessName } = await res.json();
 
-      const fullPrompt = `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== CLIENT ===\n${businessName}\n\n${entriesText}\n\n=== INSTRUCTION ===\nCompile the above knowledge entries into a structured knowledge base document for "${businessName}".`;
+      const fullPrompt = `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== CLIENT ===\n${businessName}\n\n${entriesText}\n\n=== INSTRUCTION ===\nCompile the above knowledge entries into a structured knowledge base document for "${businessName}". Create the result as a Markdown artifact so it can be easily copied.`;
 
       await navigator.clipboard.writeText(fullPrompt);
       addToast({ variant: "success", title: "AI prompt copied to clipboard" });
@@ -637,12 +645,24 @@ export function KnowledgeBase({
 
         {/* Paste AI Response flow */}
         {showPasteResponse && (
-          <div className="bg-surface border border-accent/20 rounded-xl p-4 space-y-3">
+          <div
+            className={`bg-surface border rounded-xl p-4 space-y-3 transition-colors ${pasteDragging ? "border-accent bg-accent/5" : "border-accent/20"}`}
+            onDragOver={(e) => { e.preventDefault(); setPasteDragging(true); }}
+            onDragLeave={() => setPasteDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setPasteDragging(false);
+              const file = e.dataTransfer.files[0];
+              if (file && (file.name.endsWith(".md") || file.name.endsWith(".txt") || file.name.endsWith(".markdown"))) {
+                handlePasteFile(file);
+              }
+            }}
+          >
             <h4 className="text-sm font-medium text-text-primary">
               Paste AI Response
             </h4>
             <p className="text-[11px] text-text-muted">
-              Paste the compiled knowledge base markdown from Claude here.
+              Paste markdown below, or drag & drop / upload an .md file.
             </p>
             <textarea
               value={pasteContent}
@@ -651,6 +671,17 @@ export function KnowledgeBase({
               placeholder="Paste the compiled markdown response from Claude..."
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-text-primary text-sm placeholder:text-text-dim resize-none focus:outline-none focus:ring-1 focus:ring-accent/50"
               rows={6}
+            />
+            <input
+              ref={pasteFileRef}
+              type="file"
+              accept=".md,.txt,.markdown"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handlePasteFile(file);
+                e.target.value = "";
+              }}
             />
             <div className="flex items-center gap-2">
               <Button
@@ -663,6 +694,14 @@ export function KnowledgeBase({
                 disabled={savingPaste}
               >
                 Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => pasteFileRef.current?.click()}
+                disabled={savingPaste}
+              >
+                Upload .md
               </Button>
               <Button
                 size="sm"

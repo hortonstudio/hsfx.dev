@@ -113,6 +113,16 @@ export function GenerateOnboardModal({
   const [copyingPrompt, setCopyingPrompt] = useState(false);
   const [manualResponse, setManualResponse] = useState("");
   const [showPaste, setShowPaste] = useState(false);
+  const [pasteDragging, setPasteDragging] = useState(false);
+  const [configDragging, setConfigDragging] = useState(false);
+  const pasteFileRef = useRef<HTMLInputElement>(null);
+  const configFileRef = useRef<HTMLInputElement>(null);
+
+  function handleFileToState(file: File, setter: (v: string) => void) {
+    const reader = new FileReader();
+    reader.onload = () => setter(reader.result as string);
+    reader.readAsText(file);
+  }
 
   // Fetch existing slugs when modal opens for deduplication
   const [existingSlugs, setExistingSlugs] = useState<string[]>([]);
@@ -638,13 +648,43 @@ export function GenerateOnboardModal({
             </div>
 
             {showPaste && (
-              <textarea
-                value={manualResponse}
-                onChange={(e) => setManualResponse(e.target.value)}
-                disabled={analyzing}
-                placeholder="Step 2: Paste the JSON response from Claude here..."
-                className="w-full min-h-[80px] bg-background border border-border rounded-lg px-3 py-2 text-text-primary placeholder:text-text-dim focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none transition-colors font-mono text-sm resize-y"
-              />
+              <div
+                className={`transition-colors ${pasteDragging ? "rounded-lg ring-2 ring-accent/50" : ""}`}
+                onDragOver={(e) => { e.preventDefault(); setPasteDragging(true); }}
+                onDragLeave={() => setPasteDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setPasteDragging(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.name.endsWith(".json")) handleFileToState(file, setManualResponse);
+                }}
+              >
+                <textarea
+                  value={manualResponse}
+                  onChange={(e) => setManualResponse(e.target.value)}
+                  disabled={analyzing}
+                  placeholder="Step 2: Paste or drop the JSON response from Claude here..."
+                  className="w-full min-h-[80px] bg-background border border-border rounded-lg px-3 py-2 text-text-primary placeholder:text-text-dim focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none transition-colors font-mono text-sm resize-y"
+                />
+                <input
+                  ref={pasteFileRef}
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileToState(file, setManualResponse);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => pasteFileRef.current?.click()}
+                  className="text-[10px] text-accent hover:text-accent/80 transition-colors mt-1"
+                >
+                  Upload .json
+                </button>
+              </div>
             )}
           </div>
 
@@ -673,9 +713,21 @@ export function GenerateOnboardModal({
         </div>
 
         {/* Config JSON editor */}
-        <div>
+        <div
+          className={`transition-colors ${configDragging ? "rounded-lg ring-2 ring-accent/50" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setConfigDragging(true); }}
+          onDragLeave={() => setConfigDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setConfigDragging(false);
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith(".json")) {
+              handleFileToState(file, (v) => { setConfigJson(v); setAutoFilled(false); });
+            }
+          }}
+        >
           <label className="block text-sm font-medium text-text-primary mb-1.5">
-            Config JSON {autoFilled ? "(generated, editable)" : "(paste or generate)"}
+            Config JSON {autoFilled ? "(generated, editable)" : "(paste, drop, or generate)"}
           </label>
           <textarea
             value={configJson}
@@ -683,9 +735,27 @@ export function GenerateOnboardModal({
               setConfigJson(e.target.value);
               setAutoFilled(false);
             }}
-            placeholder='{"questions": [...]} — Generate with AI above or paste config JSON here'
+            placeholder='{"questions": [...]} — Generate with AI above, paste, or drop a .json file here'
             className="w-full min-h-[200px] bg-background border border-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-dim focus:ring-1 focus:ring-accent focus:border-accent focus:outline-none transition-colors font-mono text-sm resize-y"
           />
+          <input
+            ref={configFileRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFileToState(file, (v) => { setConfigJson(v); setAutoFilled(false); });
+              e.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => configFileRef.current?.click()}
+            className="text-[10px] text-accent hover:text-accent/80 transition-colors mt-1"
+          >
+            Upload .json
+          </button>
         </div>
 
         {/* Error display */}

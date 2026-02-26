@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Sparkles, X, ChevronRight, Copy, ClipboardPaste } from "lucide-react";
 import { Button, Badge, Spinner, useToast } from "@/components/ui";
 import { PACKAGE_INFO } from "@/lib/clients/sitemap-templates";
@@ -28,6 +28,16 @@ export function SitemapGenerateModal({
   const [copyingPrompt, setCopyingPrompt] = useState(false);
   const [manualResponse, setManualResponse] = useState("");
   const [showPaste, setShowPaste] = useState(false);
+  const [pasteDragging, setPasteDragging] = useState(false);
+  const [importDragging, setImportDragging] = useState(false);
+  const pasteFileRef = useRef<HTMLInputElement>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
+
+  function handleFileToState(file: File, setter: (v: string) => void) {
+    const reader = new FileReader();
+    reader.onload = () => setter(reader.result as string);
+    reader.readAsText(file);
+  }
 
   async function handleCopyPrompt() {
     setCopyingPrompt(true);
@@ -210,18 +220,48 @@ export function SitemapGenerateModal({
             </button>
 
             {showImport && (
-              <div className="mt-2">
+              <div
+                className={`mt-2 transition-colors ${importDragging ? "rounded-lg ring-2 ring-accent/50" : ""}`}
+                onDragOver={(e) => { e.preventDefault(); setImportDragging(true); }}
+                onDragLeave={() => setImportDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setImportDragging(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.name.endsWith(".json")) handleFileToState(file, setImportJson);
+                }}
+              >
                 <textarea
                   value={importJson}
                   onChange={(e) => setImportJson(e.target.value)}
                   disabled={generating}
-                  placeholder='Paste a JSON array of pages, e.g. [{"label": "Home", "path": "/", ...}]'
+                  placeholder='Paste or drop a JSON array of pages, e.g. [{"label": "Home", "path": "/", ...}]'
                   className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-text-primary text-sm font-mono placeholder:text-text-dim resize-none focus:outline-none focus:ring-1 focus:ring-accent/50"
                   rows={5}
                 />
-                <p className="text-[10px] text-text-dim mt-1">
-                  AI will enhance this structure with sections, SEO fields, and descriptions from the knowledge base.
-                </p>
+                <input
+                  ref={importFileRef}
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileToState(file, setImportJson);
+                    e.target.value = "";
+                  }}
+                />
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-[10px] text-text-dim flex-1">
+                    AI will enhance this structure with sections, SEO fields, and descriptions.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => importFileRef.current?.click()}
+                    className="text-[10px] text-accent hover:text-accent/80 transition-colors"
+                  >
+                    Upload .json
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -257,9 +297,19 @@ export function SitemapGenerateModal({
             </Button>
 
             {showPaste && (
-              <div className="space-y-2">
+              <div
+                className={`space-y-2 transition-colors ${pasteDragging ? "rounded-lg ring-2 ring-accent/50" : ""}`}
+                onDragOver={(e) => { e.preventDefault(); setPasteDragging(true); }}
+                onDragLeave={() => setPasteDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setPasteDragging(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.name.endsWith(".json")) handleFileToState(file, setManualResponse);
+                }}
+              >
                 <label className="block text-xs font-medium text-text-muted">
-                  Step 2: Paste AI Response
+                  Step 2: Paste AI Response or drop .json file
                 </label>
                 <textarea
                   value={manualResponse}
@@ -269,6 +319,24 @@ export function SitemapGenerateModal({
                   className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-text-primary text-sm font-mono placeholder:text-text-dim resize-none focus:outline-none focus:ring-1 focus:ring-accent/50"
                   rows={5}
                 />
+                <input
+                  ref={pasteFileRef}
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileToState(file, setManualResponse);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => pasteFileRef.current?.click()}
+                  className="text-[10px] text-accent hover:text-accent/80 transition-colors"
+                >
+                  Upload .json
+                </button>
               </div>
             )}
           </div>
