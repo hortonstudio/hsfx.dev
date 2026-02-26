@@ -63,6 +63,8 @@ Next.js 14 params are async: `const { id } = await params;`
 - Server/API: `createClient()` from `@/lib/supabase/server`
 - Admin (bypass RLS): `createAdminClient()` from `@/lib/supabase/admin`
 
+**CRITICAL:** Server/Admin clients MUST use `cache: "no-store"` in global fetch override. Next.js caches all server-side `fetch()` calls by default — including Supabase's internal fetches. Without this, API routes return stale data on Vercel. See `docs/patterns-and-gotchas.md` for details.
+
 ### Sitemap Editor
 The sitemap uses a custom 3-tier grid layout (not React Flow canvas). Key rules:
 - Auto-save debounces at 3s — always save on close if `dirtyRef.current` is true

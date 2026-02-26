@@ -218,3 +218,21 @@ export async function GET(
 - Browser components: `createClient()` from `@/lib/supabase/client`
 - Server components / API routes: `createClient()` from `@/lib/supabase/server`
 - Bypassing RLS (admin operations): `createAdminClient()` from `@/lib/supabase/admin`
+
+### Supabase + Next.js Data Cache (CRITICAL)
+Next.js App Router caches **all server-side `fetch()` calls** by default — including those made internally by the Supabase JS client. This means Supabase queries in API route handlers will return stale data on Vercel, even with `export const dynamic = "force-dynamic"`.
+
+**Both `createAdminClient()` and `createClient()` (server) must pass `cache: "no-store"` to the global fetch override:**
+```typescript
+// admin.ts
+createClient(url, key, {
+  global: {
+    fetch: (url, options = {}) =>
+      fetch(url, { ...options, cache: "no-store" }),
+  },
+});
+```
+
+Without this, Vercel's Data Cache indefinitely serves the first response from Supabase for each unique query. `force-dynamic`, `Cache-Control` headers, and CDN cache headers do NOT fix this — they only affect the Route Handler output, not the internal Supabase fetch calls.
+
+This was the root cause of the sitemap live view showing stale data while the editor (which fetches client-side) showed fresh data.
