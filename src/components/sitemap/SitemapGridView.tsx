@@ -30,8 +30,9 @@ const CONTENT_WIDTH = 5000;
 const CONTENT_HEIGHT = 3000;
 const PAN_MARGIN = 200;
 const DOT_GAP = 24;
-const CANVAS_WIDTH = 1500;
 const CARD_WIDTH = 300;
+const CARD_GAP = 24; // gap-6
+const CANVAS_PAD = 80; // px-10 * 2
 
 /** Tier visual config */
 const TIER_STYLE = {
@@ -57,6 +58,18 @@ export function SitemapGridView({
     () => buildGridLayout(nodes, edges),
     [nodes, edges]
   );
+
+  // Compute canvas width from the widest tier row
+  const canvasWidth = useMemo(() => {
+    const maxCols = Math.max(
+      layout.homeColumns.length,
+      layout.coreColumns.length,
+      layout.resourceColumns.length,
+      layout.legalPages.length,
+      1
+    );
+    return maxCols * CARD_WIDTH + (maxCols - 1) * CARD_GAP + CANVAS_PAD;
+  }, [layout]);
 
   // Compute comment counts per node from live comments
   const commentCounts = useMemo(() => {
@@ -109,7 +122,7 @@ export function SitemapGridView({
     if (!containerRef.current || initializedRef.current) return;
     initializedRef.current = true;
     const { width } = containerRef.current.getBoundingClientRect();
-    const contentWidth = CANVAS_WIDTH * zoom;
+    const contentWidth = canvasWidth * zoom;
     const x = Math.max(20, (width - contentWidth) / 2);
     setPan(clampPan({ x, y: 30 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -299,8 +312,8 @@ export function SitemapGridView({
           />
         </div>
 
-        {/* Cards */}
-        <div className="flex flex-wrap justify-center gap-6">
+        {/* Cards — single horizontal row */}
+        <div className="flex justify-center gap-6">
           {columns.map((col) => {
             const nodeColor = col.page.data.color || PAGE_TYPE_CONFIG[col.page.data.pageType]?.color || "#7c3aed";
             return (
@@ -374,7 +387,7 @@ export function SitemapGridView({
             style={{ background: `linear-gradient(to right, ${style.color}30, transparent)` }}
           />
         </div>
-        <div className="flex flex-wrap justify-center gap-6">
+        <div className="flex justify-center gap-6">
           {layout.legalPages.map((node) => (
             <div key={node.id} style={{ width: CARD_WIDTH }}>
               <SitemapGridCard
@@ -426,7 +439,7 @@ export function SitemapGridView({
       >
         <div
           className="py-10 px-10 flex flex-col gap-10"
-          style={{ width: CANVAS_WIDTH }}
+          style={{ width: canvasWidth }}
           data-pannable="true"
         >
           {layout.homeColumns.length > 0 &&
