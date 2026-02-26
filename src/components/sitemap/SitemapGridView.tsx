@@ -71,7 +71,7 @@ export function SitemapGridView({
   }, [comments]);
 
   // Zoom & pan state
-  const [zoom, setZoom] = useState(0.85);
+  const [zoom, setZoom] = useState(0.65);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [showHint, setShowHint] = useState(true);

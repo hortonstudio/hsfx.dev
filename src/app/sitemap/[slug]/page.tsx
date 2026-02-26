@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Map,
   MessageSquare,
+  Send,
   X,
   House,
   FileText,
@@ -35,6 +36,124 @@ const TYPE_ICONS: Record<SitemapPageType, React.ComponentType<{ className?: stri
   utility: Settings,
   external: ExternalLink,
 };
+
+/** Inline comment form + thread for a selected node in the public viewer */
+function NodeCommentSection({
+  nodeId,
+  slug,
+  comments,
+  onCommentAdded,
+}: {
+  nodeId: string;
+  slug: string;
+  comments: SitemapComment[];
+  onCommentAdded: () => void;
+}) {
+  const [content, setContent] = useState("");
+  const [authorName, setAuthorName] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("sitemap-comment-name") || "" : ""
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const nodeComments = comments.filter((c) => c.node_id === nodeId && !c.parent_id);
+
+  const handleSubmit = async () => {
+    const trimmed = content.trim();
+    const name = authorName.trim();
+    if (!trimmed || !name) return;
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/sitemap/${slug}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          node_id: nodeId,
+          content: trimmed,
+          author_name: name,
+          author_type: "client",
+        }),
+      });
+      if (res.ok) {
+        setContent("");
+        localStorage.setItem("sitemap-comment-name", name);
+        onCommentAdded();
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="mt-5 pt-5 border-t border-border/50">
+      <div className="flex items-center gap-1.5 mb-3">
+        <MessageSquare className="w-3.5 h-3.5 text-accent" />
+        <span className="text-xs font-semibold text-text-primary">
+          Comments
+          {nodeComments.length > 0 && (
+            <span className="ml-1 text-text-dim">({nodeComments.length})</span>
+          )}
+        </span>
+      </div>
+
+      {/* Existing comments */}
+      {nodeComments.length > 0 && (
+        <div className="space-y-2.5 mb-3">
+          {nodeComments.map((c) => (
+            <div key={c.id} className="rounded-lg bg-background/60 p-2.5">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-semibold text-text-muted">
+                  {c.author_name}
+                </span>
+                <span className="text-[9px] text-text-dim">
+                  {new Date(c.created_at).toLocaleDateString()}
+                </span>
+              </div>
+              <p className="text-[11px] text-text-muted leading-relaxed">{c.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Comment form */}
+      <div className="space-y-2">
+        {!localStorage.getItem("sitemap-comment-name") && (
+          <input
+            type="text"
+            placeholder="Your name"
+            value={authorName}
+            onChange={(e) => setAuthorName(e.target.value)}
+            className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background/60 text-text-primary placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-accent/30"
+          />
+        )}
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            placeholder="Leave a comment on this page..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSubmit();
+            }}
+            rows={2}
+            className="w-full px-2.5 py-2 pr-9 text-xs rounded-lg border border-border bg-background/60 text-text-primary placeholder:text-text-dim resize-none focus:outline-none focus:ring-1 focus:ring-accent/30"
+          />
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting || !content.trim() || !authorName.trim()}
+            className="absolute bottom-2 right-2 p-1 rounded-md text-accent hover:bg-accent/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <Send className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function PublicSitemapViewer() {
   const { slug } = useParams<{ slug: string }>();
@@ -374,6 +493,16 @@ function PublicSitemapViewer() {
                     </div>
                   )}
                 </div>
+
+                {/* Inline comment form for this page */}
+                {sitemap.allow_comments && (
+                  <NodeCommentSection
+                    nodeId={selectedNode.id}
+                    slug={slug}
+                    comments={comments}
+                    onCommentAdded={fetchComments}
+                  />
+                )}
               </div>
             </motion.div>
           )}

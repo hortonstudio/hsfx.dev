@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { generateSlug } from "@/lib/clients/sitemap-utils";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/clients/[id]/sitemap — fetch client's sitemap
 export async function GET(
   _request: NextRequest,
