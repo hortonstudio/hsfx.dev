@@ -91,7 +91,7 @@ function NodeCommentSection({
   };
 
   return (
-    <div className="mt-5 pt-5 border-t border-border/50">
+    <div className="mt-5 pt-5 border-t border-border">
       <div className="flex items-center gap-1.5 mb-3">
         <MessageSquare className="w-3.5 h-3.5 text-accent" />
         <span className="text-xs font-semibold text-text-primary">
@@ -138,7 +138,7 @@ function NodeCommentSection({
             placeholder="Your name"
             value={authorName}
             onChange={(e) => setAuthorName(e.target.value)}
-            className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border bg-background/60 text-text-primary placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-accent/30"
+            className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-border-hover bg-surface text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/30"
           />
         )}
         <div className="relative">
@@ -151,7 +151,7 @@ function NodeCommentSection({
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSubmit();
             }}
             rows={2}
-            className="w-full px-2.5 py-2 pr-9 text-xs rounded-lg border border-border bg-background/60 text-text-primary placeholder:text-text-dim resize-none focus:outline-none focus:ring-1 focus:ring-accent/30"
+            className="w-full px-2.5 py-2 pr-9 text-xs rounded-lg border border-border-hover bg-surface text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:ring-1 focus:ring-accent/30"
           />
           <button
             type="button"
