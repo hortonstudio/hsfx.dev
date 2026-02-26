@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/sitemap/[slug] — public sitemap data
 export async function GET(
   _request: NextRequest,

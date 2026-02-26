@@ -3,7 +3,6 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mouse, Command } from "lucide-react";
-import { Badge } from "@/components/ui";
 import type { SitemapNode, SitemapEdge, SitemapComment } from "@/lib/clients/sitemap-types";
 import { buildGridLayout, PAGE_TYPE_CONFIG } from "@/lib/clients/sitemap-utils";
 import { SitemapGridCard } from "./SitemapGridCard";
@@ -31,6 +30,16 @@ const CONTENT_WIDTH = 5000;
 const CONTENT_HEIGHT = 3000;
 const PAN_MARGIN = 200;
 const DOT_GAP = 24;
+const CANVAS_WIDTH = 1500;
+const CARD_WIDTH = 300;
+
+/** Tier visual config */
+const TIER_STYLE = {
+  home: { color: "#3b82f6", gradientTo: "#818cf8", label: "Home" },
+  core: { color: "#7c3aed", gradientTo: "#a78bfa", label: "Core Pages" },
+  resources: { color: "#06b6d4", gradientTo: "#22d3ee", label: "Resources & More" },
+  legal: { color: "#f59e0b", gradientTo: "#fbbf24", label: "Legal & Other" },
+} as const;
 
 export function SitemapGridView({
   nodes,
@@ -100,7 +109,7 @@ export function SitemapGridView({
     if (!containerRef.current || initializedRef.current) return;
     initializedRef.current = true;
     const { width } = containerRef.current.getBoundingClientRect();
-    const contentWidth = CONTENT_WIDTH * zoom;
+    const contentWidth = CANVAS_WIDTH * zoom;
     const x = Math.max(20, (width - contentWidth) / 2);
     setPan(clampPan({ x, y: 30 }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,8 +122,6 @@ export function SitemapGridView({
       setShowHint(false);
     }
   }, []);
-
-  // No auto-dismiss — hint stays until user interacts
 
   // Wheel: Cmd/Ctrl+scroll = zoom toward cursor, plain scroll = pan
   const handleWheel = useCallback(
@@ -134,7 +141,6 @@ export function SitemapGridView({
           const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, oldZoom + delta));
           if (newZoom === oldZoom) return oldZoom;
 
-          // Keep the point under the cursor fixed
           setPan((oldPan) => {
             const contentX = (mouseX - oldPan.x) / oldZoom;
             const contentY = (mouseY - oldPan.y) / oldZoom;
@@ -153,7 +159,7 @@ export function SitemapGridView({
     [dismissHint, clampPan, clampPanAt]
   );
 
-  // Mouse pan — works from anywhere
+  // Mouse pan
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if (e.button !== 0 && e.button !== 1) return;
@@ -189,7 +195,6 @@ export function SitemapGridView({
     return Math.sqrt(dx * dx + dy * dy);
   };
 
-  // Touch pan + pinch-to-zoom
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
       dismissHint();
@@ -256,6 +261,140 @@ export function SitemapGridView({
 
   const dotSize = DOT_GAP * zoom;
 
+  // Shared tier section renderer
+  const renderTierSection = (
+    tier: keyof typeof TIER_STYLE,
+    columns: { page: SitemapNode; template: SitemapNode | null }[],
+    count?: number
+  ) => {
+    const style = TIER_STYLE[tier];
+    return (
+      <section
+        className="rounded-2xl border border-white/[0.04] p-6 pt-5"
+        style={{ backgroundColor: `${style.color}06` }}
+      >
+        {/* Tier header */}
+        <div className="flex items-center gap-3 mb-6">
+          <div
+            className="w-1 h-7 rounded-full"
+            style={{ background: `linear-gradient(to bottom, ${style.color}, ${style.gradientTo})` }}
+          />
+          <h3
+            className="text-sm font-bold uppercase tracking-widest"
+            style={{ color: style.color }}
+          >
+            {style.label}
+          </h3>
+          {count != null && (
+            <span
+              className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white/90"
+              style={{ background: `linear-gradient(135deg, ${style.color}, ${style.gradientTo})` }}
+            >
+              {count}
+            </span>
+          )}
+          <div
+            className="flex-1 h-px"
+            style={{ background: `linear-gradient(to right, ${style.color}30, transparent)` }}
+          />
+        </div>
+
+        {/* Cards */}
+        <div className="flex flex-wrap justify-center gap-6">
+          {columns.map((col) => {
+            const nodeColor = col.page.data.color || PAGE_TYPE_CONFIG[col.page.data.pageType]?.color || "#7c3aed";
+            return (
+              <div key={col.page.id} style={{ width: CARD_WIDTH }} className="flex flex-col items-center">
+                <SitemapGridCard
+                  node={col.page}
+                  selected={selectedNodeId === col.page.id}
+                  onClick={() => handleCardClick(col.page.id)}
+                  readOnly={readOnly}
+                  onDelete={onDeleteNode}
+                  onDuplicate={onDuplicateNode}
+                  onAddChild={onAddChild}
+                  commentSlot={commentSlot ? (s) => commentSlot(col.page.id, s) : undefined}
+                  commentCount={commentCounts.get(col.page.id)}
+                />
+                {col.template && (
+                  <>
+                    <div
+                      className="w-[2px] h-12"
+                      style={{
+                        background: `repeating-linear-gradient(to bottom, ${nodeColor}90 0px, ${nodeColor}90 5px, transparent 5px, transparent 10px)`,
+                        backgroundSize: "2px 10px",
+                        animation: "connector-march 1.2s linear infinite",
+                      }}
+                    />
+                    <div className="w-full">
+                      <SitemapTemplateCard
+                        node={col.template}
+                        selected={selectedNodeId === col.template.id}
+                        onClick={() => handleCardClick(col.template?.id ?? col.page.id)}
+                        commentSlot={commentSlot ? (s) => commentSlot(col.template!.id, s) : undefined}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  };
+
+  // Legal pages as flat cards (no template column)
+  const renderLegalSection = () => {
+    const style = TIER_STYLE.legal;
+    return (
+      <section
+        className="rounded-2xl border border-white/[0.04] p-6 pt-5"
+        style={{ backgroundColor: `${style.color}06` }}
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <div
+            className="w-1 h-7 rounded-full"
+            style={{ background: `linear-gradient(to bottom, ${style.color}, ${style.gradientTo})` }}
+          />
+          <h3
+            className="text-sm font-bold uppercase tracking-widest"
+            style={{ color: style.color }}
+          >
+            {style.label}
+          </h3>
+          <span
+            className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white/90"
+            style={{ background: `linear-gradient(135deg, ${style.color}, ${style.gradientTo})` }}
+          >
+            {layout.legalPages.length}
+          </span>
+          <div
+            className="flex-1 h-px"
+            style={{ background: `linear-gradient(to right, ${style.color}30, transparent)` }}
+          />
+        </div>
+        <div className="flex flex-wrap justify-center gap-6">
+          {layout.legalPages.map((node) => (
+            <div key={node.id} style={{ width: CARD_WIDTH }}>
+              <SitemapGridCard
+                node={node}
+                selected={selectedNodeId === node.id}
+                onClick={() => handleCardClick(node.id)}
+                readOnly={readOnly}
+                onDelete={onDeleteNode}
+                onDuplicate={onDuplicateNode}
+                onAddChild={onAddChild}
+                commentSlot={commentSlot ? (s) => commentSlot(node.id, s) : undefined}
+                commentCount={commentCounts.get(node.id)}
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  };
+
   return (
     <div
       ref={containerRef}
@@ -277,7 +416,7 @@ export function SitemapGridView({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Zoomable/pannable content */}
+      {/* Zoomable/pannable content — fixed width canvas */}
       <div
         className="origin-top-left will-change-transform"
         data-pannable="true"
@@ -285,232 +424,22 @@ export function SitemapGridView({
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
         }}
       >
-        <div className="px-12 py-10 space-y-12" data-pannable="true">
-          {/* Tier 1: Home */}
-          {layout.homeColumns.length > 0 && (
-            <section>
-              <div className="flex items-center gap-4 mb-6">
-                <div
-                  className="h-px w-10 flex-shrink-0"
-                  style={{ backgroundColor: PAGE_TYPE_CONFIG.home.color }}
-                />
-                <h3
-                  className="text-sm font-bold uppercase tracking-widest flex-shrink-0"
-                  style={{ color: PAGE_TYPE_CONFIG.home.color }}
-                >
-                  Home
-                </h3>
-                <div className="flex-1 h-px bg-border/30" />
-              </div>
+        <div
+          className="py-10 px-10 flex flex-col gap-10"
+          style={{ width: CANVAS_WIDTH }}
+          data-pannable="true"
+        >
+          {layout.homeColumns.length > 0 &&
+            renderTierSection("home", layout.homeColumns)}
 
-              <div className="flex flex-wrap gap-5 items-start">
-                {layout.homeColumns.map((col) => {
-                  const nodeColor = col.page.data.color || PAGE_TYPE_CONFIG.home.color;
-                  return (
-                    <div key={col.page.id} className="w-[320px] flex flex-col items-center">
-                      <SitemapGridCard
-                        node={col.page}
-                        selected={selectedNodeId === col.page.id}
-                        onClick={() => handleCardClick(col.page.id)}
-                        readOnly={readOnly}
-                        onDelete={onDeleteNode}
-                        onDuplicate={onDuplicateNode}
-                        onAddChild={onAddChild}
-                        commentSlot={commentSlot ? (s) => commentSlot(col.page.id, s) : undefined}
-                        commentCount={commentCounts.get(col.page.id)}
-                      />
-                      {col.template && (
-                        <>
-                          <div
-                            className="w-[2px] h-12"
-                            style={{
-                              background: `repeating-linear-gradient(to bottom, ${nodeColor}90 0px, ${nodeColor}90 5px, transparent 5px, transparent 10px)`,
-                              backgroundSize: "2px 10px",
-                              animation: "connector-march 1.2s linear infinite",
-                            }}
-                          />
-                          <div className="w-full">
-                            <SitemapTemplateCard
-                              node={col.template}
-                              selected={selectedNodeId === col.template.id}
-                              onClick={() => handleCardClick(col.template?.id ?? col.page.id)}
-                              commentSlot={commentSlot ? (s) => commentSlot(col.template!.id, s) : undefined}
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+          {layout.coreColumns.length > 0 &&
+            renderTierSection("core", layout.coreColumns, layout.coreColumns.length)}
 
-          {/* Tier 2: Core Pages */}
-          {layout.coreColumns.length > 0 && (
-            <section>
-              <div className="flex items-center gap-4 mb-6">
-                <div
-                  className="h-px w-10 flex-shrink-0"
-                  style={{ backgroundColor: PAGE_TYPE_CONFIG.static.color }}
-                />
-                <h3
-                  className="text-sm font-bold uppercase tracking-widest flex-shrink-0"
-                  style={{ color: PAGE_TYPE_CONFIG.static.color }}
-                >
-                  Core Pages
-                </h3>
-                <Badge variant="default" size="sm">
-                  {layout.coreColumns.length}
-                </Badge>
-                <div className="flex-1 h-px bg-border/30" />
-              </div>
+          {layout.resourceColumns.length > 0 &&
+            renderTierSection("resources", layout.resourceColumns, layout.resourceColumns.length)}
 
-              <div className="flex flex-wrap gap-5 items-start">
-                {layout.coreColumns.map((col) => {
-                  const nodeColor = col.page.data.color || PAGE_TYPE_CONFIG[col.page.data.pageType]?.color || "#64748b";
-                  return (
-                    <div key={col.page.id} className="w-[320px] flex flex-col items-center">
-                      <SitemapGridCard
-                        node={col.page}
-                        selected={selectedNodeId === col.page.id}
-                        onClick={() => handleCardClick(col.page.id)}
-                        readOnly={readOnly}
-                        onDelete={onDeleteNode}
-                        onDuplicate={onDuplicateNode}
-                        onAddChild={onAddChild}
-                        commentSlot={commentSlot ? (s) => commentSlot(col.page.id, s) : undefined}
-                        commentCount={commentCounts.get(col.page.id)}
-                      />
-                      {col.template && (
-                        <>
-                          <div
-                            className="w-[2px] h-12"
-                            style={{
-                              background: `repeating-linear-gradient(to bottom, ${nodeColor}90 0px, ${nodeColor}90 5px, transparent 5px, transparent 10px)`,
-                              backgroundSize: "2px 10px",
-                              animation: "connector-march 1.2s linear infinite",
-                            }}
-                          />
-                          <div className="w-full">
-                            <SitemapTemplateCard
-                              node={col.template}
-                              selected={selectedNodeId === col.template.id}
-                              onClick={() => handleCardClick(col.template?.id ?? col.page.id)}
-                              commentSlot={commentSlot ? (s) => commentSlot(col.template!.id, s) : undefined}
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Tier 3: Resources & More */}
-          {layout.resourceColumns.length > 0 && (
-            <section>
-              <div className="flex items-center gap-4 mb-6">
-                <div
-                  className="h-px w-10 flex-shrink-0"
-                  style={{ backgroundColor: PAGE_TYPE_CONFIG.collection.color }}
-                />
-                <h3
-                  className="text-sm font-bold uppercase tracking-widest flex-shrink-0"
-                  style={{ color: PAGE_TYPE_CONFIG.collection.color }}
-                >
-                  Resources &amp; More
-                </h3>
-                <Badge variant="default" size="sm">
-                  {layout.resourceColumns.length}
-                </Badge>
-                <div className="flex-1 h-px bg-border/30" />
-              </div>
-
-              <div className="flex flex-wrap gap-5 items-start">
-                {layout.resourceColumns.map((col) => {
-                  const nodeColor = col.page.data.color || PAGE_TYPE_CONFIG[col.page.data.pageType]?.color || "#64748b";
-                  return (
-                    <div key={col.page.id} className="w-[320px] flex flex-col items-center">
-                      <SitemapGridCard
-                        node={col.page}
-                        selected={selectedNodeId === col.page.id}
-                        onClick={() => handleCardClick(col.page.id)}
-                        readOnly={readOnly}
-                        onDelete={onDeleteNode}
-                        onDuplicate={onDuplicateNode}
-                        onAddChild={onAddChild}
-                        commentSlot={commentSlot ? (s) => commentSlot(col.page.id, s) : undefined}
-                        commentCount={commentCounts.get(col.page.id)}
-                      />
-                      {col.template && (
-                        <>
-                          <div
-                            className="w-[2px] h-12"
-                            style={{
-                              background: `repeating-linear-gradient(to bottom, ${nodeColor}90 0px, ${nodeColor}90 5px, transparent 5px, transparent 10px)`,
-                              backgroundSize: "2px 10px",
-                              animation: "connector-march 1.2s linear infinite",
-                            }}
-                          />
-                          <div className="w-full">
-                            <SitemapTemplateCard
-                              node={col.template}
-                              selected={selectedNodeId === col.template.id}
-                              onClick={() => handleCardClick(col.template?.id ?? col.page.id)}
-                              commentSlot={commentSlot ? (s) => commentSlot(col.template!.id, s) : undefined}
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Legal & Other row */}
-          {layout.legalPages.length > 0 && (
-            <section>
-              <div className="flex items-center gap-4 mb-6">
-                <div
-                  className="h-px w-10 flex-shrink-0"
-                  style={{ backgroundColor: PAGE_TYPE_CONFIG.utility.color }}
-                />
-                <h3
-                  className="text-sm font-bold uppercase tracking-widest flex-shrink-0"
-                  style={{ color: PAGE_TYPE_CONFIG.utility.color }}
-                >
-                  Legal &amp; Other
-                </h3>
-                <Badge variant="default" size="sm">
-                  {layout.legalPages.length}
-                </Badge>
-                <div className="flex-1 h-px bg-border/30" />
-              </div>
-
-              <div className="flex flex-wrap gap-5 items-start">
-                {layout.legalPages.map((node) => (
-                  <div key={node.id} className="w-[320px]">
-                    <SitemapGridCard
-                      node={node}
-                      selected={selectedNodeId === node.id}
-                      onClick={() => handleCardClick(node.id)}
-                      readOnly={readOnly}
-                      onDelete={onDeleteNode}
-                      onDuplicate={onDuplicateNode}
-                      onAddChild={onAddChild}
-                      commentSlot={commentSlot ? (s) => commentSlot(node.id, s) : undefined}
-                      commentCount={commentCounts.get(node.id)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+          {layout.legalPages.length > 0 &&
+            renderLegalSection()}
 
           {layout.homeColumns.length === 0 && layout.coreColumns.length === 0 && layout.resourceColumns.length === 0 && layout.legalPages.length === 0 && (
             <div className="text-center py-20 text-text-dim text-sm">
@@ -520,7 +449,7 @@ export function SitemapGridView({
         </div>
       </div>
 
-      {/* First-use hint — large centered overlay until user interacts */}
+      {/* First-use hint */}
       <AnimatePresence>
         {showHint && (
           <motion.div

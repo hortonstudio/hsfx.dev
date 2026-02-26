@@ -264,11 +264,11 @@ export const PAGE_TYPE_CONFIG: Record<
   { label: string; color: string; icon: string }
 > = {
   home: { label: "Home", color: "#3b82f6", icon: "House" },
-  static: { label: "Page", color: "#64748b", icon: "FileText" },
+  static: { label: "Page", color: "#7c3aed", icon: "FileText" },
   collection: { label: "Page Template", color: "#10b981", icon: "Database" },
   collection_item: { label: "Planned Page", color: "#34d399", icon: "File" },
   utility: { label: "Legal & Other", color: "#f59e0b", icon: "Settings" },
-  external: { label: "External", color: "#8b5cf6", icon: "ExternalLink" },
+  external: { label: "External", color: "#a855f7", icon: "ExternalLink" },
 };
 
 /** Keywords that identify resource/secondary pages (vs core business pages) */

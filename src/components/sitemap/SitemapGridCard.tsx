@@ -85,12 +85,22 @@ export function SitemapGridCard({
         transition-all duration-200 ease-out relative
         ${selected
           ? "border-accent shadow-glow-sm ring-1 ring-accent/20 bg-surface"
-          : "border-border hover:border-border-hover hover:shadow-md bg-surface"
+          : "border-border hover:border-border-hover bg-surface"
         }
       `}
+      style={!selected ? { ["--glow-color" as string]: nodeColor } : undefined}
+      onMouseEnter={(e) => {
+        if (!selected) e.currentTarget.style.boxShadow = `0 4px 20px ${nodeColor}15, 0 2px 8px ${nodeColor}10`;
+      }}
+      onMouseLeave={(e) => {
+        if (!selected) e.currentTarget.style.boxShadow = "";
+      }}
     >
-      {/* Top accent bar */}
-      <div className="h-[3px] rounded-t-xl" style={{ backgroundColor: nodeColor }} />
+      {/* Top accent bar — gradient */}
+      <div
+        className="h-[3px] rounded-t-xl"
+        style={{ background: `linear-gradient(90deg, ${nodeColor}, ${nodeColor}90, ${nodeColor}50)` }}
+      />
 
       <div className="p-4">
         {/* Header row */}

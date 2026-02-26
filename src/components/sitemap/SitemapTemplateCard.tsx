@@ -52,15 +52,21 @@ export function SitemapTemplateCard({
           transition-all duration-200 ease-out
           ${selected
             ? "border-accent shadow-glow-sm ring-1 ring-accent/20 bg-surface"
-            : "border-border hover:border-border-hover hover:shadow-md bg-surface"
+            : "border-border hover:border-border-hover bg-surface"
           }
         `}
+        onMouseEnter={(e) => {
+          if (!selected) e.currentTarget.style.boxShadow = `0 4px 20px ${nodeColor}15, 0 2px 8px ${nodeColor}10`;
+        }}
+        onMouseLeave={(e) => {
+          if (!selected) e.currentTarget.style.boxShadow = "";
+        }}
       >
-        {/* Top accent bar — dashed to distinguish from page cards */}
+        {/* Top accent bar — dashed gradient to distinguish from page cards */}
         <div
           className="h-[3px] rounded-t-xl"
           style={{
-            backgroundImage: `repeating-linear-gradient(90deg, ${nodeColor} 0px, ${nodeColor} 6px, transparent 6px, transparent 10px)`,
+            backgroundImage: `repeating-linear-gradient(90deg, ${nodeColor} 0px, ${nodeColor}90 6px, transparent 6px, transparent 10px)`,
           }}
         />
 
