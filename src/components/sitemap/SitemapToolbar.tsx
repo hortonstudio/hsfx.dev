@@ -7,6 +7,7 @@ import {
   Share2,
   Download,
   Eye,
+  Upload,
 } from "lucide-react";
 import { Button, Badge, Tooltip } from "@/components/ui";
 
@@ -22,6 +23,10 @@ interface SitemapToolbarProps {
   title: string;
   status: string;
   shareSlug?: string | null;
+  onPublish?: () => void;
+  publishing?: boolean;
+  publishedAt?: string | null;
+  hasUnpublishedChanges?: boolean;
 }
 
 export function SitemapToolbar({
@@ -36,6 +41,10 @@ export function SitemapToolbar({
   title,
   status,
   shareSlug,
+  onPublish,
+  publishing,
+  publishedAt,
+  hasUnpublishedChanges,
 }: SitemapToolbarProps) {
   const formatLastSaved = () => {
     if (!lastSaved) return null;
@@ -44,6 +53,15 @@ export function SitemapToolbar({
     if (diff < 60000) return `${Math.floor(diff / 1000)}s ago`;
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     return new Date(lastSaved).toLocaleTimeString();
+  };
+
+  const formatPublishedAt = () => {
+    if (!publishedAt) return null;
+    const diff = Date.now() - new Date(publishedAt).getTime();
+    if (diff < 60000) return "Just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return new Date(publishedAt).toLocaleDateString();
   };
 
   return (
@@ -77,7 +95,7 @@ export function SitemapToolbar({
         </Tooltip>
       </div>
 
-      {/* Right: Save status + Share + Close */}
+      {/* Right: Save status + Publish + Share + Close */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 text-xs text-text-dim">
           <span>{nodeCount} pages</span>
@@ -94,6 +112,16 @@ export function SitemapToolbar({
               )}
             </>
           )}
+          {publishedAt && (
+            <>
+              <span className="text-border">|</span>
+              {hasUnpublishedChanges ? (
+                <span className="text-yellow-500">Unpublished changes</span>
+              ) : (
+                <span className="text-emerald-500">Published {formatPublishedAt()}</span>
+              )}
+            </>
+          )}
         </div>
 
         <div className="w-px h-5 bg-border" />
@@ -103,6 +131,24 @@ export function SitemapToolbar({
             <Save className="w-4 h-4" />
           </Button>
         </Tooltip>
+
+        {onPublish && (
+          <Tooltip content="Publish to live" side="bottom">
+            <Button
+              variant={hasUnpublishedChanges ? "primary" : "ghost"}
+              size="sm"
+              onClick={onPublish}
+              disabled={publishing || saving}
+              className={hasUnpublishedChanges ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}
+            >
+              {publishing ? (
+                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+            </Button>
+          </Tooltip>
+        )}
 
         {onExport && (
           <Tooltip content="Export JSON" side="bottom">

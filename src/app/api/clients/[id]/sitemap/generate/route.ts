@@ -227,8 +227,22 @@ ${kbDoc.content}`;
 
   // Return prompt only (for copy-to-clipboard manual flow)
   if (returnPromptOnly) {
+    // Fetch KB file entries for download
+    const { data: kbEntries } = await supabase
+      .from("client_knowledge_entries")
+      .select("title, file_url, file_type, type")
+      .eq("client_id", id)
+      .not("file_url", "is", null);
+
+    const files = (kbEntries ?? []).map((e) => ({
+      title: e.title,
+      url: e.file_url!,
+      type: e.file_type ?? "file",
+    }));
+
     return NextResponse.json({
       prompt: `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== USER MESSAGE ===\n${userMessage}`,
+      files,
     });
   }
 

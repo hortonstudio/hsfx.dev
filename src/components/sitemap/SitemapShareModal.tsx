@@ -27,6 +27,9 @@ export function SitemapShareModal({
     ? `${window.location.origin}/sitemap/${slug}`
     : `/sitemap/${slug}`;
 
+  // Auto-publish when enabling public access for the first time (or if no published data exists)
+  const shouldAutoPublish = isPublic && (!sitemap.is_public || !sitemap.published_data);
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -37,6 +40,7 @@ export function SitemapShareModal({
           is_public: isPublic,
           allow_comments: allowComments,
           slug,
+          ...(shouldAutoPublish ? { publish: true } : {}),
         }),
       });
 
@@ -47,7 +51,10 @@ export function SitemapShareModal({
 
       const updated = await res.json();
       onUpdated(updated);
-      addToast({ variant: "success", title: "Share settings saved" });
+      addToast({
+        variant: "success",
+        title: shouldAutoPublish ? "Published & shared!" : "Share settings saved",
+      });
       onClose();
     } catch (err) {
       addToast({
@@ -160,6 +167,18 @@ export function SitemapShareModal({
                 Copy
               </Button>
             </div>
+          )}
+
+          {/* Publish status */}
+          {isPublic && sitemap.published_at && (
+            <p className="text-xs text-text-dim">
+              Last published: {new Date(sitemap.published_at).toLocaleString()}
+            </p>
+          )}
+          {shouldAutoPublish && (
+            <p className="text-xs text-yellow-500">
+              Current draft will be auto-published when you save.
+            </p>
           )}
         </div>
 

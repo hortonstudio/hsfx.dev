@@ -12,18 +12,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const { data } = await adminClient
     .from("client_sitemaps")
-    .select("title, sitemap_data, package_tier")
+    .select("title, published_data, package_tier")
     .eq("slug", slug)
     .eq("is_public", true)
     .single();
 
-  if (!data) {
+  if (!data || !data.published_data) {
     return {
       title: "Sitemap Not Found",
     };
   }
 
-  const pageCount = data.sitemap_data?.nodes?.length ?? 0;
+  const pageCount = data.published_data?.nodes?.length ?? 0;
   const tier = data.package_tier
     ? data.package_tier.charAt(0).toUpperCase() + data.package_tier.slice(1)
     : null;

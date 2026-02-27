@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Sparkles, X, ChevronRight, Copy, ClipboardPaste } from "lucide-react";
+import { Sparkles, X, ChevronRight, Copy, ClipboardPaste, Download, FileDown } from "lucide-react";
 import { Button, Badge, Spinner, useToast } from "@/components/ui";
 import { PACKAGE_INFO } from "@/lib/clients/sitemap-templates";
 import { NICHE_OPTIONS, type BusinessNiche } from "@/lib/onboard/niche-prompts";
@@ -30,6 +30,8 @@ export function SitemapGenerateModal({
   const [showPaste, setShowPaste] = useState(false);
   const [pasteDragging, setPasteDragging] = useState(false);
   const [importDragging, setImportDragging] = useState(false);
+  const [promptFiles, setPromptFiles] = useState<Array<{ title: string; url: string; type: string }>>([]);
+  const [downloadingFiles, setDownloadingFiles] = useState(false);
   const pasteFileRef = useRef<HTMLInputElement>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
 
@@ -37,6 +39,31 @@ export function SitemapGenerateModal({
     const reader = new FileReader();
     reader.onload = () => setter(reader.result as string);
     reader.readAsText(file);
+  }
+
+  async function downloadFile(url: string, filename: string) {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = window.document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(blobUrl);
+  }
+
+  async function handleDownloadAllFiles() {
+    setDownloadingFiles(true);
+    try {
+      for (const file of promptFiles) {
+        await downloadFile(file.url, file.title);
+      }
+      addToast({ variant: "success", title: `${promptFiles.length} file(s) downloaded` });
+    } catch {
+      addToast({ variant: "error", title: "Some files failed to download" });
+    } finally {
+      setDownloadingFiles(false);
+    }
   }
 
   async function handleCopyPrompt() {
@@ -59,8 +86,9 @@ export function SitemapGenerateModal({
         throw new Error(data.error || "Failed to build prompt");
       }
 
-      const { prompt } = await res.json();
-      await navigator.clipboard.writeText(prompt);
+      const data = await res.json();
+      await navigator.clipboard.writeText(data.prompt);
+      if (data.files?.length > 0) setPromptFiles(data.files);
       addToast({ variant: "success", title: "Prompt copied to clipboard" });
       setShowPaste(true);
     } catch (err) {
@@ -295,6 +323,40 @@ export function SitemapGenerateModal({
                 </>
               )}
             </Button>
+
+            {/* Files to attach */}
+            {promptFiles.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-medium text-text-muted">
+                    Files to Attach ({promptFiles.length})
+                  </label>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleDownloadAllFiles}
+                    disabled={downloadingFiles}
+                    className="text-xs h-6 px-2"
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    {downloadingFiles ? "Downloading..." : "Download All"}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {promptFiles.map((file, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => downloadFile(file.url, file.title)}
+                      className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-border bg-surface/50 hover:bg-surface text-left transition-colors"
+                    >
+                      <FileDown className="w-3 h-3 text-accent flex-shrink-0" />
+                      <span className="text-[10px] text-text-muted truncate">{file.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {showPaste && (
               <div

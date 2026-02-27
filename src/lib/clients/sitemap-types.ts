@@ -76,6 +76,8 @@ export interface ClientSitemap {
   title: string;
   package_tier: 1 | 2 | 3 | null;
   sitemap_data: SitemapData;
+  published_data: SitemapData | null;
+  published_at: string | null;
   is_public: boolean;
   access_token: string | null;
   allow_comments: boolean;

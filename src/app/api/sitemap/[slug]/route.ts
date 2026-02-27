@@ -13,16 +13,20 @@ export async function GET(
 
   const { data, error } = await adminClient
     .from("client_sitemaps")
-    .select("id, client_id, slug, title, package_tier, sitemap_data, is_public, allow_comments, status, created_at, updated_at")
+    .select("id, client_id, slug, title, package_tier, published_data, published_at, is_public, allow_comments, status, created_at, updated_at")
     .eq("slug", slug)
     .eq("is_public", true)
     .single();
 
-  if (error || !data) {
+  if (error || !data || !data.published_data) {
     return NextResponse.json({ error: "Sitemap not found" }, { status: 404 });
   }
 
-  return NextResponse.json(data, {
+  // Remap published_data → sitemap_data so the public viewer doesn't need changes
+  const { published_data, ...rest } = data;
+  const responseData = { ...rest, sitemap_data: published_data };
+
+  return NextResponse.json(responseData, {
     headers: {
       "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
       "CDN-Cache-Control": "no-store",

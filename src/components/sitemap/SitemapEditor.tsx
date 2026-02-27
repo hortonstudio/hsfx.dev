@@ -36,6 +36,12 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
   const [lastSaved, setLastSaved] = useState<string | null>(sitemap.updated_at);
   const [shareOpen, setShareOpen] = useState(false);
   const [currentSitemap, setCurrentSitemap] = useState(sitemap);
+  const [publishedAt, setPublishedAt] = useState<string | null>(sitemap.published_at);
+  const [publishing, setPublishing] = useState(false);
+  const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(() => {
+    if (!sitemap.published_data) return false;
+    return JSON.stringify(sitemap.sitemap_data) !== JSON.stringify(sitemap.published_data);
+  });
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef(false);
@@ -115,6 +121,7 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
 
         const updated = await res.json();
         setLastSaved(updated.updated_at);
+        setHasUnpublishedChanges(true);
         onSaved(updated);
       } catch {
         addToast({ variant: "error", title: "Failed to save sitemap" });
@@ -171,6 +178,29 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
       return currentNodes;
     });
   }, [saveToApi, setNodes, setEdges]);
+
+  // ── Publish ──────────────────────────────────────────
+  const handlePublish = useCallback(async () => {
+    setPublishing(true);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/sitemap`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publish: true }),
+      });
+      if (!res.ok) throw new Error("Publish failed");
+      const updated = await res.json();
+      setPublishedAt(updated.published_at);
+      setHasUnpublishedChanges(false);
+      setCurrentSitemap(updated);
+      onSaved(updated);
+      addToast({ variant: "success", title: "Published!" });
+    } catch {
+      addToast({ variant: "error", title: "Failed to publish" });
+    } finally {
+      setPublishing(false);
+    }
+  }, [clientId, addToast, onSaved]);
 
   // ── Add page ───────────────────────────────────────────
   const handleAddPage = useCallback(() => {
@@ -333,6 +363,10 @@ export function SitemapEditor({ sitemap, clientId, onClose, onSaved }: SitemapEd
         title={sitemap.title}
         status={sitemap.status}
         shareSlug={currentSitemap.is_public ? currentSitemap.slug : null}
+        onPublish={handlePublish}
+        publishing={publishing}
+        publishedAt={publishedAt}
+        hasUnpublishedChanges={hasUnpublishedChanges}
       />
 
       <div className="flex-1 flex overflow-hidden">

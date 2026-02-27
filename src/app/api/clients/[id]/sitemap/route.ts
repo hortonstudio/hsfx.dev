@@ -132,6 +132,7 @@ export async function PATCH(
     access_token?: string | null;
     status?: string;
     slug?: string;
+    publish?: boolean;
   };
   try {
     body = await request.json();
@@ -147,6 +148,20 @@ export async function PATCH(
   if (body.access_token !== undefined) updates.access_token = body.access_token;
   if (body.status !== undefined) updates.status = body.status;
   if (body.slug !== undefined) updates.slug = body.slug;
+
+  // Publish: snapshot current sitemap_data → published_data
+  if (body.publish) {
+    const { data: current } = await supabase
+      .from("client_sitemaps")
+      .select("sitemap_data")
+      .eq("client_id", id)
+      .single();
+
+    if (current) {
+      updates.published_data = current.sitemap_data;
+      updates.published_at = new Date().toISOString();
+    }
+  }
 
   const { data, error } = await supabase
     .from("client_sitemaps")
