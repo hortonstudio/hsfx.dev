@@ -83,8 +83,10 @@ export function SitemapGridView({
     return counts;
   }, [comments]);
 
-  // Zoom & pan state
-  const [zoom, setZoom] = useState(0.65);
+  // Zoom & pan state — lower default zoom on small screens
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const defaultZoom = isMobile ? 0.45 : 0.65;
+  const [zoom, setZoom] = useState(defaultZoom);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [showHint, setShowHint] = useState(true);
@@ -117,14 +119,17 @@ export function SitemapGridView({
     [clampPanAt]
   );
 
-  // Center content on initial mount
+  // Center on Home card on initial mount
   useEffect(() => {
     if (!containerRef.current || initializedRef.current) return;
     initializedRef.current = true;
-    const { width } = containerRef.current.getBoundingClientRect();
-    const contentWidth = canvasWidth * zoom;
-    const x = Math.max(20, (width - contentWidth) / 2);
-    setPan(clampPan({ x, y: 30 }));
+    const { width: cw, height: ch } = containerRef.current.getBoundingClientRect();
+    // Home card center in canvas coords: horizontally centered, ~80px from top (padding + tier header)
+    const homeCenterX = canvasWidth / 2;
+    const homeCenterY = 80;
+    const x = cw / 2 - homeCenterX * zoom;
+    const y = ch / 3 - homeCenterY * zoom;
+    setPan(clampPan({ x, y }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
