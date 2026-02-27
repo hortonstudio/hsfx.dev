@@ -342,6 +342,8 @@ export function KnowledgeBase({
   const [savingPaste, setSavingPaste] = useState(false);
   const [pasteDragging, setPasteDragging] = useState(false);
   const pasteFileRef = useRef<HTMLInputElement>(null);
+  const [promptFiles, setPromptFiles] = useState<Array<{ title: string; url: string; type: string }>>([]);
+  const [downloadingFiles, setDownloadingFiles] = useState(false);
 
   function handlePasteFile(file: File) {
     const reader = new FileReader();
@@ -355,11 +357,12 @@ export function KnowledgeBase({
       const res = await fetch(`/api/clients/${clientId}/knowledge/prompt`);
       if (!res.ok) throw new Error("Failed to fetch prompt");
 
-      const { systemPrompt, entriesText, businessName } = await res.json();
+      const { systemPrompt, entriesText, businessName, files } = await res.json();
 
       const fullPrompt = `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== CLIENT ===\n${businessName}\n\n${entriesText}\n\n=== INSTRUCTION ===\nCompile the above knowledge entries into a structured knowledge base document for "${businessName}". Create the result as a Markdown artifact so it can be easily copied.`;
 
       await navigator.clipboard.writeText(fullPrompt);
+      setPromptFiles(files ?? []);
       addToast({ variant: "success", title: "AI prompt copied to clipboard" });
       setShowPasteResponse(true);
     } catch (err) {
@@ -370,6 +373,31 @@ export function KnowledgeBase({
       });
     } finally {
       setCopyingPrompt(false);
+    }
+  }
+
+  async function downloadFile(url: string, filename: string) {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = window.document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(blobUrl);
+  }
+
+  async function handleDownloadAllFiles() {
+    setDownloadingFiles(true);
+    try {
+      for (const file of promptFiles) {
+        await downloadFile(file.url, file.title);
+      }
+      addToast({ variant: "success", title: `${promptFiles.length} file(s) downloaded` });
+    } catch {
+      addToast({ variant: "error", title: "Some files failed to download" });
+    } finally {
+      setDownloadingFiles(false);
     }
   }
 
@@ -658,6 +686,63 @@ export function KnowledgeBase({
               }
             }}
           >
+            {/* Files to attach */}
+            {promptFiles.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-text-primary">
+                    Files to Attach ({promptFiles.length})
+                  </h4>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleDownloadAllFiles}
+                    disabled={downloadingFiles}
+                  >
+                    {downloadingFiles ? (
+                      <>
+                        <Spinner size="sm" />
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download All
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-[11px] text-text-muted">
+                  Download these files and drag them into the Claude chat alongside the prompt.
+                </p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {promptFiles.map((file) => (
+                    <button
+                      key={file.url}
+                      type="button"
+                      onClick={() => downloadFile(file.url, file.title)}
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border hover:border-accent/40 bg-background text-left text-xs text-text-muted hover:text-text-primary transition-colors group"
+                    >
+                      <span className="shrink-0 text-text-dim group-hover:text-accent transition-colors">
+                        {file.type.startsWith("image/") ? (
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </span>
+                      <span className="truncate">{file.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <h4 className="text-sm font-medium text-text-primary">
               Paste AI Response
             </h4>

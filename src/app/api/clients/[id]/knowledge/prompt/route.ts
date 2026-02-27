@@ -82,6 +82,9 @@ IMPORTANT RULES:
   const imageEntries = typedEntries.filter(
     (e) => e.type === "screenshot" || (e.file_url && /\.(jpg|jpeg|png|gif|webp|avif)/i.test(e.file_url))
   );
+  const fileEntries = typedEntries.filter(
+    (e) => e.file_url && e.type !== "screenshot" && !/\.(jpg|jpeg|png|gif|webp|avif)/i.test(e.file_url ?? "")
+  );
 
   const parts: string[] = [];
 
@@ -103,21 +106,32 @@ IMPORTANT RULES:
     }
   }
 
-  if (imageEntries.length > 0) {
-    parts.push("\n=== SCREENSHOTS/IMAGES ===");
-    parts.push("(Paste these image URLs into the chat so the AI can analyze them)");
-    for (const entry of imageEntries) {
+  const attachmentCount = imageEntries.length + fileEntries.length;
+  if (attachmentCount > 0) {
+    parts.push("\n=== ATTACHMENTS ===");
+    parts.push(`(${attachmentCount} file(s) will be attached to this chat — images, PDFs, and documents. Analyze all attached files for business information, brand identity, and visual details.)`);
+    for (const entry of [...imageEntries, ...fileEntries]) {
       if (entry.file_url) {
-        parts.push(`- ${entry.title}: ${entry.file_url}`);
+        parts.push(`- ${entry.title} (${entry.file_type ?? "file"})`);
       }
     }
   }
 
   const entriesText = parts.join("\n\n");
 
+  // Build files list for UI download
+  const files = [...imageEntries, ...fileEntries]
+    .filter((e) => e.file_url)
+    .map((e) => ({
+      title: e.title,
+      url: e.file_url!,
+      type: e.file_type ?? "file",
+    }));
+
   return NextResponse.json({
     systemPrompt,
     entriesText,
     businessName,
+    files,
   });
 }
