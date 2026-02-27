@@ -36,13 +36,23 @@ function formatScrapedContent(data: Awaited<ReturnType<typeof scrapeMultiPage>>)
     lines.push(`**Pages scraped:** ${data.pagesScraped.join(", ")}`);
   }
 
-  if (data.contact.phones.length > 0 || data.contact.emails.length > 0) {
+  if (data.contact.phones.length > 0 || data.contact.emails.length > 0 || data.contact.address) {
     lines.push("\n## Contact Information");
     if (data.contact.phones.length > 0) {
       lines.push(`- **Phone:** ${data.contact.phones.join(", ")}`);
     }
     if (data.contact.emails.length > 0) {
       lines.push(`- **Email:** ${data.contact.emails.join(", ")}`);
+    }
+    if (data.contact.address) {
+      lines.push(`- **Address:** ${data.contact.address}`);
+    }
+  }
+
+  if (data.socialLinks.length > 0) {
+    lines.push("\n## Social Media");
+    for (const link of data.socialLinks) {
+      lines.push(`- ${link}`);
     }
   }
 
@@ -57,6 +67,13 @@ function formatScrapedContent(data: Awaited<ReturnType<typeof scrapeMultiPage>>)
     lines.push("\n## Services Detected");
     for (const service of data.content.services) {
       lines.push(`- ${service}`);
+    }
+  }
+
+  if (data.content.bodyText.length > 0) {
+    lines.push("\n## Page Content");
+    for (const text of data.content.bodyText) {
+      lines.push(`\n${text}`);
     }
   }
 

@@ -16,11 +16,14 @@ export interface ScrapedData {
   contact: {
     phones: string[];
     emails: string[];
+    address: string | null;
   };
   content: {
     headings: string[];
     services: string[];
+    bodyText: string[];
   };
+  socialLinks: string[];
   logoUrl: string | null;
   pagesScraped?: string[];
 }
@@ -286,6 +289,124 @@ function extractServices(html: string): string[] {
   return services;
 }
 
+function extractBodyText(html: string): string[] {
+  const texts: string[] = [];
+  const seen = new Set<string>();
+
+  try {
+    // Strip nav, header, footer, script, style, noscript to focus on main content
+    const cleaned = html
+      .replace(/<(?:nav|header|footer|script|style|noscript|iframe|svg)[^>]*>[\s\S]*?<\/(?:nav|header|footer|script|style|noscript|iframe|svg)>/gi, "")
+      // Remove HTML comments
+      .replace(/<!--[\s\S]*?-->/g, "");
+
+    // Extract paragraph text
+    const pRe = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+    let m;
+    while ((m = pRe.exec(cleaned)) !== null) {
+      const text = m[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      // Keep meaningful paragraphs (skip tiny fragments and duplicates)
+      if (text.length >= 40 && text.length < 2000 && !seen.has(text)) {
+        seen.add(text);
+        texts.push(text);
+      }
+    }
+
+    // Extract list items from main content (service descriptions, features, etc.)
+    const liRe = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+    while ((m = liRe.exec(cleaned)) !== null) {
+      const text = m[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      if (text.length >= 20 && text.length < 500 && !seen.has(text)) {
+        seen.add(text);
+        texts.push(text);
+      }
+    }
+  } catch {
+    // Partial failure OK
+  }
+
+  return texts.slice(0, 50);
+}
+
+function extractSocialLinks(html: string, baseUrl: string): string[] {
+  const socials: string[] = [];
+  const seen = new Set<string>();
+
+  const socialDomains = [
+    "facebook.com", "fb.com",
+    "instagram.com",
+    "twitter.com", "x.com",
+    "linkedin.com",
+    "youtube.com",
+    "tiktok.com",
+    "pinterest.com",
+    "yelp.com",
+    "google.com/maps",
+  ];
+
+  try {
+    const linkRe = /<a\s[^>]*href=["']([^"']+)["']/gi;
+    let m;
+    while ((m = linkRe.exec(html)) !== null) {
+      const href = m[1].trim();
+      const lower = href.toLowerCase();
+
+      for (const domain of socialDomains) {
+        if (lower.includes(domain) && !seen.has(lower)) {
+          seen.add(lower);
+          try {
+            const resolved = new URL(href, baseUrl).href;
+            socials.push(resolved);
+          } catch {
+            socials.push(href);
+          }
+          break;
+        }
+      }
+    }
+  } catch {
+    // Partial failure OK
+  }
+
+  return socials;
+}
+
+function extractAddress(html: string): string | null {
+  try {
+    // Schema.org structured data (JSON-LD)
+    const jsonLdRe = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    let m;
+    while ((m = jsonLdRe.exec(html)) !== null) {
+      try {
+        const data = JSON.parse(m[1]);
+        const addr = data.address || data?.location?.address;
+        if (addr) {
+          if (typeof addr === "string") return addr;
+          const parts = [addr.streetAddress, addr.addressLocality, addr.addressRegion, addr.postalCode].filter(Boolean);
+          if (parts.length >= 2) return parts.join(", ");
+        }
+      } catch {
+        // Invalid JSON, skip
+      }
+    }
+
+    // Common address patterns: look for text near "address" labels or in footer
+    const footerMatch = html.match(/<footer[^>]*>([\s\S]*?)<\/footer>/i);
+    const searchAreas = footerMatch ? [footerMatch[1], html] : [html];
+
+    for (const area of searchAreas) {
+      // US street address pattern (number + street name + city, state zip)
+      const addrRe = /\b(\d{1,5}\s+[A-Z][a-zA-Z\s.]+(?:St(?:reet)?|Ave(?:nue)?|Blvd|Boulevard|Dr(?:ive)?|Rd|Road|Ln|Lane|Way|Ct|Court|Pkwy|Parkway|Pl|Place|Cir|Circle|Hwy|Highway)[.,]?\s*(?:(?:Ste|Suite|Unit|#)\s*\S+[.,]?\s*)?[A-Z][a-zA-Z\s]+,\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?)\b/;
+      const addrMatch = area.replace(/<[^>]+>/g, " ").match(addrRe);
+      if (addrMatch) return addrMatch[1].replace(/\s+/g, " ").trim();
+    }
+  } catch {
+    // Partial failure OK
+  }
+
+  return null;
+}
+
 function extractColorsFromHTML(
   html: string,
   colorMap: Map<string, { count: number; sources: Set<string> }>
@@ -403,8 +524,9 @@ export async function scrapeSite(url: string): Promise<ScrapedData> {
     url,
     colors: [],
     meta: { title: null, description: null, ogTitle: null, ogDescription: null, ogImage: null },
-    contact: { phones: [], emails: [] },
-    content: { headings: [], services: [] },
+    contact: { phones: [], emails: [], address: null },
+    content: { headings: [], services: [], bodyText: [] },
+    socialLinks: [],
     logoUrl: null,
   };
 
@@ -430,13 +552,19 @@ export async function scrapeSite(url: string): Promise<ScrapedData> {
 
   // ── Contact info ───────────────────────────────────────
   const contact = extractContact(html);
-  result.contact = contact;
+  result.contact = { ...contact, address: extractAddress(html) };
 
   // ── Headings ───────────────────────────────────────────
   result.content.headings = extractHeadings(html).slice(0, 20);
 
   // ── Services detection ─────────────────────────────────
   result.content.services = extractServices(html).slice(0, 15);
+
+  // ── Body text ──────────────────────────────────────────
+  result.content.bodyText = extractBodyText(html);
+
+  // ── Social links ───────────────────────────────────────
+  result.socialLinks = extractSocialLinks(html, url);
 
   // ── Logo detection ─────────────────────────────────────
   try {
@@ -531,6 +659,11 @@ export async function scrapeMultiPage(url: string): Promise<ScrapedData> {
   const allEmails = new Set(homepage.contact.emails);
   const allHeadings = [...homepage.content.headings];
   const allServices = [...homepage.content.services];
+  const allBodyText = [...homepage.content.bodyText];
+  const bodyTextSeen = new Set(allBodyText);
+  const allSocialLinks = [...homepage.socialLinks];
+  const socialSeen = new Set(allSocialLinks);
+  let address = homepage.contact.address;
 
   for (let i = 0; i < innerResults.length; i++) {
     const r = innerResults[i];
@@ -545,12 +678,28 @@ export async function scrapeMultiPage(url: string): Promise<ScrapedData> {
     for (const p of contact.phones) allPhones.add(p);
     for (const e of contact.emails) allEmails.add(e);
 
+    if (!address) address = extractAddress(innerHtml);
+
     for (const h of extractHeadings(innerHtml)) {
       if (!allHeadings.includes(h)) allHeadings.push(h);
     }
 
     for (const s of extractServices(innerHtml)) {
       if (!allServices.includes(s)) allServices.push(s);
+    }
+
+    for (const t of extractBodyText(innerHtml)) {
+      if (!bodyTextSeen.has(t)) {
+        bodyTextSeen.add(t);
+        allBodyText.push(t);
+      }
+    }
+
+    for (const link of extractSocialLinks(innerHtml, innerUrl)) {
+      if (!socialSeen.has(link)) {
+        socialSeen.add(link);
+        allSocialLinks.push(link);
+      }
     }
 
     extractColorsFromHTML(innerHtml, colorMap);
@@ -594,11 +743,14 @@ export async function scrapeMultiPage(url: string): Promise<ScrapedData> {
     contact: {
       phones: Array.from(allPhones).slice(0, 5),
       emails: Array.from(allEmails).slice(0, 5),
+      address,
     },
     content: {
       headings: allHeadings.slice(0, 30),
       services: allServices.slice(0, 20),
+      bodyText: allBodyText.slice(0, 80),
     },
+    socialLinks: allSocialLinks,
     logoUrl: homepage.logoUrl,
     pagesScraped,
   };
@@ -610,8 +762,9 @@ async function scrapeSiteFromHTML(html: string, url: string): Promise<ScrapedDat
     url,
     colors: [],
     meta: { title: null, description: null, ogTitle: null, ogDescription: null, ogImage: null },
-    contact: { phones: [], emails: [] },
-    content: { headings: [], services: [] },
+    contact: { phones: [], emails: [], address: null },
+    content: { headings: [], services: [], bodyText: [] },
+    socialLinks: [],
     logoUrl: null,
   };
 
@@ -635,9 +788,11 @@ async function scrapeSiteFromHTML(html: string, url: string): Promise<ScrapedDat
     // Partial failure OK
   }
 
-  result.contact = extractContact(html);
+  result.contact = { ...extractContact(html), address: extractAddress(html) };
   result.content.headings = extractHeadings(html).slice(0, 20);
   result.content.services = extractServices(html).slice(0, 15);
+  result.content.bodyText = extractBodyText(html);
+  result.socialLinks = extractSocialLinks(html, url);
 
   // Logo detection
   try {

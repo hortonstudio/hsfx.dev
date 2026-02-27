@@ -154,6 +154,14 @@ Using the knowledge base above${notes ? " and the designer's notes" : ""}, gener
       ? `\n\n${validScreenshots.length} screenshot(s) of the website are attached above. Use these for visual context about the site's design, layout, and branding.`
       : "";
 
+    const bodyTextSection = scrapedData.content.bodyText.length > 0
+      ? `\nPAGE CONTENT:\n${scrapedData.content.bodyText.map((t) => `  ${t}`).join("\n\n")}`
+      : "";
+
+    const socialSection = scrapedData.socialLinks.length > 0
+      ? `\nSOCIAL MEDIA:\n${scrapedData.socialLinks.map((l) => `  - ${l}`).join("\n")}`
+      : "";
+
     userMessage = `
 Website URL: ${url}
 
@@ -171,6 +179,8 @@ META:
 CONTACT:
   Phones: ${scrapedData.contact.phones.join(", ") || "N/A"}
   Emails: ${scrapedData.contact.emails.join(", ") || "N/A"}
+  Address: ${scrapedData.contact.address ?? "N/A"}
+${socialSection}
 
 HEADINGS:
 ${scrapedData.content.headings.length > 0
@@ -181,6 +191,7 @@ SERVICES DETECTED:
 ${scrapedData.content.services.length > 0
       ? scrapedData.content.services.map((s) => `  - ${s}`).join("\n")
       : "  None found"}
+${bodyTextSection}
 
 LOGO: ${scrapedData.logoUrl ?? "Not found"}
 
